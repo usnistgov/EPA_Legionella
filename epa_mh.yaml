@@ -1,0 +1,4 @@
+﻿name: epa_mh
+channels:
+  - conda-forge
+prefix: C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh

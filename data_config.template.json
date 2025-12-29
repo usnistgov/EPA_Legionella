@@ -1,0 +1,42 @@
+{
+  "description": "Project Data Path Configuration Template",
+  "project_name": "PROJECT_NAME_HERE",
+  "data_root": "PATH_TO_YOUR_PROJECT_DATA_ROOT",
+
+  "instruments": {
+    "instrument_name": {
+      "path": "PATH_TO_DATA_ROOT/instrument_data",
+      "description": "Instrument description",
+      "file_pattern": "*.*",
+      "notes": "Additional notes about the instrument or data"
+    }
+  },
+
+  "common_folders": {
+    "log_file": "PATH_TO_DATA_ROOT/log_file.xlsx",
+    "output_folder": "PATH_TO_DATA_ROOT/output"
+  },
+
+  "notes": [
+    "SETUP INSTRUCTIONS:",
+    "1. Copy this file to 'data_config.json' in the repository root",
+    "2. Replace PATH_TO_YOUR_PROJECT_DATA_ROOT with your actual data directory",
+    "3. For Windows paths, use forward slashes (/) or double backslashes (\\)",
+    "",
+    "EXAMPLE CONFIGURATIONS:",
+    "",
+    "Desktop:",
+    "  \"data_root\": \"C:/Users/username/Documents/project_data\"",
+    "",
+    "Laptop:",
+    "  \"data_root\": \"C:/Users/username/Documents/project_data\"",
+    "",
+    "External Drive:",
+    "  \"data_root\": \"D:/Research/project_data\"",
+    "",
+    "NOTES:",
+    "- Update instrument names and paths as needed",
+    "- Specify file patterns for each instrument",
+    "- Add or remove sections as necessary for the project"
+  ]
+}
