@@ -1,7 +1,9 @@
 """
 Utility script to access QuantAQ API and download instrument data.
 
-
+Author: Nathan Lima
+Institution: National Institute of Standards and Technology (NIST)
+Date: 2025
 """
 
 import os
