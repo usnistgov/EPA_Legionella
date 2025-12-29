@@ -4,6 +4,7 @@ Utility script to access QuantAQ API and download instrument data.
 
 import os
 from datetime import datetime, timedelta
+import json
 import requests
 from dotenv import load_dotenv
 
@@ -69,7 +70,7 @@ class QuantAQAPI:
             response = requests.get(url, auth=auth, timeout=10)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.HTTPError as e:
+        except requests.exceptions.HTTPError:
             print(f"HTTP Error: Device '{serial_number}' not found or access denied.")
             if response is not None:
                 print(f"Status Code: {response.status_code}")
@@ -79,14 +80,18 @@ class QuantAQAPI:
             print(f"Request Error: {e}")
             return None
 
-    def get_device_data(self, serial_number, data_type="final", start_date=None, end_date=None, limit=None):
+    def get_device_data(
+        self, serial_number, data_type="final", start_date=None,
+        end_date=None, limit=None
+    ):
         """
         Retrieves device data.
 
         Args:
             serial_number (str): Serial number of the device.
             data_type (str, optional): Type of data to retrieve. Defaults to "final".
-            start_date (str, optional): Start date for data retrieval (YYYY-MM-DD). Defaults to None.
+            start_date (str, optional): Start date for data retrieval
+                (YYYY-MM-DD). Defaults to None.
             end_date (str, optional): End date for data retrieval (YYYY-MM-DD). Defaults to None.
             limit (int, optional): Maximum number of records to retrieve. Defaults to None.
 
@@ -228,7 +233,9 @@ def main():
         print(f"\nFetching resampled data from {start_date} to {end_date}...")
         data = quantaq_api.get_device_data(serial_number, data_type, start_date, end_date)
     else:
-        start_date = input("Enter the start date (YYYY-MM-DD) or leave blank for recent data: ").strip()
+        start_date = input(
+            "Enter the start date (YYYY-MM-DD) or leave blank for recent data: "
+        ).strip()
         end_date = input("Enter the end date (YYYY-MM-DD) or leave blank for recent data: ").strip()
         limit = input("Enter maximum number of records (or leave blank for default): ").strip()
 
@@ -243,7 +250,6 @@ def main():
         print("\n" + "="*50)
         print("API Response:")
         print("="*50)
-        import json
         print(json.dumps(data, indent=2))
 
         # Show data summary if it's a list
