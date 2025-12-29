@@ -197,7 +197,7 @@ def main():
         if devices and 'data' in devices:
             print(f"\nFound {len(devices['data'])} device(s):")
             for device in devices['data']:
-                print(f"  - Serial: {device.get('sn', 'N/A')}, Name: {device.get('name', 'N/A')}")
+                print(f"  - Serial: {device.get('sn', 'N/A')}, Description: {device.get('description', 'N/A')}, Located outdoor: {device.get('outdoors', 'N/A')}")
         else:
             print("No devices found or error retrieving devices.")
             return
