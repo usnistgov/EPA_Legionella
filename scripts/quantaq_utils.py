@@ -84,7 +84,7 @@ class QuantAQAPI:
 
     def get_device_data(
         self, serial_number, data_type="final", start_date=None,
-        end_date=None, limit=None
+        end_date=None, limit=None, period=None
     ):
         """
         Retrieves device data.
@@ -96,6 +96,8 @@ class QuantAQAPI:
                 (YYYY-MM-DD). Defaults to None.
             end_date (str, optional): End date for data retrieval (YYYY-MM-DD). Defaults to None.
             limit (int, optional): Maximum number of records to retrieve. Defaults to None.
+            period (str, optional): Resampling period for resampled data.
+                Options: 15m, 1h, 8h, 1d. Defaults to "1d".
 
         Returns:
             dict: JSON response from the API, or None if error.
@@ -116,9 +118,9 @@ class QuantAQAPI:
             if not start_date or not end_date:
                 raise ValueError("Start and end dates are required for resampled data.")
             params["sn"] = serial_number
-            params["start"] = start_date
-            params["end"] = end_date
-            params["res"] = "1d"  # Default resolution: 1d, can also be 15m, 1h, 8h
+            params["start_date"] = start_date
+            params["end_date"] = end_date
+            params["period"] = period if period else "1d"  # Default to 1d if not specified
         else:
             # For raw and final data, use query parameters instead of custom filter
             if start_date:
@@ -232,8 +234,20 @@ def main():
     elif data_type == "resampled":
         start_date = input("Enter the start date (YYYY-MM-DD): ").strip()
         end_date = input("Enter the end date (YYYY-MM-DD): ").strip()
-        print(f"\nFetching resampled data from {start_date} to {end_date}...")
-        data = quantaq_api.get_device_data(serial_number, data_type, start_date, end_date)
+
+        print("\nResampling period options:")
+        print("  1. 15m - 15 minutes")
+        print("  2. 1h - 1 hour")
+        print("  3. 8h - 8 hours")
+        print("  4. 1d - 1 day (default)")
+        period_choice = input("Enter the period (1-4) or specify (15m/1h/8h/1d): ").strip()
+
+        # Map numeric choices to period values
+        period_map = {"1": "15m", "2": "1h", "3": "8h", "4": "1d"}
+        period = period_map.get(period_choice, period_choice) if period_choice else "1d"
+
+        print(f"\nFetching resampled data from {start_date} to {end_date} with {period} intervals...")
+        data = quantaq_api.get_device_data(serial_number, data_type, start_date, end_date, period=period)
     else:
         start_date = input(
             "Enter the start date (YYYY-MM-DD) or leave blank for recent data: "
