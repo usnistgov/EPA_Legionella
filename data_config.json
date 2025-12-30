@@ -1,0 +1,56 @@
+{
+  "description": "EPA Legionella Project Data Path Configuration - Desktop (NISTTeleworkSys)",
+  "machine_name": "NISTTeleworkSys",
+  "project_name": "Aerosol Emissions from Bathroom Fixtures",
+  "data_root": "C:/Users/nml/OneDrive - NIST/Documents/NIST/EPA_Legionella",
+
+  "instruments": {
+    "AIO2": {
+      "path": "C:/Users/nml/OneDrive - NIST/Documents/NIST/EPA_Legionella/iaqmh_dac_data/Outdoor_Data/2025",
+      "description": "AIO 2 Sonic Weather Sensor - 10m MET Tower",
+      "file_pattern": "*.txt",
+      "notes": [
+        "Data collected using AIO 2 Sonic Weather Sensor.",
+        "Wind speed accuracy ±0.5 m/sec or 5%.",
+        "Temperature accuracy ±0.2°C.",
+        "Relative humidity accuracy ±3%.",
+        "Barometric pressure accuracy ±0.5 hPa.",
+        "Sensor installed on a 10m MET Tower."
+        ]
+    },
+    "instrument_name": {
+      "path": "PATH_TO_DATA_ROOT/instrument_data",
+      "description": "Instrument description",
+      "file_pattern": "*.*",
+      "notes": "Additional notes about the instrument or data"
+    }
+  },
+
+  "common_folders": {
+    "log_file": "PATH_TO_DATA_ROOT/log_file.xlsx",
+    "output_folder": "PATH_TO_DATA_ROOT/output"
+  },
+
+  "notes": [
+    "SETUP INSTRUCTIONS:",
+    "1. Copy this file to 'data_config.json' in the repository root",
+    "2. Replace PATH_TO_YOUR_PROJECT_DATA_ROOT with your actual data directory",
+    "3. For Windows paths, use forward slashes (/) or double backslashes (\\)",
+    "",
+    "EXAMPLE CONFIGURATIONS:",
+    "",
+    "Desktop:",
+    "  \"data_root\": \"C:/Users/username/Documents/project_data\"",
+    "",
+    "Laptop:",
+    "  \"data_root\": \"C:/Users/username/Documents/project_data\"",
+    "",
+    "External Drive:",
+    "  \"data_root\": \"D:/Research/project_data\"",
+    "",
+    "NOTES:",
+    "- Update instrument names and paths as needed",
+    "- Specify file patterns for each instrument",
+    "- Add or remove sections as necessary for the project"
+  ]
+}
