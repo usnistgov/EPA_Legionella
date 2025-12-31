@@ -162,7 +162,7 @@
         "rh_accuracy_-60_-40C": "±(1.4 + 0.032 × reading) % RH",
         "temp_range": "-80°C to +60°C",
         "temp_accuracy_-80_+20": "±(0.226 - 0.0027 x reading) °C",
-        "temp_accuracy_+20_+60": "±(0.055 + 0.0057 x reading) °C",
+        "temp_accuracy_+20_+60": "±(0.055 + 0.0057 x reading) °C"
       },
       "notes": [
         "Higher accuracy probes used at key monitoring locations.",
@@ -214,11 +214,11 @@
         "rh_accuracy_field": "±2% RH (0-90% RH), ±3% RH (90-100% RH)",
         "rh_long_term_stability": "better than 1% RH/year",
         "temp_range": "-39.2°C to +60°C",
-        "temp_accuracy": "±0.2°C at 20°C",
+        "temp_accuracy": "±0.2°C at 20°C"
       },
       "notes": [
         "Legacy sensors - planned replacement with HMP155.",
-        "Used at secondary monitoring locations.",
+        "Used at secondary monitoring locations."
       ]
     },
 
