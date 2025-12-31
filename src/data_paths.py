@@ -1,0 +1,319 @@
+"""
+Data path utilities for EPA Legionella Project.
+
+This module provides portable data access functions that work across different
+machines by reading configuration from data_config.json.
+
+Usage:
+    from src.data_paths import (
+        get_data_root,
+        get_instrument_path,
+        get_instrument_file,
+        get_instrument_files_for_date_range,
+        get_common_file,
+        get_instrument_config,
+    )
+"""
+
+import json
+from pathlib import Path
+from datetime import date, timedelta
+from typing import Union, List, Optional
+
+
+def _load_config() -> dict:
+    """Load the data configuration file."""
+    # Look for config in repo root (parent of src/)
+    config_path = Path(__file__).parent.parent / "data_config.json"
+    if not config_path.exists():
+        raise FileNotFoundError(
+            f"Configuration file not found: {config_path}\n"
+            "Please ensure data_config.json exists in the repository root."
+        )
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def get_data_root() -> Path:
+    """
+    Get the data root directory from configuration.
+    
+    Returns:
+        Path: The root directory for all project data.
+    """
+    config = _load_config()
+    return Path(config["data_root"])
+
+
+def get_instrument_config(instrument_name: str) -> dict:
+    """
+    Get the full configuration dictionary for an instrument.
+    
+    Args:
+        instrument_name: Name of the instrument (e.g., 'AIO2', 'Setra_264')
+        
+    Returns:
+        dict: Full instrument configuration including specs, variables, etc.
+    """
+    config = _load_config()
+    instruments = config.get("instruments", {})
+    
+    if instrument_name not in instruments:
+        available = list(instruments.keys())
+        raise KeyError(
+            f"Unknown instrument: {instrument_name}. "
+            f"Available instruments: {available}"
+        )
+    
+    return instruments[instrument_name]
+
+
+def get_instrument_path(instrument_name: str, year: Optional[int] = None) -> Path:
+    """
+    Get the data directory path for an instrument.
+    
+    Args:
+        instrument_name: Name of the instrument (e.g., 'AIO2', 'Setra_264')
+        year: Optional year for year-based directory structure.
+              If None and instrument has year subdirs, returns base path.
+              
+    Returns:
+        Path: Directory path for the instrument's data files.
+    """
+    config = _load_config()
+    data_root = Path(config["data_root"])
+    inst_config = get_instrument_config(instrument_name)
+    
+    base_path = data_root / inst_config["base_path"]
+    
+    # Check if instrument uses year subdirectories
+    has_year_subdirs = inst_config.get("has_year_subdirs", True)
+    
+    if year is not None and has_year_subdirs:
+        return base_path / str(year)
+    
+    return base_path
+
+
+def get_instrument_file(
+    instrument_name: str,
+    target_date: Union[date, str],
+) -> Path:
+    """
+    Get the full file path for an instrument on a specific date.
+    
+    Args:
+        instrument_name: Name of the instrument (e.g., 'AIO2', 'Setra_264')
+        target_date: Date for the data file (date object or 'YYYY-MM-DD' string)
+        
+    Returns:
+        Path: Full path to the data file.
+        
+    Raises:
+        ValueError: If instrument doesn't have a file_template defined.
+    """
+    inst_config = get_instrument_config(instrument_name)
+    
+    if "file_template" not in inst_config:
+        raise ValueError(
+            f"Instrument '{instrument_name}' does not have a file_template. "
+            f"Use get_instrument_path() with file_pattern instead."
+        )
+    
+    # Parse date if string
+    if isinstance(target_date, str):
+        target_date = date.fromisoformat(target_date)
+    
+    # Get year-specific path
+    year = target_date.year
+    dir_path = get_instrument_path(instrument_name, year)
+    
+    # Format the filename
+    date_format = inst_config.get("date_format", "%Y%m%d")
+    date_str = target_date.strftime(date_format)
+    filename = inst_config["file_template"].format(date_str=date_str)
+    
+    return dir_path / filename
+
+
+def get_instrument_files_for_date_range(
+    instrument_name: str,
+    start_date: Union[date, str],
+    end_date: Union[date, str],
+    must_exist: bool = True,
+) -> List[Path]:
+    """
+    Get list of data files for an instrument over a date range.
+    
+    Handles date ranges that span multiple years automatically.
+    
+    Args:
+        instrument_name: Name of the instrument (e.g., 'AIO2', 'Setra_264')
+        start_date: Start date (date object or 'YYYY-MM-DD' string)
+        end_date: End date (date object or 'YYYY-MM-DD' string)
+        must_exist: If True, only return files that exist on disk.
+        
+    Returns:
+        List[Path]: List of file paths in chronological order.
+    """
+    # Parse dates if strings
+    if isinstance(start_date, str):
+        start_date = date.fromisoformat(start_date)
+    if isinstance(end_date, str):
+        end_date = date.fromisoformat(end_date)
+    
+    files = []
+    current_date = start_date
+    
+    while current_date <= end_date:
+        try:
+            file_path = get_instrument_file(instrument_name, current_date)
+            if must_exist:
+                if file_path.exists():
+                    files.append(file_path)
+            else:
+                files.append(file_path)
+        except ValueError:
+            # Instrument doesn't use dated files, fall back to glob
+            break
+        current_date += timedelta(days=1)
+    
+    return files
+
+
+def get_all_instrument_files(
+    instrument_name: str,
+    years: Optional[List[int]] = None,
+) -> List[Path]:
+    """
+    Get all data files for an instrument using glob pattern.
+    
+    Args:
+        instrument_name: Name of the instrument
+        years: Optional list of years to search. If None, searches all years.
+        
+    Returns:
+        List[Path]: List of all matching files sorted by name.
+    """
+    inst_config = get_instrument_config(instrument_name)
+    pattern = inst_config.get("file_pattern", "*.*")
+    
+    files = []
+    
+    if years is None:
+        # Search base path and any year subdirectories
+        base_path = get_instrument_path(instrument_name)
+        
+        # Direct files in base path
+        files.extend(base_path.glob(pattern))
+        
+        # Files in year subdirectories
+        for year_dir in base_path.iterdir():
+            if year_dir.is_dir() and year_dir.name.isdigit():
+                files.extend(year_dir.glob(pattern))
+    else:
+        for year in years:
+            year_path = get_instrument_path(instrument_name, year)
+            if year_path.exists():
+                files.extend(year_path.glob(pattern))
+    
+    return sorted(files)
+
+
+def get_common_file(file_key: str) -> Path:
+    """
+    Get path to a common project file (e.g., log file, output folder).
+    
+    Args:
+        file_key: Key from common_files section (e.g., 'log_file', 'output_folder')
+        
+    Returns:
+        Path: Full path to the common file or directory.
+    """
+    config = _load_config()
+    data_root = Path(config["data_root"])
+    common_files = config.get("common_files", {})
+    
+    if file_key not in common_files:
+        available = list(common_files.keys())
+        raise KeyError(
+            f"Unknown common file: {file_key}. "
+            f"Available: {available}"
+        )
+    
+    return data_root / common_files[file_key]
+
+
+def get_instrument_variables(instrument_name: str) -> list:
+    """
+    Get list of variable/column names for an instrument.
+    
+    Args:
+        instrument_name: Name of the instrument
+        
+    Returns:
+        list: List of variable names (flattened if nested dict).
+    """
+    inst_config = get_instrument_config(instrument_name)
+    variables = inst_config.get("variables", [])
+    
+    # Handle nested variable structure (e.g., Vaisala with RH and T groups)
+    if isinstance(variables, dict):
+        flat_vars = []
+        for group_vars in variables.values():
+            flat_vars.extend(group_vars)
+        return flat_vars
+    
+    return variables
+
+
+def get_instrument_datetime_columns(instrument_name: str) -> list:
+    """
+    Get the datetime column name(s) for an instrument.
+    
+    Args:
+        instrument_name: Name of the instrument
+        
+    Returns:
+        list: List of datetime column names (e.g., ['Date', 'Time'])
+    """
+    inst_config = get_instrument_config(instrument_name)
+    return inst_config.get("datetime_columns", ["Date", "Time"])
+
+
+def get_instrument_specifications(instrument_name: str) -> dict:
+    """
+    Get the specifications dictionary for an instrument.
+    
+    Args:
+        instrument_name: Name of the instrument
+        
+    Returns:
+        dict: Instrument specifications (accuracy, range, etc.)
+    """
+    inst_config = get_instrument_config(instrument_name)
+    return inst_config.get("specifications", {})
+
+
+# =============================================================================
+# Convenience functions for specific data types
+# =============================================================================
+
+def get_indoor_data_path(year: int) -> Path:
+    """Get path to indoor data directory for a specific year."""
+    return get_instrument_path("Setra_264", year)
+
+
+def get_outdoor_data_path(year: int) -> Path:
+    """Get path to outdoor data directory for a specific year."""
+    return get_instrument_path("AIO2", year)
+
+
+def get_indoor_data_file(target_date: Union[date, str]) -> Path:
+    """Get indoor data file for a specific date."""
+    return get_instrument_file("Setra_264", target_date)
+
+
+def get_outdoor_data_file(target_date: Union[date, str]) -> Path:
+    """Get outdoor data file for a specific date."""
+    return get_instrument_file("AIO2", target_date)
