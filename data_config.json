@@ -64,12 +64,16 @@
       "specifications": {
         "co2_range": "0-9999 ppm",
         "co2_accuracy": "±(30 ppm + 3% of reading)",
+        "co2_resolution": "1 ppm",
         "temperature_range": "0-50°C",
         "temperature_accuracy": "±0.3°C",
+        "temperature_resolution": "0.1°C",
         "relative_humidity_range": "0-85%",
         "relative_humidity_accuracy": "±3%",
+        "relative_humidity_resolution": "1%",
         "atmospheric_pressure_range": "600-1100 hPa",
-        "atmospheric_pressure_accuracy": "+3 hPa / -2 hPa"
+        "atmospheric_pressure_accuracy": "+3 hPa / -2 hPa",
+        "atmospheric_pressure_resolution": "1 hPa"
       },
       "notes": [
         "Wireless transmission to Aranet PRO base station.",
@@ -106,8 +110,8 @@
       "channel_count": 11,
       "status": "ACTIVE",
       "specifications": {
-        "accuracy_options": ["±0.25% FS", "±0.4% FS", "±1% FS"],
-        "non_linearity": "±0.96% FS (standard)",
+        "accuracy": "±1% FS",
+        "non_linearity": "±0.96% FS",
         "hysteresis": "0.10% FS",
         "long_term_stability": "0.5% FS/year",
         "compensated_range": "0 to +150°F (-18 to +65°C)",
@@ -152,10 +156,13 @@
       "specifications": {
         "rh_range": "0-100% RH",
         "rh_accuracy_15_25C": "±1% RH (0-90% RH), ±1.7% RH (90-100% RH)",
-        "rh_accuracy_other": "±(1.0 + 0.008 × reading) % RH at -20 to +40°C",
+        "rh_accuracy_-20_40C": "±(1.0 + 0.008 × reading) % RH",
+        "rh_accuracy_-40_-20C": "±(1.2 + 0.012 × reading) % RH",
+        "rh_accuracy_+40_+60C": "±(1.2 + 0.012 × reading) % RH",
+        "rh_accuracy_-60_-40C": "±(1.4 + 0.032 × reading) % RH",
         "temp_range": "-80°C to +60°C",
-        "response_time_63pct": "20 s",
-        "response_time_90pct": "60 s"
+        "temp_accuracy_-80_+20": "±(0.226 - 0.0027 x reading) °C",
+        "temp_accuracy_+20_+60": "±(0.055 + 0.0057 x reading) °C",
       },
       "notes": [
         "Higher accuracy probes used at key monitoring locations.",
@@ -208,12 +215,10 @@
         "rh_long_term_stability": "better than 1% RH/year",
         "temp_range": "-39.2°C to +60°C",
         "temp_accuracy": "±0.2°C at 20°C",
-        "response_time_90pct": "15 s with membrane filter"
       },
       "notes": [
         "Legacy sensors - planned replacement with HMP155.",
         "Used at secondary monitoring locations.",
-        "Note: Excel map shows both 'HMP45A' and 'HMP45a' - same sensor."
       ]
     },
 
@@ -275,30 +280,6 @@
         "Connected to relay module for HVAC airflow measurement.",
         "Excel MAP notes: *Add Relay or anemometer?"
       ]
-    },
-
-    "Climatronics": {
-      "base_path": "iaqmh_dac_data/Task_Logger_Data",
-      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
-      "file_pattern": "*Daily_MHIndoor_Data.txt",
-      "date_format": "%Y%m%d",
-      "description": "Climatronics Weather Station Sensors",
-      "manufacturer": "Climatronics",
-      "measurement": ["Wind Speed", "Wind Direction"],
-      "output": "0-5 V",
-      "daq_connection": "Module 2 (NI 9201) CH3-7",
-      "datetime_columns": ["Date", "Time"],
-      "variables": [
-        "WindSp_Out_M2_C3",
-        "WindDir_Out_M2_C4"
-      ],
-      "channel_count": 2,
-      "status": "NOT CONNECTED",
-      "notes": [
-        "Excel MAP notes: *New weather station (planned).",
-        "Data file shows BLANK_M2_C3 through BLANK_M2_C6 as placeholders.",
-        "Channel 7 used for Ref_6VDC reference voltage instead."
-      ]
     }
   },
 
@@ -342,41 +323,6 @@
       "columns": 7,
       "active_sensors": ["AIO2"],
       "active_channels": 5
-    },
-    "variables_in_map_not_in_data": [
-      "AF_HVAC-N_M6_C0",
-      "AF_HVAC-S_M6_C1",
-      "Inj_SF6_M?_C?",
-      "P_HouseFan_M6_C2",
-      "T_Attic_M8_C11",
-      "T_Ba1_M8_C8",
-      "T_Bed1_M8_C0",
-      "T_Bed2_M8_C1",
-      "T_Bed3_M8_C2",
-      "T_Crawl_M8_C14",
-      "T_Din_M8_C4",
-      "T_Fam_M8_C6",
-      "T_Gar_M8_C10",
-      "T_HVAC-S_M8_C13",
-      "T_Kit_M8_C5",
-      "T_Liv_M8_C3",
-      "T_MBa_M8_C7",
-      "T_Out_M8_C12",
-      "T_UR_M8_C9",
-      "WindDir_Out_M2_C4",
-      "WindSp_Out_M2_C3"
-    ],
-    "variables_in_data_not_in_map": [
-      "Ambient_Temperature_degC",
-      "BLANK_M2_C3",
-      "BLANK_M2_C4",
-      "BLANK_M2_C5",
-      "BLANK_M2_C6",
-      "Barometric_Pressure_mb",
-      "Ref_6VDC_M2_C7",
-      "Relative_Humidity_%",
-      "Wind_Direction_deg",
-      "Wind_Speed_m/s"
-    ]
+    }
   }
 }
