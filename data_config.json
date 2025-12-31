@@ -18,6 +18,18 @@
         "Sensor installed on a 10m MET Tower."
         ]
     },
+    "Aranet4": {
+      "path": "C:/Users/nml/OneDrive - NIST/Documents/NIST/EPA_Legionella/Aranet4_PRO",
+      "description": "Aranet4 PRO - Indoor Air Quality Sensor",
+      "file_pattern": "*.xlsx",
+      "notes": [
+        "Data collected using Aranet4 PRO.",
+        "CO2 accuracy ±(30 ppm + 3% of reading).",
+        "Temperature accuracy ±0.3°C.",
+        "Relative humidity accuracy ±3%.",
+        "Atmospheric pressure accuracy ±3 hPa/-2hPa."
+      ]
+    },
     "instrument_name": {
       "path": "PATH_TO_DATA_ROOT/instrument_data",
       "description": "Instrument description",
