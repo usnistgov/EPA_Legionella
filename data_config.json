@@ -15,7 +15,7 @@
       "manufacturer": "Met One Instruments",
       "model": "AIO 2",
       "output": "RS-232, RS-485, SDI-12",
-      "daq_connection": "Module 7 (NI 9401 DI)",
+      "connection": "Serial (RS-232) - separate from cDAQ",
       "datetime_columns": ["Date", "Time"],
       "variables": [
         "Wind_Speed_m/s",
@@ -46,7 +46,8 @@
       "notes": [
         "Sensor installed on a 10m MET Tower.",
         "Data logged via serial output at 1 Hz.",
-        "Tab-delimited format with Date and Time columns."
+        "Tab-delimited format with Date and Time columns.",
+        "NOT connected to cDAQ - uses separate serial connection."
       ]
     },
 
@@ -58,6 +59,7 @@
       "manufacturer": "SAF Tehnika",
       "model": "Aranet4 PRO",
       "output": "Wireless (Aranet Sub-GHz ISM band)",
+      "connection": "Wireless to Aranet PRO base station",
       "variables": ["CO2", "Temperature", "RelativeHumidity", "AtmosphericPressure"],
       "channel_count": 4,
       "status": "ACTIVE",
@@ -78,6 +80,57 @@
       "notes": [
         "Wireless transmission to Aranet PRO base station.",
         "No year subdirectory structure."
+      ]
+    },
+
+    "QuantAQ_MODULAIR_PM": {
+      "base_path": "QuantAQ",
+      "file_pattern": "*.csv",
+      "has_year_subdirs": false,
+      "description": "QuantAQ MODULAIR-PM Particulate Matter Sensor",
+      "manufacturer": "QuantAQ",
+      "model": "MODULAIR-PM",
+      "output": "LTE/WiFi to QuantAQ Cloud, local SD card",
+      "connection": "Internet-connected (API access)",
+      "api_base_url": "https://api.quant-aq.com/v1",
+      "variables": {
+        "particulate_matter": ["pm1", "pm25", "pm10"],
+        "particle_counts": [
+          "bin0", "bin1", "bin2", "bin3", "bin4", "bin5",
+          "bin6", "bin7", "bin8", "bin9", "bin10", "bin11",
+          "bin12", "bin13", "bin14", "bin15", "bin16", "bin17",
+          "bin18", "bin19", "bin20", "bin21", "bin22", "bin23"
+        ],
+        "environmental": ["temp", "rh"],
+        "metadata": ["timestamp", "timestamp_local", "flag"]
+      },
+      "channel_count": 5,
+      "status": "ACTIVE",
+      "specifications": {
+        "pm1_range": "0-1000 µg/m³",
+        "pm25_range": "0-1000 µg/m³",
+        "pm10_range": "0-1000 µg/m³",
+        "particle_size_range": "0.35-40 µm (24 bins from OPC-N3)",
+        "sampling_interval": "5 seconds",
+        "sensors": "Plantower PMS5003 (nephelometer) + Alphasense OPC-N3 (optical particle counter)",
+        "data_types": ["raw", "final", "resampled"],
+        "resampling_periods": ["15m", "1h", "8h", "1d"]
+      },
+      "api_config": {
+        "env_var_api_key": "QUANTAQ_API_KEY",
+        "data_endpoints": {
+          "raw": "/devices/{sn}/data/raw/",
+          "final": "/devices/{sn}/data/",
+          "resampled": "/data/resampled/",
+          "by_date": "/devices/{sn}/data-by-date/{date}/"
+        }
+      },
+      "notes": [
+        "Internet-connected sensor with cloud data access.",
+        "Combines nephelometry with single-particle scattering.",
+        "Temperature and RH measured inside flow cell (not true ambient).",
+        "Requires QuantAQ Cloud subscription for API access.",
+        "API key stored in environment variable or .env file."
       ]
     },
 
@@ -108,7 +161,7 @@
         "dP_Crawl-W_M2_C2"
       ],
       "channel_count": 11,
-      "status": "ACTIVE",
+      "status": "DISCONNECTED",
       "specifications": {
         "accuracy": "±1% FS",
         "non_linearity": "±0.96% FS",
@@ -118,6 +171,7 @@
         "overpressure": "Up to 10 PSI (range dependent)"
       },
       "notes": [
+        "NOTE: All Setras currently disconnected (as of 12/31/25).",
         "Industry standard for low differential pressure in HVAC.",
         "Hi/Lo pairs measure across building envelope at multiple locations.",
         "3-year unconditional warranty."
@@ -151,6 +205,12 @@
           "T_HVAC-S_M5_C7"
         ]
       },
+      "serial_numbers": {
+        "V1940952": {"location": "HVAC-S", "calibration_date": "2023-05-11"},
+        "V1940953": {"location": "Liv", "calibration_date": "2023-05-11"},
+        "V1940954": {"location": "Bed1", "calibration_date": "2023-05-11"},
+        "V1940955": {"location": "Fam", "calibration_date": "2023-05-11"}
+      },
       "channel_count": 8,
       "status": "ACTIVE",
       "specifications": {
@@ -166,7 +226,6 @@
       },
       "notes": [
         "Higher accuracy probes used at key monitoring locations.",
-        "Serial numbers: V1940952, V1940953, V1940954, V1940955 (calibrated 5/11/23).",
         "Recommended calibration interval: 1 year."
       ]
     },
@@ -206,6 +265,9 @@
           "T_Out_M5_C6"
         ]
       },
+      "serial_numbers": {
+        "X0630021": {"location": "MBa/Gar", "calibration_date": "2023-06-16"}
+      },
       "channel_count": 16,
       "status": "ACTIVE",
       "specifications": {
@@ -218,67 +280,45 @@
       },
       "notes": [
         "Legacy sensors - planned replacement with HMP155.",
-        "Used at secondary monitoring locations."
+        "Used at secondary monitoring locations.",
+        "11/21/25: Moved garage Vaisala to master bath; channel reassigned."
       ]
-    },
+    }
+  },
 
+  "future_instruments": {
     "Thermocouple": {
-      "base_path": "iaqmh_dac_data/Task_Logger_Data",
-      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
-      "file_pattern": "*Daily_MHIndoor_Data.txt",
-      "date_format": "%Y%m%d",
       "description": "Type T Thermocouples via NI 9213 Module",
       "manufacturer": "Various",
       "model": "Type T Thermocouple",
       "measurement": "Temperature",
-      "daq_connection": "Module 8 (NI 9213)",
-      "datetime_columns": ["Date", "Time"],
-      "variables": [
-        "T_Bed1_M8_C0",
-        "T_Bed2_M8_C1",
-        "T_Bed3_M8_C2",
-        "T_Liv_M8_C3",
-        "T_Din_M8_C4",
-        "T_Kit_M8_C5",
-        "T_Fam_M8_C6",
-        "T_MBa_M8_C7",
-        "T_Ba1_M8_C8",
-        "T_UR_M8_C9",
-        "T_Gar_M8_C10",
-        "T_Attic_M8_C11",
-        "T_Out_M8_C12",
-        "T_HVAC-S_M8_C13",
-        "T_Crawl_M8_C14"
+      "planned_daq_connection": "Module 8 (NI 9213) - NOT YET INSTALLED",
+      "planned_variables": [
+        "T_Bed1_M8_C0", "T_Bed2_M8_C1", "T_Bed3_M8_C2", "T_Liv_M8_C3",
+        "T_Din_M8_C4", "T_Kit_M8_C5", "T_Fam_M8_C6", "T_MBa_M8_C7",
+        "T_Ba1_M8_C8", "T_UR_M8_C9", "T_Gar_M8_C10", "T_Attic_M8_C11",
+        "T_Out_M8_C12", "T_HVAC-S_M8_C13", "T_Crawl_M8_C14"
       ],
       "channel_count": 15,
-      "status": "NOT IN DATA FILE",
+      "status": "PLANNED",
       "notes": [
         "Intended to replace/supplement Vaisala temperature measurements.",
         "NI 9213 is a 16-channel thermocouple input module.",
-        "15 of 16 channels allocated in Excel MAP."
+        "Module slot 8 currently OPEN."
       ]
     },
-
     "TSI_8455": {
-      "base_path": "iaqmh_dac_data/Task_Logger_Data",
-      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
-      "file_pattern": "*Daily_MHIndoor_Data.txt",
-      "date_format": "%Y%m%d",
       "description": "TSI Model 8455 Air Velocity Transducer",
       "manufacturer": "TSI",
       "model": "8455-12",
       "measurement": "Air Flow Velocity",
-      "daq_connection": "Module 6 (NI 9481 Relay)",
-      "datetime_columns": ["Date", "Time"],
-      "variables": [
-        "AF_HVAC-N_M6_C0",
-        "AF_HVAC-S_M6_C1"
-      ],
+      "planned_daq_connection": "Module 6 (NI 9481 Relay) - NOT YET INSTALLED",
+      "planned_variables": ["AF_HVAC-N_M6_C0", "AF_HVAC-S_M6_C1"],
       "channel_count": 2,
-      "status": "NOT IN DATA FILE",
+      "status": "PLANNED",
       "notes": [
-        "Connected to relay module for HVAC airflow measurement.",
-        "Excel MAP notes: *Add Relay or anemometer?"
+        "Possible future addition for HVAC airflow measurement.",
+        "Module slot 6 currently OPEN."
       ]
     }
   },
@@ -296,27 +336,78 @@
       "interface": "Hi-Speed USB 2.0",
       "power": "9-30 VDC, 15W max"
     },
-    "modules": {
-      "Slot_1": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Setra_264"},
-      "Slot_2": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Setra_264 + BLANK/Ref"},
-      "Slot_3": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Vaisala RH"},
-      "Slot_4": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Vaisala RH + T"},
-      "Slot_5": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Vaisala T"},
-      "Slot_6": {"model": "NI 9481", "type": "4-ch Relay", "sensor": "TSI_8455 (not logged)"},
-      "Slot_7": {"model": "NI 9401", "type": "8-ch DI", "sensor": "AIO2 weather station"},
-      "Slot_8": {"model": "NI 9213", "type": "16-ch TC", "sensor": "Thermocouple (not logged)"}
+    "installed_modules": {
+      "Slot_1": {
+        "model": "NI 9201",
+        "type": "8-ch AI (±10V)",
+        "sensor": "Setra_264",
+        "status": "INSTALLED - Setras currently disconnected"
+      },
+      "Slot_2": {
+        "model": "NI 9201",
+        "type": "8-ch AI (±10V)",
+        "sensor": "Setra_264 (CH0-2) + Reference (CH7)",
+        "status": "INSTALLED - Setras currently disconnected"
+      },
+      "Slot_3": {
+        "model": "NI 9201",
+        "type": "8-ch AI (±10V)",
+        "sensor": "Vaisala RH",
+        "status": "INSTALLED"
+      },
+      "Slot_4": {
+        "model": "NI 9201",
+        "type": "8-ch AI (±10V)",
+        "sensor": "Vaisala RH + T",
+        "status": "INSTALLED"
+      },
+      "Slot_5": {
+        "model": "NI 9201",
+        "type": "8-ch AI (±10V)",
+        "sensor": "Vaisala T",
+        "status": "INSTALLED"
+      },
+      "Slot_6": {
+        "model": null,
+        "type": null,
+        "sensor": null,
+        "status": "OPEN - possible future NI 9481 relay module"
+      },
+      "Slot_7": {
+        "model": null,
+        "type": null,
+        "sensor": null,
+        "status": "OPEN"
+      },
+      "Slot_8": {
+        "model": null,
+        "type": null,
+        "sensor": null,
+        "status": "OPEN - possible future NI 9213 thermocouple module"
+      }
     },
     "reference_channels": {
-      "Ref_6VDC_M2_C7": "6VDC reference voltage for system diagnostics"
-    }
+      "6V_Test_M2_C7": {
+        "description": "6VDC lantern battery reference voltage",
+        "purpose": "DAQ AD converter monitoring - constant voltage to detect drift or failure",
+        "location": "Gray plastic 6x6 junction box to right of DAQ rack",
+        "notes": "Suggested by Vance Payne (NIST) - voltage will be consistent for years"
+      }
+    },
+    "notes": [
+      "Currently only 5 modules installed (all NI 9201 8-channel AI).",
+      "Slots 6, 7, 8 are OPEN for future expansion.",
+      "Updated 12/31/25 per MH_cDAQ_channels_MAP_and_wiring_notes."
+    ]
   },
 
   "data_file_analysis": {
     "indoor_data": {
       "file_pattern": "*Daily_MHIndoor_Data.txt",
       "columns": 42,
-      "active_sensors": ["Setra_264", "Vaisala_HMP155", "Vaisala_HMP45A"],
-      "active_channels": 36
+      "active_sensors": ["Vaisala_HMP155", "Vaisala_HMP45A"],
+      "disconnected_sensors": ["Setra_264"],
+      "notes": "Setra channels present in file but sensors disconnected"
     },
     "outdoor_data": {
       "file_pattern": "*Daily_MHOutdoor_Data.txt",

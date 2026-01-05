@@ -18,20 +18,25 @@ Usage:
 import json
 from pathlib import Path
 from datetime import date, timedelta
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Dict, Any
 
 
 def _load_config() -> dict:
     """Load the data configuration file."""
-    # Look for config in repo root (parent of src/)
-    config_path = Path(__file__).parent.parent / "data_config.json"
-    if not config_path.exists():
-        raise FileNotFoundError(
-            f"Configuration file not found: {config_path}\n"
-            "Please ensure data_config.json exists in the repository root."
-        )
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    possible_paths = [
+        Path(__file__).parent.parent / "data_config.json",
+        Path(__file__).parent / "data_config.json",
+        Path.cwd() / "data_config.json",
+    ]
+    
+    for config_path in possible_paths:
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    
+    raise FileNotFoundError(
+        f"Configuration file not found. Searched: {[str(p) for p in possible_paths]}"
+    )
 
 
 def get_data_root() -> Path:
@@ -50,7 +55,7 @@ def get_instrument_config(instrument_name: str) -> dict:
     Get the full configuration dictionary for an instrument.
     
     Args:
-        instrument_name: Name of the instrument (e.g., 'AIO2', 'Setra_264')
+        instrument_name: Name of the instrument (e.g., 'AIO2', 'Setra_264', 'QuantAQ_MODULAIR_PM')
         
     Returns:
         dict: Full instrument configuration including specs, variables, etc.
@@ -59,7 +64,12 @@ def get_instrument_config(instrument_name: str) -> dict:
     instruments = config.get("instruments", {})
     
     if instrument_name not in instruments:
-        available = list(instruments.keys())
+        # Check future_instruments
+        future = config.get("future_instruments", {})
+        if instrument_name in future:
+            return future[instrument_name]
+        
+        available = list(instruments.keys()) + list(future.keys())
         raise KeyError(
             f"Unknown instrument: {instrument_name}. "
             f"Available instruments: {available}"
@@ -174,7 +184,7 @@ def get_instrument_files_for_date_range(
             else:
                 files.append(file_path)
         except ValueError:
-            # Instrument doesn't use dated files, fall back to glob
+            # Instrument doesn't use dated files
             break
         current_date += timedelta(days=1)
     
@@ -205,12 +215,14 @@ def get_all_instrument_files(
         base_path = get_instrument_path(instrument_name)
         
         # Direct files in base path
-        files.extend(base_path.glob(pattern))
+        if base_path.exists():
+            files.extend(base_path.glob(pattern))
         
         # Files in year subdirectories
-        for year_dir in base_path.iterdir():
-            if year_dir.is_dir() and year_dir.name.isdigit():
-                files.extend(year_dir.glob(pattern))
+        if base_path.exists():
+            for year_dir in base_path.iterdir():
+                if year_dir.is_dir() and year_dir.name.isdigit():
+                    files.extend(year_dir.glob(pattern))
     else:
         for year in years:
             year_path = get_instrument_path(instrument_name, year)
@@ -261,7 +273,8 @@ def get_instrument_variables(instrument_name: str) -> list:
     if isinstance(variables, dict):
         flat_vars = []
         for group_vars in variables.values():
-            flat_vars.extend(group_vars)
+            if isinstance(group_vars, list):
+                flat_vars.extend(group_vars)
         return flat_vars
     
     return variables
@@ -295,6 +308,47 @@ def get_instrument_specifications(instrument_name: str) -> dict:
     return inst_config.get("specifications", {})
 
 
+def get_instrument_status(instrument_name: str) -> str:
+    """
+    Get the current status of an instrument.
+    
+    Args:
+        instrument_name: Name of the instrument
+        
+    Returns:
+        str: Status string (e.g., 'ACTIVE', 'DISCONNECTED', 'PLANNED')
+    """
+    inst_config = get_instrument_config(instrument_name)
+    return inst_config.get("status", "UNKNOWN")
+
+
+def get_active_instruments() -> List[str]:
+    """
+    Get list of active instrument names.
+    
+    Returns:
+        List[str]: Names of instruments with status 'ACTIVE'.
+    """
+    config = _load_config()
+    instruments = config.get("instruments", {})
+    
+    return [
+        name for name, cfg in instruments.items()
+        if cfg.get("status") == "ACTIVE"
+    ]
+
+
+def get_daq_system_info() -> dict:
+    """
+    Get DAQ system configuration information.
+    
+    Returns:
+        dict: DAQ system configuration including chassis and modules.
+    """
+    config = _load_config()
+    return config.get("daq_system", {})
+
+
 # =============================================================================
 # Convenience functions for specific data types
 # =============================================================================
@@ -317,3 +371,8 @@ def get_indoor_data_file(target_date: Union[date, str]) -> Path:
 def get_outdoor_data_file(target_date: Union[date, str]) -> Path:
     """Get outdoor data file for a specific date."""
     return get_instrument_file("AIO2", target_date)
+
+
+def get_quantaq_data_path() -> Path:
+    """Get path to QuantAQ data directory."""
+    return get_instrument_path("QuantAQ_MODULAIR_PM")

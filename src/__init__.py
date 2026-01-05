@@ -15,10 +15,14 @@ from .data_paths import (
     get_instrument_variables,
     get_instrument_datetime_columns,
     get_instrument_specifications,
+    get_instrument_status,
+    get_active_instruments,
+    get_daq_system_info,
     get_indoor_data_path,
     get_outdoor_data_path,
     get_indoor_data_file,
     get_outdoor_data_file,
+    get_quantaq_data_path,
 )
 
 __all__ = [
@@ -32,8 +36,12 @@ __all__ = [
     "get_instrument_variables",
     "get_instrument_datetime_columns",
     "get_instrument_specifications",
+    "get_instrument_status",
+    "get_active_instruments",
+    "get_daq_system_info",
     "get_indoor_data_path",
     "get_outdoor_data_path",
     "get_indoor_data_file",
     "get_outdoor_data_file",
+    "get_quantaq_data_path",
 ]
