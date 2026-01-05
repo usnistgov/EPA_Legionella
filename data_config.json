@@ -1,0 +1,328 @@
+{
+  "description": "EPA Legionella Project Data Path Configuration",
+  "machine_name": "NISTTeleworkSys",
+  "project_name": "Aerosol Emissions from Bathroom Fixtures",
+  "data_root": "C:/Users/nml/OneDrive - NIST/Documents/NIST/EPA_Legionella",
+  "last_updated": "2025-12-31",
+
+  "instruments": {
+    "AIO2": {
+      "base_path": "iaqmh_dac_data/Outdoor_Data",
+      "file_template": "{date_str}-Daily_MHOutdoor_Data.txt",
+      "file_pattern": "*Daily_MHOutdoor_Data.txt",
+      "date_format": "%Y%m%d",
+      "description": "Met One AIO 2 Sonic Weather Sensor - 10m MET Tower",
+      "manufacturer": "Met One Instruments",
+      "model": "AIO 2",
+      "output": "RS-232, RS-485, SDI-12",
+      "daq_connection": "Module 7 (NI 9401 DI)",
+      "datetime_columns": ["Date", "Time"],
+      "variables": [
+        "Wind_Speed_m/s",
+        "Wind_Direction_deg",
+        "Ambient_Temperature_degC",
+        "Relative_Humidity_%",
+        "Barometric_Pressure_mb"
+      ],
+      "channel_count": 5,
+      "status": "ACTIVE",
+      "specifications": {
+        "wind_speed_range": "0-75 m/s (calibrated 0-60 m/s)",
+        "wind_speed_accuracy": "±0.5 m/s or 5% of reading (whichever is greater)",
+        "wind_speed_resolution": "0.1 m/s",
+        "wind_direction_range": "0-360°",
+        "wind_direction_accuracy": "±5° (including compass)",
+        "wind_direction_resolution": "1.0°",
+        "temperature_range": "-40°C to +60°C",
+        "temperature_accuracy": "±0.2°C (0-60°C), ±0.5°C (-40-0°C)",
+        "temperature_resolution": "0.1°C",
+        "relative_humidity_range": "0-100%",
+        "relative_humidity_accuracy": "±3% at 25°C",
+        "relative_humidity_resolution": "1.0%",
+        "barometric_pressure_range": "500-1100 hPa (mbar)",
+        "barometric_pressure_accuracy": "±0.5 hPa at 25°C",
+        "barometric_pressure_resolution": "0.1 hPa"
+      },
+      "notes": [
+        "Sensor installed on a 10m MET Tower.",
+        "Data logged via serial output at 1 Hz.",
+        "Tab-delimited format with Date and Time columns."
+      ]
+    },
+
+    "Aranet4": {
+      "base_path": "Aranet4_PRO",
+      "file_pattern": "*.xlsx",
+      "has_year_subdirs": false,
+      "description": "Aranet4 PRO - Indoor Air Quality Sensor",
+      "manufacturer": "SAF Tehnika",
+      "model": "Aranet4 PRO",
+      "output": "Wireless (Aranet Sub-GHz ISM band)",
+      "variables": ["CO2", "Temperature", "RelativeHumidity", "AtmosphericPressure"],
+      "channel_count": 4,
+      "status": "ACTIVE",
+      "specifications": {
+        "co2_range": "0-9999 ppm",
+        "co2_accuracy": "±(30 ppm + 3% of reading)",
+        "co2_resolution": "1 ppm",
+        "temperature_range": "0-50°C",
+        "temperature_accuracy": "±0.3°C",
+        "temperature_resolution": "0.1°C",
+        "relative_humidity_range": "0-85%",
+        "relative_humidity_accuracy": "±3%",
+        "relative_humidity_resolution": "1%",
+        "atmospheric_pressure_range": "600-1100 hPa",
+        "atmospheric_pressure_accuracy": "+3 hPa / -2 hPa",
+        "atmospheric_pressure_resolution": "1 hPa"
+      },
+      "notes": [
+        "Wireless transmission to Aranet PRO base station.",
+        "No year subdirectory structure."
+      ]
+    },
+
+    "Setra_264": {
+      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
+      "file_pattern": "*Daily_MHIndoor_Data.txt",
+      "date_format": "%Y%m%d",
+      "description": "Setra Model 264 Very Low Differential Pressure Transducer",
+      "manufacturer": "Setra Systems",
+      "model": "Model 264",
+      "measurement": "Differential Pressure",
+      "output": "0-5 VDC",
+      "excitation": "9-30 VDC",
+      "daq_connection": "Module 1 (NI 9201) CH0-7, Module 2 (NI 9201) CH0-2",
+      "datetime_columns": ["Date", "Time"],
+      "variables": [
+        "dP_Liv-Hi_M1_C0",
+        "dP_Liv-Lo_M1_C1",
+        "dP_Bed3-E-Hi_M1_C2",
+        "dP_Bed3-E-Lo_M1_C3",
+        "dP_Fam-S-Hi_M1_C4",
+        "dP_Fam-S-Lo_M1_C5",
+        "dP_Fam-W-Hi_M1_C6",
+        "dP_Fam-W-Lo_M1_C7",
+        "dP_Attic_M2_C0",
+        "dP_Crawl-E_M2_C1",
+        "dP_Crawl-W_M2_C2"
+      ],
+      "channel_count": 11,
+      "status": "ACTIVE",
+      "specifications": {
+        "accuracy": "±1% FS",
+        "non_linearity": "±0.96% FS",
+        "hysteresis": "0.10% FS",
+        "long_term_stability": "0.5% FS/year",
+        "compensated_range": "0 to +150°F (-18 to +65°C)",
+        "overpressure": "Up to 10 PSI (range dependent)"
+      },
+      "notes": [
+        "Industry standard for low differential pressure in HVAC.",
+        "Hi/Lo pairs measure across building envelope at multiple locations.",
+        "3-year unconditional warranty."
+      ]
+    },
+
+    "Vaisala_HMP155": {
+      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
+      "file_pattern": "*Daily_MHIndoor_Data.txt",
+      "date_format": "%Y%m%d",
+      "description": "Vaisala HUMICAP HMP155 Humidity and Temperature Probe",
+      "manufacturer": "Vaisala",
+      "model": "HMP155",
+      "measurement": ["Relative Humidity", "Temperature"],
+      "output": "0-10 VDC",
+      "excitation": "24 VDC",
+      "daq_connection": "Module 3-5 (NI 9201)",
+      "datetime_columns": ["Date", "Time"],
+      "variables": {
+        "relative_humidity": [
+          "RH_Bed1_M3_C0",
+          "RH_Liv_M3_C3",
+          "RH_Fam_M3_C4",
+          "RH_HVAC-S_M4_C3"
+        ],
+        "temperature": [
+          "T_Bed1_M4_C4",
+          "T_Liv_M4_C7",
+          "T_Fam_M5_C0",
+          "T_HVAC-S_M5_C7"
+        ]
+      },
+      "channel_count": 8,
+      "status": "ACTIVE",
+      "specifications": {
+        "rh_range": "0-100% RH",
+        "rh_accuracy_15_25C": "±1% RH (0-90% RH), ±1.7% RH (90-100% RH)",
+        "rh_accuracy_-20_40C": "±(1.0 + 0.008 × reading) % RH",
+        "rh_accuracy_-40_-20C": "±(1.2 + 0.012 × reading) % RH",
+        "rh_accuracy_+40_+60C": "±(1.2 + 0.012 × reading) % RH",
+        "rh_accuracy_-60_-40C": "±(1.4 + 0.032 × reading) % RH",
+        "temp_range": "-80°C to +60°C",
+        "temp_accuracy_-80_+20": "±(0.226 - 0.0027 x reading) °C",
+        "temp_accuracy_+20_+60": "±(0.055 + 0.0057 x reading) °C"
+      },
+      "notes": [
+        "Higher accuracy probes used at key monitoring locations.",
+        "Serial numbers: V1940952, V1940953, V1940954, V1940955 (calibrated 5/11/23).",
+        "Recommended calibration interval: 1 year."
+      ]
+    },
+
+    "Vaisala_HMP45A": {
+      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
+      "file_pattern": "*Daily_MHIndoor_Data.txt",
+      "date_format": "%Y%m%d",
+      "description": "Vaisala HUMICAP HMP45A Humidity and Temperature Probe",
+      "manufacturer": "Vaisala",
+      "model": "HMP45A",
+      "measurement": ["Relative Humidity", "Temperature"],
+      "output": "0-1 VDC",
+      "excitation": "7-35 VDC",
+      "daq_connection": "Module 3-5 (NI 9201)",
+      "datetime_columns": ["Date", "Time"],
+      "variables": {
+        "relative_humidity": [
+          "RH_Bed2_M3_C1",
+          "RH_Bed3_M3_C2",
+          "RH_MBa_M3_C5",
+          "RH_Ba1_M3_C6",
+          "RH_UR_M3_C7",
+          "RH_Gar_M4_C0",
+          "RH_Attic_M4_C1",
+          "RH_Out_M4_C2"
+        ],
+        "temperature": [
+          "T_Bed2_M4_C5",
+          "T_Bed3_M4_C6",
+          "T_MBa_M5_C1",
+          "T_Ba1_M5_C2",
+          "T_UR_M5_C3",
+          "T_Gar_M5_C4",
+          "T_Attic_M5_C5",
+          "T_Out_M5_C6"
+        ]
+      },
+      "channel_count": 16,
+      "status": "ACTIVE",
+      "specifications": {
+        "rh_range": "0.8-100% RH",
+        "rh_accuracy_factory": "±1% RH at 20°C",
+        "rh_accuracy_field": "±2% RH (0-90% RH), ±3% RH (90-100% RH)",
+        "rh_long_term_stability": "better than 1% RH/year",
+        "temp_range": "-39.2°C to +60°C",
+        "temp_accuracy": "±0.2°C at 20°C"
+      },
+      "notes": [
+        "Legacy sensors - planned replacement with HMP155.",
+        "Used at secondary monitoring locations."
+      ]
+    },
+
+    "Thermocouple": {
+      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
+      "file_pattern": "*Daily_MHIndoor_Data.txt",
+      "date_format": "%Y%m%d",
+      "description": "Type T Thermocouples via NI 9213 Module",
+      "manufacturer": "Various",
+      "model": "Type T Thermocouple",
+      "measurement": "Temperature",
+      "daq_connection": "Module 8 (NI 9213)",
+      "datetime_columns": ["Date", "Time"],
+      "variables": [
+        "T_Bed1_M8_C0",
+        "T_Bed2_M8_C1",
+        "T_Bed3_M8_C2",
+        "T_Liv_M8_C3",
+        "T_Din_M8_C4",
+        "T_Kit_M8_C5",
+        "T_Fam_M8_C6",
+        "T_MBa_M8_C7",
+        "T_Ba1_M8_C8",
+        "T_UR_M8_C9",
+        "T_Gar_M8_C10",
+        "T_Attic_M8_C11",
+        "T_Out_M8_C12",
+        "T_HVAC-S_M8_C13",
+        "T_Crawl_M8_C14"
+      ],
+      "channel_count": 15,
+      "status": "NOT IN DATA FILE",
+      "notes": [
+        "Intended to replace/supplement Vaisala temperature measurements.",
+        "NI 9213 is a 16-channel thermocouple input module.",
+        "15 of 16 channels allocated in Excel MAP."
+      ]
+    },
+
+    "TSI_8455": {
+      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
+      "file_pattern": "*Daily_MHIndoor_Data.txt",
+      "date_format": "%Y%m%d",
+      "description": "TSI Model 8455 Air Velocity Transducer",
+      "manufacturer": "TSI",
+      "model": "8455-12",
+      "measurement": "Air Flow Velocity",
+      "daq_connection": "Module 6 (NI 9481 Relay)",
+      "datetime_columns": ["Date", "Time"],
+      "variables": [
+        "AF_HVAC-N_M6_C0",
+        "AF_HVAC-S_M6_C1"
+      ],
+      "channel_count": 2,
+      "status": "NOT IN DATA FILE",
+      "notes": [
+        "Connected to relay module for HVAC airflow measurement.",
+        "Excel MAP notes: *Add Relay or anemometer?"
+      ]
+    }
+  },
+
+  "common_files": {
+    "log_file": "log_file.xlsx",
+    "output_folder": "output"
+  },
+
+  "daq_system": {
+    "chassis": {
+      "manufacturer": "National Instruments",
+      "model": "cDAQ-9178",
+      "slots": 8,
+      "interface": "Hi-Speed USB 2.0",
+      "power": "9-30 VDC, 15W max"
+    },
+    "modules": {
+      "Slot_1": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Setra_264"},
+      "Slot_2": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Setra_264 + BLANK/Ref"},
+      "Slot_3": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Vaisala RH"},
+      "Slot_4": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Vaisala RH + T"},
+      "Slot_5": {"model": "NI 9201", "type": "8-ch AI (±10V)", "sensor": "Vaisala T"},
+      "Slot_6": {"model": "NI 9481", "type": "4-ch Relay", "sensor": "TSI_8455 (not logged)"},
+      "Slot_7": {"model": "NI 9401", "type": "8-ch DI", "sensor": "AIO2 weather station"},
+      "Slot_8": {"model": "NI 9213", "type": "16-ch TC", "sensor": "Thermocouple (not logged)"}
+    },
+    "reference_channels": {
+      "Ref_6VDC_M2_C7": "6VDC reference voltage for system diagnostics"
+    }
+  },
+
+  "data_file_analysis": {
+    "indoor_data": {
+      "file_pattern": "*Daily_MHIndoor_Data.txt",
+      "columns": 42,
+      "active_sensors": ["Setra_264", "Vaisala_HMP155", "Vaisala_HMP45A"],
+      "active_channels": 36
+    },
+    "outdoor_data": {
+      "file_pattern": "*Daily_MHOutdoor_Data.txt",
+      "columns": 7,
+      "active_sensors": ["AIO2"],
+      "active_channels": 5
+    }
+  }
+}
