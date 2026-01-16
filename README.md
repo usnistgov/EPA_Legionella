@@ -18,7 +18,7 @@ This project analyzes aerosol characteristics from shower-generated aerosols wit
 NIST_EPA_Legionella/
 ├── .vscode/                          # VS Code configuration
 │   └── settings.json
-├── .env                              # Environment variables (API keys)
+├── .env                              # Environment variables (API keys for QuantAQ, gitignored)
 ├── .gitignore
 ├── README.md
 ├── data_config.json                  # Active configuration (gitignored)
@@ -177,7 +177,3 @@ Key packages (see `epa_mh.yaml` for complete list):
 - requests - API communication
 - pyyaml - Configuration management
 - openpyxl - Excel file I/O
-
-## License
-
-This project is part of NIST-EPA research collaboration.
