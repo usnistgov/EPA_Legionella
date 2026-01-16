@@ -1,13 +1,13 @@
 {
   "description": "EPA Legionella Project Data Path Configuration",
-  "machine_name": "NISTTeleworkSys",
+  "machine_name": "Laptop",
   "project_name": "Aerosol Emissions from Bathroom Fixtures",
-  "data_root": "C:/Users/nml/OneDrive - NIST/Documents/NIST/EPA_Legionella",
-  "last_updated": "2025-12-31",
+  "data_root": "C:/Users/Nathan/Documents/NIST/EPA_Legionella",
+  "last_updated": "2025-01-16",
 
   "instruments": {
     "AIO2": {
-      "base_path": "iaqmh_dac_data/Outdoor_Data",
+      "base_path": "MH DAQ/weather_station/2026",
       "file_template": "{date_str}-Daily_MHOutdoor_Data.txt",
       "file_pattern": "*Daily_MHOutdoor_Data.txt",
       "date_format": "%Y%m%d",
@@ -52,7 +52,7 @@
     },
 
     "Aranet4": {
-      "base_path": "Aranet4_PRO",
+      "base_path": "CO2",
       "file_pattern": "*.xlsx",
       "has_year_subdirs": false,
       "description": "Aranet4 PRO - Indoor Air Quality Sensor",
@@ -135,7 +135,7 @@
     },
 
     "Setra_264": {
-      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "base_path": "MH DAQ/indoor_daq/2026",
       "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
       "file_pattern": "*Daily_MHIndoor_Data.txt",
       "date_format": "%Y%m%d",
@@ -179,7 +179,7 @@
     },
 
     "Vaisala_HMP155": {
-      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "base_path": "MH DAQ/indoor_daq/2026",
       "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
       "file_pattern": "*Daily_MHIndoor_Data.txt",
       "date_format": "%Y%m%d",
@@ -231,7 +231,7 @@
     },
 
     "Vaisala_HMP45A": {
-      "base_path": "iaqmh_dac_data/Task_Logger_Data",
+      "base_path": "MH DAQ/indoor_daq/2026",
       "file_template": "{date_str}-Daily_MHIndoor_Data.txt",
       "file_pattern": "*Daily_MHIndoor_Data.txt",
       "date_format": "%Y%m%d",
@@ -284,7 +284,7 @@
         "11/21/25: Moved garage Vaisala to master bath; channel reassigned."
       ]
     }
-  },
+    },
 
   "future_instruments": {
     "Thermocouple": {
