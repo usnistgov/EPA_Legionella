@@ -5,7 +5,7 @@ This script analyzes CO2 decay data from Aranet4 sensors to calculate
 the air-change rate (λ) using a numerical approach that accounts for
 time-varying indoor and outdoor concentrations.
 
-The air-change rate equation solved at each timestep:
+The air-change rate equation is solved at each timestep:
     dC_bedroom/dt = λ(α·C_outside + β·C_entry - C_bedroom)
 
 Where:
@@ -43,7 +43,6 @@ from src.data_paths import (
     get_instrument_path,
 )
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -55,10 +54,6 @@ DEFAULT_BETA = 0.5  # Fraction from entry zone (α + β = 1)
 # Analysis timing parameters (minutes)
 DECAY_START_OFFSET_MIN = -10  # Start 10 min before the hour (at :50)
 DECAY_DURATION_HOURS = 2  # Analyze 2 hours of decay
-CO2_INJECTION_START_MIN = 40  # CO2 injection starts at minute 40
-CO2_INJECTION_END_MIN = 44  # CO2 injection ends at minute 44
-MIXING_FAN_OFF_MIN = 45  # Mixing fan turns off at minute 45
-
 
 # =============================================================================
 # Data Loading Functions
@@ -175,12 +170,15 @@ def load_and_merge_co2_data() -> pd.DataFrame:
         raise ValueError("No Aranet4 data could be loaded")
 
     # Merge all dataframes on datetime
-    merged = None
+    merged: pd.DataFrame | None = None
     for suffix, df in dfs.items():
         if merged is None:
             merged = df
         else:
             merged = pd.merge(merged, df, on="datetime", how="outer")
+
+    if merged is None:
+        raise ValueError("No data could be merged")
 
     # Sort by datetime and interpolate missing values (linear interpolation)
     merged = merged.sort_values("datetime").reset_index(drop=True)
@@ -276,7 +274,9 @@ def identify_injection_events(co2_log: pd.DataFrame) -> list[dict]:
             hour_after_injection = injection_start.replace(
                 minute=0, second=0, microsecond=0
             ) + timedelta(hours=1)
-            decay_start = hour_after_injection + timedelta(minutes=DECAY_START_OFFSET_MIN)
+            decay_start = hour_after_injection + timedelta(
+                minutes=DECAY_START_OFFSET_MIN
+            )
             decay_end = hour_after_injection + timedelta(hours=DECAY_DURATION_HOURS)
 
             events.append(
@@ -340,10 +340,10 @@ def calculate_lambda_numerical(
             "error": "Insufficient data points",
         }
 
-    # Get concentration columns
-    c_bedroom = decay_data["C_bedroom"].values
-    c_outside = decay_data["C_outside"].values
-    c_entry = decay_data["C_entry"].values
+    # Get concentration columns as numpy arrays
+    c_bedroom = np.asarray(decay_data["C_bedroom"].values, dtype=np.float64)
+    c_outside = np.asarray(decay_data["C_outside"].values, dtype=np.float64)
+    c_entry = np.asarray(decay_data["C_entry"].values, dtype=np.float64)
     timestamps = decay_data["datetime"].values
 
     # Calculate dC/dt using central difference
@@ -377,7 +377,6 @@ def calculate_lambda_numerical(
     lambda_values[valid_mask] = -dc_dt[valid_mask] / denominator[valid_mask]
 
     # Filter out negative or unreasonably high lambda values
-    # Typical indoor ACH is 0.1 - 2.0 h⁻¹
     reasonable_mask = (lambda_values > 0) & (lambda_values < 10)
     valid_lambdas = lambda_values[reasonable_mask]
 
