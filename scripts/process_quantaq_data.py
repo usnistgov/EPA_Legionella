@@ -97,7 +97,7 @@ def expand_dict_column(df: pd.DataFrame, col_name: str, prefix: str) -> pd.DataF
     return df
 
 
-def reorder_pm_columns(columns: List[str], prefix: str) -> List[str]:
+def reorder_pm_columns(columns: List[str], prefix: str) -> Tuple[List[str], List[str]]:
     """
     Reorder pm columns within a list to be pm1, pm2.5, pm10.
     Also renames pm25 to pm2.5.
@@ -107,7 +107,7 @@ def reorder_pm_columns(columns: List[str], prefix: str) -> List[str]:
         prefix: The prefix for pm columns (e.g., 'neph', 'opc', 'final').
 
     Returns:
-        List[str]: Reordered column names.
+        Tuple of (non-pm columns, reordered pm column names).
     """
     pm1_col = f"{prefix}_pm1"
     pm25_col = f"{prefix}_pm25"
@@ -153,9 +153,7 @@ def organize_expanded_columns(
     # Separate into categories
     bin_cols = sorted(
         [col for col in prefix_cols if "_bin" in col],
-        key=lambda x: int(re.search(r"bin(\d+)", x).group(1))
-        if re.search(r"bin(\d+)", x)
-        else 0,
+        key=lambda x: int(m.group(1)) if (m := re.search(r"bin(\d+)", x)) else 0,
     )
     pm_cols = [col for col in prefix_cols if "_pm" in col]
     other_cols = [

@@ -9,10 +9,9 @@ Institution: National Institute of Standards and Technology (NIST)
 Date: 2025
 """
 
-import os
 import sys
 import warnings
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -25,14 +24,13 @@ repo_root = script_dir.parent
 sys.path.insert(0, str(repo_root))
 
 # pylint: disable=import-error,wrong-import-position
-from src.data_paths import (
+from src.data_paths import (  # noqa: E402
     get_all_instrument_files,
     get_common_file,
     get_data_root,
     get_indoor_data_file,
     get_instrument_config,
     get_instrument_datetime_columns,
-    get_instrument_file,
     get_instrument_files_for_date_range,
     get_instrument_path,
     get_instrument_variables,
@@ -197,7 +195,7 @@ def main():
         print(
             f"        'variables': {cfg['variables'][:3]}...,  # ({len(cfg['variables'])} total)"
         )
-        print(f"    }},")
+        print("    }},")
     print("}")
     print()
 

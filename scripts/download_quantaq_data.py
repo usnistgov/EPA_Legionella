@@ -15,10 +15,10 @@ Date: 2026
 
 import os
 import sys
-from pathlib import Path
-from datetime import datetime, date
-from typing import Optional, List, Dict, Any
 import time
+from datetime import date, datetime
+from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 import requests
@@ -96,6 +96,7 @@ class QuantAQDownloader:
         """
         url = f"{self.base_url}{endpoint}"
         auth = (self.api_key, "")
+        response = None
 
         try:
             response = requests.get(url, auth=auth, params=params, timeout=timeout)
@@ -292,21 +293,25 @@ def main():
             if df is not None and not df.empty:
                 # Save data
                 filepath = downloader.save_data(df, device_name, data_type)
-                results.append({
-                    "device": device_name,
-                    "serial": serial_number,
-                    "type": data_type,
-                    "records": len(df),
-                    "file": filepath.name,
-                })
+                results.append(
+                    {
+                        "device": device_name,
+                        "serial": serial_number,
+                        "type": data_type,
+                        "records": len(df),
+                        "file": filepath.name,
+                    }
+                )
             else:
-                results.append({
-                    "device": device_name,
-                    "serial": serial_number,
-                    "type": data_type,
-                    "records": 0,
-                    "file": None,
-                })
+                results.append(
+                    {
+                        "device": device_name,
+                        "serial": serial_number,
+                        "type": data_type,
+                        "records": 0,
+                        "file": None,
+                    }
+                )
 
         print()
 
@@ -315,7 +320,7 @@ def main():
     print("DOWNLOAD SUMMARY")
     print("=" * 60)
     for r in results:
-        status = f"{r['records']} records -> {r['file']}" if r['file'] else "No data"
+        status = f"{r['records']} records -> {r['file']}" if r["file"] else "No data"
         print(f"  {r['device']} ({r['type']}): {status}")
 
     print()

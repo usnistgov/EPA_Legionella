@@ -447,6 +447,9 @@ def interactive_main():
     data_type = type_map.get(data_type, data_type)
 
     # Get date parameters
+    start_date = None
+    end_date = None
+
     if data_type == "by-date":
         target_date = input("Enter the date (YYYY-MM-DD): ").strip()
         print(f"\nFetching data for {target_date}...")
@@ -497,7 +500,7 @@ def interactive_main():
                     input("Output format (csv/xlsx, default: csv): ").strip().lower()
                     or "csv"
                 )
-                filepath = quantaq_api.save_data_to_file(
+                quantaq_api.save_data_to_file(
                     serial_number,
                     data_type,
                     start_date if data_type != "by-date" else None,
