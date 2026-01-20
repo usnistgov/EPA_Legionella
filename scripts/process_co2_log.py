@@ -17,9 +17,14 @@ Date: 2026
 
 import glob
 import os
+import sys
 from pathlib import Path
 
 import pandas as pd
+
+# Add project root to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.data_paths import get_data_root, get_common_file, get_common_file_config
 
 
 def parse_mixed_delimiter_file(filepath):
@@ -136,9 +141,12 @@ def process_co2_logs(input_dir, output_file):
 
 
 def main():
-    # Default paths based on data_config.json
-    input_dir = r"C:\Users\Nathan\Documents\NIST\EPA_Legionella\Log - CO2 Injection"
-    output_file = r"C:\Users\Nathan\Documents\NIST\EPA_Legionella\Log - CO2 Injection\CO2_log_file.csv"
+    # Get paths from data_config.json via data_paths module
+    co2_config = get_common_file_config("co2_log_file")
+    data_root = get_data_root()
+
+    input_dir = data_root / co2_config["path"]
+    output_file = get_common_file("co2_log_file")
 
     print("CO2 Injection Log Processor")
     print("=" * 50)
@@ -146,7 +154,7 @@ def main():
     print(f"Output file: {output_file}")
     print()
 
-    if not os.path.exists(input_dir):
+    if not input_dir.exists():
         print(f"Error: Input directory does not exist: {input_dir}")
         return
 
