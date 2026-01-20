@@ -9,12 +9,17 @@ Output file: CO2_log_file.csv
 
 Input columns: datetime_EDT, CO2, Fan, notAssigned
 Output columns: datetime_EDT, CO2, mixing_fan
+
+Author: Nathan Lima
+Institution: National Institute of Standards and Technology (NIST)
+Date: 2026
 """
 
-import os
 import glob
-import pandas as pd
+import os
 from pathlib import Path
+
+import pandas as pd
 
 
 def parse_mixed_delimiter_file(filepath):
@@ -26,11 +31,11 @@ def parse_mixed_delimiter_file(filepath):
     """
     rows = []
 
-    with open(filepath, 'r') as f:
+    with open(filepath, "r") as f:
         # Read header line
         header_line = f.readline().strip()
         # Header is comma-separated
-        headers = [h.strip() for h in header_line.split(',')]
+        headers = [h.strip() for h in header_line.split(",")]
 
         # Read data lines
         for line in f:
@@ -39,15 +44,15 @@ def parse_mixed_delimiter_file(filepath):
                 continue
 
             # Split by tab first to separate datetime from values
-            parts = line.split('\t')
+            parts = line.split("\t")
             if len(parts) >= 2:
                 datetime_str = parts[0]
                 # Values are comma-separated
-                values = parts[1].split(',')
+                values = parts[1].split(",")
                 row = [datetime_str] + values
                 rows.append(row)
 
-    df = pd.DataFrame(rows, columns=headers[:len(rows[0])] if rows else headers)
+    df = pd.DataFrame(rows, columns=headers[: len(rows[0])] if rows else headers)
     return df
 
 
@@ -90,34 +95,33 @@ def process_co2_logs(input_dir, output_file):
     combined = pd.concat(all_data, ignore_index=True)
 
     # Parse datetime
-    combined['datetime_EDT'] = pd.to_datetime(
-        combined['datetime_EDT'],
-        format='%m/%d/%Y %I:%M:%S %p'
+    combined["datetime_EDT"] = pd.to_datetime(
+        combined["datetime_EDT"], format="%m/%d/%Y %I:%M:%S %p"
     )
 
     # Sort by datetime
-    combined = combined.sort_values('datetime_EDT').reset_index(drop=True)
+    combined = combined.sort_values("datetime_EDT").reset_index(drop=True)
 
     # Convert value columns to numeric
-    combined['CO2'] = pd.to_numeric(combined['CO2'], errors='coerce')
-    combined['Fan'] = pd.to_numeric(combined['Fan'], errors='coerce')
+    combined["CO2"] = pd.to_numeric(combined["CO2"], errors="coerce")
+    combined["Fan"] = pd.to_numeric(combined["Fan"], errors="coerce")
 
     # Rename Fan to mixing_fan, drop notAssigned
-    combined = combined.rename(columns={'Fan': 'mixing_fan'})
-    combined = combined[['datetime_EDT', 'CO2', 'mixing_fan']]
+    combined = combined.rename(columns={"Fan": "mixing_fan"})
+    combined = combined[["datetime_EDT", "CO2", "mixing_fan"]]
 
     # Detect state changes
     # A state change occurs when CO2 or mixing_fan value differs from previous row
-    combined['co2_changed'] = combined['CO2'] != combined['CO2'].shift(1)
-    combined['fan_changed'] = combined['mixing_fan'] != combined['mixing_fan'].shift(1)
-    combined['state_changed'] = combined['co2_changed'] | combined['fan_changed']
+    combined["co2_changed"] = combined["CO2"] != combined["CO2"].shift(1)
+    combined["fan_changed"] = combined["mixing_fan"] != combined["mixing_fan"].shift(1)
+    combined["state_changed"] = combined["co2_changed"] | combined["fan_changed"]
 
     # Keep only rows where state changed (always keep first row)
-    combined.loc[0, 'state_changed'] = True
-    state_changes = combined[combined['state_changed']].copy()
+    combined.loc[0, "state_changed"] = True
+    state_changes = combined[combined["state_changed"]].copy()
 
     # Drop helper columns
-    state_changes = state_changes[['datetime_EDT', 'CO2', 'mixing_fan']]
+    state_changes = state_changes[["datetime_EDT", "CO2", "mixing_fan"]]
 
     print(f"\nOriginal records: {len(combined):,}")
     print(f"State changes: {len(state_changes):,}")
