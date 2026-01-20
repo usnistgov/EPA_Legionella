@@ -235,25 +235,66 @@ def get_all_instrument_files(
 def get_common_file(file_key: str) -> Path:
     """
     Get path to a common project file (e.g., log file, output folder).
-    
+
     Args:
-        file_key: Key from common_files section (e.g., 'log_file', 'output_folder')
-        
+        file_key: Key from common_files section (e.g., 'log_file', 'output_folder',
+                  'co2_log_file', 'shower_log_file')
+
     Returns:
         Path: Full path to the common file or directory.
     """
     config = _load_config()
     data_root = Path(config["data_root"])
     common_files = config.get("common_files", {})
-    
+
     if file_key not in common_files:
         available = list(common_files.keys())
         raise KeyError(
             f"Unknown common file: {file_key}. "
             f"Available: {available}"
         )
-    
-    return data_root / common_files[file_key]
+
+    file_entry = common_files[file_key]
+
+    # Handle object-based entries (e.g., co2_log_file, shower_log_file)
+    if isinstance(file_entry, dict):
+        path = file_entry.get("path", "")
+        filename = file_entry.get("filename", "")
+        return data_root / path / filename
+
+    # Handle simple string entries (e.g., log_file, output_folder)
+    return data_root / file_entry
+
+
+def get_common_file_config(file_key: str) -> Dict[str, Any]:
+    """
+    Get the full configuration for a common file entry.
+
+    Args:
+        file_key: Key from common_files section (e.g., 'co2_log_file', 'shower_log_file')
+
+    Returns:
+        dict: Full configuration for the file entry, or a simple dict with 'filename'
+              for string entries.
+    """
+    config = _load_config()
+    common_files = config.get("common_files", {})
+
+    if file_key not in common_files:
+        available = list(common_files.keys())
+        raise KeyError(
+            f"Unknown common file: {file_key}. "
+            f"Available: {available}"
+        )
+
+    file_entry = common_files[file_key]
+
+    # Return dict entries directly
+    if isinstance(file_entry, dict):
+        return file_entry
+
+    # Wrap string entries in a dict for consistency
+    return {"filename": file_entry}
 
 
 def get_instrument_variables(instrument_name: str) -> list:
