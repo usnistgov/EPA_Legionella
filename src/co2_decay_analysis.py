@@ -36,6 +36,7 @@ import pandas as pd
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from scripts.plot_utils import plot_co2_decay_event, plot_lambda_summary
 from src.data_paths import (
     get_common_file,
     get_data_root,
@@ -327,17 +328,50 @@ def calculate_lambda_numerical(
     Returns:
         Dict with lambda statistics and time series
     """
-    # Filter data to decay window
-    mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= decay_end)
-    decay_data = co2_data[mask].copy()
+    # Check if decay window is within data range
+    data_start = co2_data["datetime"].min()
+    data_end = co2_data["datetime"].max()
 
-    if len(decay_data) < 10:
+    if decay_start > data_end:
         return {
             "lambda_mean": np.nan,
             "lambda_std": np.nan,
             "lambda_series": [],
             "n_points": 0,
-            "error": "Insufficient data points",
+            "skip_reason": (
+                f"Decay window starts after data ends "
+                f"(decay_start={decay_start}, data_end={data_end})"
+            ),
+        }
+
+    if decay_end < data_start:
+        return {
+            "lambda_mean": np.nan,
+            "lambda_std": np.nan,
+            "lambda_series": [],
+            "n_points": 0,
+            "skip_reason": (
+                f"Decay window ends before data starts "
+                f"(decay_end={decay_end}, data_start={data_start})"
+            ),
+        }
+
+    # Filter data to decay window
+    mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= decay_end)
+    decay_data = co2_data[mask].copy()
+
+    if len(decay_data) < 10:
+        # Provide detailed reason for insufficient data
+        if len(decay_data) == 0:
+            reason = "No data points in decay window"
+        else:
+            reason = f"Only {len(decay_data)} data points (minimum 10 required)"
+        return {
+            "lambda_mean": np.nan,
+            "lambda_std": np.nan,
+            "lambda_series": [],
+            "n_points": 0,
+            "skip_reason": reason,
         }
 
     # Get concentration columns as numpy arrays
@@ -381,12 +415,25 @@ def calculate_lambda_numerical(
     valid_lambdas = lambda_values[reasonable_mask]
 
     if len(valid_lambdas) == 0:
+        # Build detailed reason
+        n_negative = int(np.sum(lambda_values < 0))
+        n_too_high = int(np.sum(lambda_values >= 10))
+        n_nan = int(np.sum(np.isnan(lambda_values)))
+        n_total = len(lambda_values)
+        reason_parts = []
+        if n_nan > 0:
+            reason_parts.append(f"{n_nan}/{n_total} NaN (small concentration gradient)")
+        if n_negative > 0:
+            reason_parts.append(f"{n_negative}/{n_total} negative (CO2 increasing)")
+        if n_too_high > 0:
+            reason_parts.append(f"{n_too_high}/{n_total} unreasonably high (≥10 h⁻¹)")
+        reason = "; ".join(reason_parts) if reason_parts else "Unknown"
         return {
             "lambda_mean": np.nan,
             "lambda_std": np.nan,
             "lambda_series": lambda_values.tolist(),
             "n_points": 0,
-            "error": "No valid lambda values calculated",
+            "skip_reason": f"No valid λ values: {reason}",
         }
 
     return {
@@ -453,6 +500,8 @@ def analyze_injection_event(
             result["c_bedroom_final"] = lambda_result.get("c_bedroom_final", np.nan)
             result["c_outside_mean"] = lambda_result.get("c_outside_mean", np.nan)
             result["c_entry_mean"] = lambda_result.get("c_entry_mean", np.nan)
+            # Capture skip reason if present
+            result["skip_reason"] = lambda_result.get("skip_reason", None)
 
     return result
 
@@ -466,6 +515,7 @@ def run_co2_decay_analysis(
     alpha: float = DEFAULT_ALPHA,
     beta: float = DEFAULT_BETA,
     output_dir: Optional[Path] = None,
+    generate_plots: bool = False,
 ) -> pd.DataFrame:
     """
     Run the complete CO2 decay analysis.
@@ -474,6 +524,7 @@ def run_co2_decay_analysis(
         alpha: Fraction of infiltration from outside
         beta: Fraction of infiltration from entry zone
         output_dir: Optional output directory (defaults to data_root/output)
+        generate_plots: If True, generate plots for each event and summary
 
     Returns:
         DataFrame with analysis results for all injection events
@@ -517,6 +568,22 @@ def run_co2_decay_analysis(
                 f"    λ (average): {result['lambda_average_mean']:.3f} ± "
                 f"{result['lambda_average_std']:.3f} h⁻¹"
             )
+
+            # Generate plot for this event if enabled
+            if generate_plots:
+                plot_dir = output_dir / "plots"
+                plot_path = plot_dir / f"event_{i + 1:02d}_decay.png"
+                plot_co2_decay_event(
+                    co2_data=co2_data,
+                    injection_time=event["injection_start"],
+                    lambda_value=result["lambda_average_mean"],
+                    lambda_std=result["lambda_average_std"],
+                    output_path=plot_path,
+                    event_number=i + 1,
+                )
+        else:
+            skip_reason = result.get("skip_reason", "Unknown reason")
+            print(f"    ⚠ Skipped: {skip_reason}")
 
     # Create results DataFrame
     results_df = pd.DataFrame(results)
@@ -563,6 +630,13 @@ def run_co2_decay_analysis(
     summary_df.to_csv(summary_file, index=False)
     print(f"Summary saved to: {summary_file}")
 
+    # Generate summary plot if enabled
+    if generate_plots:
+        plot_dir = output_dir / "plots"
+        summary_plot_path = plot_dir / "lambda_summary.png"
+        plot_lambda_summary(results_df, output_path=summary_plot_path)
+        print(f"Plots saved to: {plot_dir}")
+
     return results_df
 
 
@@ -591,6 +665,11 @@ def main():
         default=None,
         help="Output directory for results (default: data_root/output)",
     )
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Generate plots for each event and summary",
+    )
 
     args = parser.parse_args()
 
@@ -605,7 +684,12 @@ def main():
 
     output_dir = Path(args.output_dir) if args.output_dir else None
 
-    run_co2_decay_analysis(alpha=args.alpha, beta=args.beta, output_dir=output_dir)
+    run_co2_decay_analysis(
+        alpha=args.alpha,
+        beta=args.beta,
+        output_dir=output_dir,
+        generate_plots=args.plot,
+    )
 
 
 if __name__ == "__main__":
