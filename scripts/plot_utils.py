@@ -1,8 +1,43 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Plotting utilities for EPA Legionella Project.
+Plotting Utilities for EPA Legionella Project
+==============================================
 
-This module provides consistent styling and helper functions for all plots
-in the project, ensuring publication-quality figures with uniform appearance.
+This module provides consistent styling and helper functions for generating
+publication-quality figures across the EPA Legionella project. All plots
+produced by this module follow a unified visual style suitable for scientific
+publications, presentations, and reports.
+
+The utilities ensure that figures maintain consistent formatting regardless
+of which analysis script generates them, facilitating professional-quality
+output for peer-reviewed publications and EPA reporting requirements.
+
+Key Functions:
+    - create_figure: Create consistently styled matplotlib figures
+    - save_figure: Save figures with proper DPI and formatting
+    - format_datetime_axis: Apply standard datetime axis formatting
+    - add_injection_marker: Add CO2 injection event markers to plots
+    - plot_co2_decay_event: Generate CO2 decay analysis plots with fitted curves
+    - plot_lambda_summary: Generate summary bar charts of air-change rates
+
+Processing Features:
+    - 300 DPI output for publication-quality resolution
+    - Clean scientific style with serif fonts and minimal grid
+    - Colorblind-friendly color palette
+    - Automatic datetime axis formatting with rotation
+    - Exponential decay curve fitting and overlay
+
+Methodology:
+    1. Apply consistent matplotlib rcParams for all figures
+    2. Create figure with specified dimensions and layout
+    3. Plot data with standardized colors, line widths, and markers
+    4. Add annotations, legends, and axis labels
+    5. Save to PNG format with tight bounding box
+
+Output Files:
+    - event_XX_decay.png: Individual CO2 decay event plots
+    - lambda_summary.png: Bar chart summary of air-change rates across events
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -376,14 +411,16 @@ def _calculate_exponential_decay(
     c_source_mean = float(np.mean(c_source))
 
     # Exponential decay: C(t) = C_source + (C_0 - C_source) * exp(-λ*t)
-    c_fit: npt.NDArray[np.float64] = c_source_mean + (c_bedroom_0 - c_source_mean) * np.exp(
-        -lambda_value * t_hours
-    )
+    c_fit: npt.NDArray[np.float64] = c_source_mean + (
+        c_bedroom_0 - c_source_mean
+    ) * np.exp(-lambda_value * t_hours)
 
-    return pd.DataFrame({
-        "datetime": decay_data["datetime"].values,
-        "C_fit": c_fit,
-    })
+    return pd.DataFrame(
+        {
+            "datetime": decay_data["datetime"].values,
+            "C_fit": c_fit,
+        }
+    )
 
 
 def plot_lambda_summary(

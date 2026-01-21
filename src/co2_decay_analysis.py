@@ -1,25 +1,46 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-CO2 Decay & Air-Change Rate (λ) Analysis for EPA Legionella Project.
+CO2 Decay & Air-Change Rate (λ) Analysis
+=========================================
 
-This script analyzes CO2 decay data from Aranet4 sensors to calculate
-the air-change rate (λ) using a numerical approach that accounts for
-time-varying indoor and outdoor concentrations.
+This script analyzes CO2 decay data from Aranet4 sensors to calculate the
+air-change rate (λ) for the EPA Legionella study manufactured home test
+facility. The analysis uses a numerical approach that accounts for time-varying
+indoor and outdoor CO2 concentrations during controlled tracer gas experiments.
 
-The air-change rate equation is solved at each timestep:
-    dC_bedroom/dt = λ(α·C_outside + β·C_entry - C_bedroom)
+The air-change rate is a critical parameter for understanding building
+ventilation and is used in subsequent particle emission and deposition
+calculations. Accurate λ values enable quantification of aerosol transport
+and exposure risks from shower-generated Legionella-containing particles.
 
-Where:
-    C_bedroom = CO2 concentration in bedroom (ppm)
-    C_outside = CO2 concentration outside (ppm)
-    C_entry   = CO2 concentration at entry (ppm)
-    α = fraction of infiltration from outside (default 0.5)
-    β = fraction of infiltration from entry zone (default 0.5, where α + β = 1)
-    λ = air-change rate (h⁻¹)
+Key Metrics Calculated:
+    - λ (air-change rate): Rate of air exchange with outdoors (h⁻¹)
+    - λ_average: Using weighted source concentration (α·C_outside + β·C_entry)
+    - λ_outside: Using only outdoor concentration as source
+    - λ_entry: Using only entry zone concentration as source
 
-Analysis periods:
-    - CO2 injection: minutes 40-44 of each hour
-    - Mixing fan off: minute 45 of each hour
-    - Decay analysis: starts 10 min before the hour, continues 2 hours post-injection
+Analysis Features:
+    - 6-minute rolling average applied to reduce sensor noise
+    - Dynamic decay window ending when C_bedroom within 200 ppm of C_outside
+    - Maximum 2-hour decay analysis window as fallback
+    - Three source concentration methods for uncertainty assessment
+    - Automatic detection and reporting of skipped events with reasons
+
+Methodology:
+    1. Load and merge CO2 data from three Aranet4 sensors (Bedroom, Entry, Outside)
+    2. Resample to 1-minute intervals and apply rolling average smoothing
+    3. Identify CO2 injection events from the state-change log
+    4. Calculate dynamic decay end time based on concentration threshold
+    5. Solve mass balance equation at each timestep: λ = -dC/dt / (C_source - C_bedroom)
+    6. Filter unreasonable λ values (negative or >10 h⁻¹)
+    7. Calculate statistics and generate diagnostic plots
+
+Output Files:
+    - co2_lambda_summary.csv: Per-event results with all λ calculations
+    - co2_lambda_overall_summary.csv: Aggregated statistics across all events
+    - plots/event_XX_decay.png: Individual decay plots with fitted curves
+    - plots/lambda_summary.png: Summary bar chart of λ values
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -200,7 +221,9 @@ def load_and_merge_co2_data() -> pd.DataFrame:
     for col in co2_cols:
         if col in merged.columns:
             merged[col] = (
-                merged[col].rolling(window=ROLLING_WINDOW_MIN, center=True, min_periods=1).mean()
+                merged[col]
+                .rolling(window=ROLLING_WINDOW_MIN, center=True, min_periods=1)
+                .mean()
             )
 
     merged = merged.reset_index()
@@ -328,7 +351,9 @@ def calculate_dynamic_decay_end(
         Calculated decay end datetime
     """
     # Filter data to the decay window
-    mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= max_decay_end)
+    mask = (co2_data["datetime"] >= decay_start) & (
+        co2_data["datetime"] <= max_decay_end
+    )
     decay_data = co2_data[mask].copy()
 
     if len(decay_data) == 0:
@@ -342,7 +367,9 @@ def calculate_dynamic_decay_end(
     if below_threshold.any():
         first_below_idx = below_threshold.idxmax()
         # Get the datetime value and convert properly
-        decay_end_series = decay_data.loc[decay_data.index == first_below_idx, "datetime"]
+        decay_end_series = decay_data.loc[
+            decay_data.index == first_below_idx, "datetime"
+        ]
         if len(decay_end_series) > 0:
             return decay_end_series.iloc[0].to_pydatetime()
 
@@ -610,7 +637,9 @@ def run_co2_decay_analysis(
         event["decay_end"] = calculate_dynamic_decay_end(
             co2_data,
             event["decay_start"],
-            event["decay_end"],  # This is the max (2-hour) end from identify_injection_events
+            event[
+                "decay_end"
+            ],  # This is the max (2-hour) end from identify_injection_events
             threshold_ppm=DECAY_END_THRESHOLD_PPM,
         )
 

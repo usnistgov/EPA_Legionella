@@ -27,12 +27,16 @@ NIST_EPA_Legionella/
 │
 ├── src/                              # Source modules
 │   ├── __init__.py                   # Package initialization
-│   └── data_paths.py                 # Core data access utilities
+│   ├── data_paths.py                 # Core data access utilities
+│   └── co2_decay_analysis.py         # CO2 decay & air-change rate analysis
 │
 ├── scripts/                          # Executable scripts
 │   ├── download_quantaq_data.py      # Download QuantAQ sensor data
 │   ├── process_quantaq_data.py       # Process raw/final QuantAQ data
+│   ├── process_co2_log.py            # Process CO2 injection log
+│   ├── process_shower_log.py         # Process shower event log
 │   ├── quantaq_utils.py              # QuantAQ API utilities
+│   ├── plot_utils.py                 # Plotting utilities for consistent figures
 │   └── example_data_access.py        # Example usage of data utilities
 │
 ├── testing/                          # Testing and exploratory scripts
@@ -129,13 +133,34 @@ See `scripts/example_data_access.py` for more usage examples.
 
 ## Data Analysis Plan
 
-### CO2 Analysis
+### CO2 Air-Change Rate Analysis
 
-Analyze CO2 decay using a numerical approach to determine air change rates:
-- Combine three Aranet data files: Bedroom, Entry, and Outside
-- Account for time-dependent CO2 concentrations at all locations
-- Calculate average and standard deviation of lambda for 2 hours post-injection
-- Start decay calculation 10 minutes prior to the top of the hour
+Run the CO2 decay analysis to calculate air-change rates (λ):
+
+```bash
+# Basic analysis
+python src/co2_decay_analysis.py
+
+# With plots
+python src/co2_decay_analysis.py --plot
+
+# Custom parameters
+python src/co2_decay_analysis.py --alpha 0.6 --beta 0.4 --plot
+```
+
+**Methodology:**
+- Combines three Aranet4 sensor files: Bedroom, Entry, and Outside
+- Applies 6-minute rolling average to reduce sensor noise
+- Accounts for time-varying CO2 concentrations at all locations
+- Dynamically determines decay end when C_bedroom within 200 ppm of C_outside (max 2 hours)
+- Calculates λ using numerical differentiation: λ = -dC/dt / (C_source - C_bedroom)
+- Starts decay calculation 10 minutes prior to the top of the hour
+
+**Output Files:**
+- `output/co2_lambda_summary.csv` - Per-event lambda results
+- `output/co2_lambda_overall_summary.csv` - Overall statistics
+- `output/plots/event_XX_decay.png` - Individual event plots with fitted decay curves
+- `output/plots/lambda_summary.png` - Summary bar chart of all events
 
 ### QuantAQ Particle Analysis
 
@@ -173,6 +198,7 @@ From DAQ: Windspeed and Direction
 
 Key packages (see `epa_mh.yaml` for complete list):
 - pandas, numpy - Data manipulation
+- matplotlib - Publication-quality figure generation
 - bokeh - Interactive visualization
 - requests - API communication
 - pyyaml - Configuration management
