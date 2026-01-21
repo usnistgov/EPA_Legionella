@@ -1,8 +1,43 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Plotting utilities for EPA Legionella Project.
+Plotting Utilities for EPA Legionella Project
+==============================================
 
-This module provides consistent styling and helper functions for all plots
-in the project, ensuring publication-quality figures with uniform appearance.
+This module provides consistent styling and helper functions for generating
+publication-quality figures across the EPA Legionella project. All plots
+produced by this module follow a unified visual style suitable for scientific
+publications, presentations, and reports.
+
+The utilities ensure that figures maintain consistent formatting regardless
+of which analysis script generates them, facilitating professional-quality
+output for peer-reviewed publications and EPA reporting requirements.
+
+Key Functions:
+    - create_figure: Create consistently styled matplotlib figures
+    - save_figure: Save figures with proper DPI and formatting
+    - format_datetime_axis: Apply standard datetime axis formatting
+    - add_injection_marker: Add CO2 injection event markers to plots
+    - plot_co2_decay_event: Generate CO2 decay analysis plots with fitted curves
+    - plot_lambda_summary: Generate summary bar charts of air-change rates
+
+Processing Features:
+    - 300 DPI output for publication-quality resolution
+    - Clean scientific style with serif fonts and minimal grid
+    - Colorblind-friendly color palette
+    - Automatic datetime axis formatting with rotation
+    - Exponential decay curve fitting and overlay
+
+Methodology:
+    1. Apply consistent matplotlib rcParams for all figures
+    2. Create figure with specified dimensions and layout
+    3. Plot data with standardized colors, line widths, and markers
+    4. Add annotations, legends, and axis labels
+    5. Save to PNG format with tight bounding box
+
+Output Files:
+    - event_XX_decay.png: Individual CO2 decay event plots
+    - lambda_summary.png: Bar chart summary of air-change rates across events
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -197,32 +232,39 @@ def save_figure(fig, filepath: Path, close: bool = True):
 def plot_co2_decay_event(
     co2_data: pd.DataFrame,
     injection_time: datetime,
+    decay_start: datetime,
+    decay_end: datetime,
     lambda_value: float,
     lambda_std: float,
     output_path: Optional[Path] = None,
     event_number: Optional[int] = None,
     hours_before: float = 1.0,
     hours_after: float = 3.0,
+    alpha: float = 0.5,
+    beta: float = 0.5,
 ) -> Optional[Figure]:
     """
-    Plot CO2 decay data for a single injection event with calculated lambda.
+    Plot CO2 decay data for a single injection event with fitted exponential decay.
 
-    Creates a two-panel figure:
-    - Top: CO2 concentrations from all sensors
-    - Bottom: Calculated instantaneous lambda values with mean overlay
+    Shows CO2 concentrations from all sensors with the fitted exponential decay
+    curve overlaid on the bedroom data during the decay analysis window.
 
     Args:
         co2_data: DataFrame with columns: datetime, C_bedroom, C_entry, C_outside
         injection_time: Datetime of CO2 injection
+        decay_start: Start of decay analysis window
+        decay_end: End of decay analysis window
         lambda_value: Calculated mean air-change rate (h^-1)
         lambda_std: Standard deviation of lambda
         output_path: Path to save figure (optional)
         event_number: Event number for title
         hours_before: Hours before injection to include
         hours_after: Hours after injection to include
+        alpha: Fraction of infiltration from outside
+        beta: Fraction of infiltration from entry zone
 
     Returns:
-        Matplotlib figure object
+        Matplotlib figure object or None if no data
     """
     # Define time window
     window_start = injection_time - pd.Timedelta(hours=hours_before)
@@ -235,25 +277,25 @@ def plot_co2_decay_event(
     if len(plot_data) == 0:
         return None
 
-    # Create figure with two subplots
-    fig, (ax1, ax2) = create_figure(nrows=2, ncols=1, figsize=(10, 7), sharex=True)
+    # Create single-panel figure
+    fig, ax = create_figure(figsize=(10, 5))
 
-    # === Top panel: CO2 concentrations ===
-    ax1.plot(
+    # Plot CO2 concentrations
+    ax.plot(
         plot_data["datetime"],
         plot_data["C_bedroom"],
         color=COLORS["bedroom"],
         linewidth=LINE_WIDTH_DATA,
         label="Bedroom",
     )
-    ax1.plot(
+    ax.plot(
         plot_data["datetime"],
         plot_data["C_entry"],
         color=COLORS["entry"],
         linewidth=LINE_WIDTH_DATA,
         label="Entry",
     )
-    ax1.plot(
+    ax.plot(
         plot_data["datetime"],
         plot_data["C_outside"],
         color=COLORS["outside"],
@@ -261,58 +303,52 @@ def plot_co2_decay_event(
         label="Outside",
     )
 
-    add_injection_marker(ax1, injection_time)
+    # Add fitted exponential decay curve if lambda is valid
+    if not np.isnan(lambda_value):
+        fit_curve = _calculate_exponential_decay(
+            co2_data, decay_start, decay_end, lambda_value, alpha, beta
+        )
+        if fit_curve is not None and len(fit_curve) > 0:
+            ax.plot(
+                fit_curve["datetime"],
+                fit_curve["C_fit"],
+                color=COLORS["fit"],
+                linewidth=LINE_WIDTH_FIT,
+                linestyle="--",
+                label=f"Fit (λ={lambda_value:.3f}±{lambda_std:.3f} h⁻¹)",
+            )
 
-    ax1.set_ylabel("CO$_2$ Concentration (ppm)")
-    ax1.legend(loc="upper right")
-    ax1.set_ylim(bottom=0)
+    # Add markers for injection and decay window
+    add_injection_marker(ax, injection_time)
+    ax.axvline(
+        decay_start,
+        color=COLORS["lambda"],
+        linestyle=":",
+        linewidth=LINE_WIDTH_ANNOTATION,
+        alpha=0.7,
+        label="Decay window",
+    )
+    ax.axvline(
+        decay_end,
+        color=COLORS["lambda"],
+        linestyle=":",
+        linewidth=LINE_WIDTH_ANNOTATION,
+        alpha=0.7,
+    )
+
+    ax.set_ylabel("CO$_2$ Concentration (ppm)")
+    ax.set_xlabel("Time")
+    ax.legend(loc="upper right")
+    ax.set_ylim(bottom=0)
 
     # Title
     title = "CO$_2$ Decay Event"
     if event_number is not None:
         title = f"Event {event_number}: {title}"
     title += f"\n{injection_time.strftime('%Y-%m-%d %H:%M')}"
-    ax1.set_title(title)
+    ax.set_title(title)
 
-    # === Bottom panel: Lambda calculation verification ===
-    # Calculate instantaneous lambda for verification
-    lambda_series = _calculate_instantaneous_lambda(plot_data, injection_time)
-
-    if lambda_series is not None and len(lambda_series) > 0:
-        ax2.plot(
-            lambda_series["datetime"],
-            lambda_series["lambda"],
-            color=COLORS["lambda"],
-            linewidth=LINE_WIDTH_DATA,
-            alpha=0.6,
-            label="Instantaneous λ",
-        )
-
-        # Add mean lambda as horizontal line
-        if not np.isnan(lambda_value):
-            ax2.axhline(
-                lambda_value,
-                color=COLORS["fit"],
-                linewidth=LINE_WIDTH_FIT,
-                linestyle="-",
-                label=f"Mean λ = {lambda_value:.3f} ± {lambda_std:.3f} h⁻¹",
-            )
-            # Add uncertainty band
-            ax2.axhspan(
-                lambda_value - lambda_std,
-                lambda_value + lambda_std,
-                color=COLORS["fit"],
-                alpha=0.2,
-            )
-
-    add_injection_marker(ax2, injection_time)
-
-    ax2.set_ylabel("Air-Change Rate λ (h⁻¹)")
-    ax2.set_xlabel("Time")
-    ax2.set_ylim(0, 5)  # Reasonable range for ACH
-    ax2.legend(loc="upper right")
-
-    format_datetime_axis(ax2, interval_minutes=30)
+    format_datetime_axis(ax, interval_minutes=30)
 
     # Save if path provided
     if output_path is not None:
@@ -321,35 +357,39 @@ def plot_co2_decay_event(
     return fig
 
 
-def _calculate_instantaneous_lambda(
+def _calculate_exponential_decay(
     co2_data: pd.DataFrame,
-    injection_time: datetime,
+    decay_start: datetime,
+    decay_end: datetime,
+    lambda_value: float,
     alpha: float = 0.5,
     beta: float = 0.5,
 ) -> Optional[pd.DataFrame]:
     """
-    Calculate instantaneous lambda values for plotting verification.
+    Calculate fitted exponential decay curve for plotting.
+
+    Uses the equation: C(t) = C_source + (C_0 - C_source) * exp(-λ*t)
 
     Args:
         co2_data: DataFrame with CO2 concentrations
-        injection_time: Time of CO2 injection
+        decay_start: Start of decay window
+        decay_end: End of decay window
+        lambda_value: Calculated air-change rate (h^-1)
         alpha: Fraction from outside
         beta: Fraction from entry
 
     Returns:
-        DataFrame with datetime and lambda columns, or None if calculation fails
+        DataFrame with datetime and C_fit columns, or None if calculation fails
     """
-    # Only calculate for decay period (after injection + mixing)
-    decay_start = injection_time + pd.Timedelta(minutes=20)
-    mask = co2_data["datetime"] >= decay_start
+    # Filter to decay window
+    mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= decay_end)
     decay_data = co2_data[mask].copy()
 
-    if len(decay_data) < 5:
+    if len(decay_data) < 2:
         return None
 
-    c_bedroom: npt.NDArray[np.float64] = np.asarray(
-        decay_data["C_bedroom"].values, dtype=np.float64
-    )
+    # Get initial conditions
+    c_bedroom_0 = float(decay_data["C_bedroom"].iloc[0])
     c_outside: npt.NDArray[np.float64] = np.asarray(
         decay_data["C_outside"].values, dtype=np.float64
     )
@@ -357,36 +397,30 @@ def _calculate_instantaneous_lambda(
         decay_data["C_entry"].values, dtype=np.float64
     )
 
-    # Calculate source concentration
+    # Calculate source concentration (time-varying)
     c_source: npt.NDArray[np.float64] = alpha * c_outside + beta * c_entry
 
-    # Calculate dC/dt using gradient (1-minute intervals = 1/60 hour)
-    dt_hours = 1.0 / 60.0
-    dc_dt: npt.NDArray[np.float64] = np.gradient(c_bedroom, dt_hours)
-
-    # Calculate lambda: λ = -dC/dt / (C_source - C_bedroom)
-    denominator: npt.NDArray[np.float64] = c_source - c_bedroom
-    lambda_values = np.where(
-        np.abs(denominator) > 10,
-        -dc_dt / denominator,
-        np.nan,
+    # Calculate time since decay start in hours
+    t0 = decay_data["datetime"].iloc[0]
+    t_hours: npt.NDArray[np.float64] = np.asarray(
+        (decay_data["datetime"] - t0).dt.total_seconds() / 3600.0,
+        dtype=np.float64,
     )
 
-    # Filter unreasonable values
-    lambda_values = np.where(
-        (lambda_values > 0) & (lambda_values < 10),
-        lambda_values,
-        np.nan,
-    )
+    # Use mean source concentration for simplified exponential fit
+    c_source_mean = float(np.mean(c_source))
 
-    result = pd.DataFrame(
+    # Exponential decay: C(t) = C_source + (C_0 - C_source) * exp(-λ*t)
+    c_fit: npt.NDArray[np.float64] = c_source_mean + (
+        c_bedroom_0 - c_source_mean
+    ) * np.exp(-lambda_value * t_hours)
+
+    return pd.DataFrame(
         {
             "datetime": decay_data["datetime"].values,
-            "lambda": lambda_values,
+            "C_fit": c_fit,
         }
     )
-
-    return result
 
 
 def plot_lambda_summary(
