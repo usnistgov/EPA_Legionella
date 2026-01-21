@@ -76,7 +76,7 @@ DEFAULT_BETA = 0.5  # Fraction from entry zone (α + β = 1)
 # Analysis timing parameters (minutes)
 DECAY_START_OFFSET_MIN = -10  # Start 10 min before the hour (at :50)
 DECAY_DURATION_HOURS = 2  # Maximum decay analysis duration (hours)
-DECAY_END_THRESHOLD_PPM = 200  # End decay when C_bedroom within this of C_outside
+DECAY_END_THRESHOLD_PPM = 250  # End decay when C_bedroom within this of C_outside
 
 # Rolling average parameters
 ROLLING_WINDOW_MIN = 6  # Rolling average window (minutes)
@@ -314,7 +314,8 @@ def identify_injection_events(co2_log: pd.DataFrame) -> list[dict]:
             decay_start = hour_after_injection + timedelta(
                 minutes=DECAY_START_OFFSET_MIN
             )
-            decay_end = hour_after_injection + timedelta(hours=DECAY_DURATION_HOURS)
+            # Max decay end is DECAY_DURATION_HOURS after decay_start (not hour_after_injection)
+            decay_end = decay_start + timedelta(hours=DECAY_DURATION_HOURS)
 
             events.append(
                 {
@@ -491,7 +492,9 @@ def calculate_lambda_numerical(
     valid_mask = np.abs(denominator) > min_denominator
 
     lambda_values = np.full_like(dc_dt, np.nan)
-    lambda_values[valid_mask] = -dc_dt[valid_mask] / denominator[valid_mask]
+    # Correct formula: λ = dC/dt / (C_source - C_bedroom)
+    # During decay: dC/dt < 0, denominator < 0, so λ > 0
+    lambda_values[valid_mask] = dc_dt[valid_mask] / denominator[valid_mask]
 
     # Filter out negative or unreasonably high lambda values
     reasonable_mask = (lambda_values > 0) & (lambda_values < 10)

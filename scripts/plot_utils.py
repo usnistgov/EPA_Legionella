@@ -303,12 +303,23 @@ def plot_co2_decay_event(
         label="Outside",
     )
 
-    # Add fitted exponential decay curve if lambda is valid
+    # Add fitted exponential decay curve with uncertainty band if lambda is valid
     if not np.isnan(lambda_value):
         fit_curve = _calculate_exponential_decay(
-            co2_data, decay_start, decay_end, lambda_value, alpha, beta
+            co2_data, decay_start, decay_end, lambda_value, lambda_std, alpha, beta
         )
         if fit_curve is not None and len(fit_curve) > 0:
+            # Plot uncertainty band based on calculated λ standard deviation
+            if not np.isnan(lambda_std) and lambda_std > 0:
+                ax.fill_between(
+                    fit_curve["datetime"],
+                    fit_curve["C_fit_lower"],
+                    fit_curve["C_fit_upper"],
+                    color=COLORS["fit"],
+                    alpha=0.2,
+                    label=f"Fit uncertainty (±{lambda_std:.3f} h⁻¹)",
+                )
+            # Plot the mean fit line
             ax.plot(
                 fit_curve["datetime"],
                 fit_curve["C_fit"],
@@ -362,24 +373,31 @@ def _calculate_exponential_decay(
     decay_start: datetime,
     decay_end: datetime,
     lambda_value: float,
+    lambda_std: float = 0.0,
     alpha: float = 0.5,
     beta: float = 0.5,
 ) -> Optional[pd.DataFrame]:
     """
-    Calculate fitted exponential decay curve for plotting.
+    Calculate fitted exponential decay curve with uncertainty bounds for plotting.
 
     Uses the equation: C(t) = C_source + (C_0 - C_source) * exp(-λ*t)
+
+    Uncertainty bounds are calculated using λ ± σ:
+        - Upper bound (slower decay): λ - σ
+        - Lower bound (faster decay): λ + σ
 
     Args:
         co2_data: DataFrame with CO2 concentrations
         decay_start: Start of decay window
         decay_end: End of decay window
         lambda_value: Calculated air-change rate (h^-1)
+        lambda_std: Standard deviation of lambda for uncertainty bounds
         alpha: Fraction from outside
         beta: Fraction from entry
 
     Returns:
-        DataFrame with datetime and C_fit columns, or None if calculation fails
+        DataFrame with datetime, C_fit, C_fit_upper, C_fit_lower columns,
+        or None if calculation fails
     """
     # Filter to decay window
     mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= decay_end)
@@ -411,14 +429,29 @@ def _calculate_exponential_decay(
     c_source_mean = float(np.mean(c_source))
 
     # Exponential decay: C(t) = C_source + (C_0 - C_source) * exp(-λ*t)
-    c_fit: npt.NDArray[np.float64] = c_source_mean + (
-        c_bedroom_0 - c_source_mean
-    ) * np.exp(-lambda_value * t_hours)
+    delta_c = c_bedroom_0 - c_source_mean
+    c_fit: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(
+        -lambda_value * t_hours
+    )
+
+    # Calculate uncertainty bounds using λ ± σ
+    # Ensure lambda bounds stay positive
+    lambda_upper = max(lambda_value - lambda_std, 0.001)  # Slower decay → upper bound
+    lambda_lower = lambda_value + lambda_std  # Faster decay → lower bound
+
+    c_fit_upper: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(
+        -lambda_upper * t_hours
+    )
+    c_fit_lower: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(
+        -lambda_lower * t_hours
+    )
 
     return pd.DataFrame(
         {
             "datetime": decay_data["datetime"].values,
             "C_fit": c_fit,
+            "C_fit_upper": c_fit_upper,
+            "C_fit_lower": c_fit_lower,
         }
     )
 
