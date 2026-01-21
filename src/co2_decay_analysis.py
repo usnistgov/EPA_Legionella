@@ -54,7 +54,11 @@ DEFAULT_BETA = 0.5  # Fraction from entry zone (α + β = 1)
 
 # Analysis timing parameters (minutes)
 DECAY_START_OFFSET_MIN = -10  # Start 10 min before the hour (at :50)
-DECAY_DURATION_HOURS = 2  # Analyze 2 hours of decay
+DECAY_DURATION_HOURS = 2  # Maximum decay analysis duration (hours)
+DECAY_END_THRESHOLD_PPM = 200  # End decay when C_bedroom within this of C_outside
+
+# Rolling average parameters
+ROLLING_WINDOW_MIN = 6  # Rolling average window (minutes)
 
 # =============================================================================
 # Data Loading Functions
@@ -191,10 +195,19 @@ def load_and_merge_co2_data() -> pd.DataFrame:
     merged = merged.resample("1min").mean()
     merged = merged.interpolate(method="linear", limit=5)
 
+    # Apply rolling average to reduce noise
+    co2_cols = ["C_bedroom", "C_entry", "C_outside"]
+    for col in co2_cols:
+        if col in merged.columns:
+            merged[col] = (
+                merged[col].rolling(window=ROLLING_WINDOW_MIN, center=True, min_periods=1).mean()
+            )
+
     merged = merged.reset_index()
 
     print(f"\nMerged data: {len(merged)} rows")
     print(f"Date range: {merged['datetime'].min()} to {merged['datetime'].max()}")
+    print(f"Applied {ROLLING_WINDOW_MIN}-minute rolling average to CO2 data")
 
     return merged
 
@@ -291,6 +304,49 @@ def identify_injection_events(co2_log: pd.DataFrame) -> list[dict]:
             )
 
     return events
+
+
+def calculate_dynamic_decay_end(
+    co2_data: pd.DataFrame,
+    decay_start: datetime,
+    max_decay_end: datetime,
+    threshold_ppm: float = DECAY_END_THRESHOLD_PPM,
+) -> datetime:
+    """
+    Calculate the decay end time based on when bedroom CO2 approaches outside level.
+
+    The decay ends when C_bedroom is within threshold_ppm of C_outside,
+    or at max_decay_end, whichever comes first.
+
+    Args:
+        co2_data: DataFrame with CO2 concentrations
+        decay_start: Start of decay analysis window
+        max_decay_end: Maximum end time (fallback)
+        threshold_ppm: End when C_bedroom - C_outside < threshold_ppm
+
+    Returns:
+        Calculated decay end datetime
+    """
+    # Filter data to the decay window
+    mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= max_decay_end)
+    decay_data = co2_data[mask].copy()
+
+    if len(decay_data) == 0:
+        return max_decay_end
+
+    # Find when bedroom CO2 is within threshold of outside
+    diff = decay_data["C_bedroom"] - decay_data["C_outside"]
+
+    # Find first point where difference drops below threshold
+    below_threshold = diff < threshold_ppm
+    if below_threshold.any():
+        first_below_idx = below_threshold.idxmax()
+        # Get the datetime value and convert properly
+        decay_end_series = decay_data.loc[decay_data.index == first_below_idx, "datetime"]
+        if len(decay_end_series) > 0:
+            return decay_end_series.iloc[0].to_pydatetime()
+
+    return max_decay_end
 
 
 # =============================================================================
@@ -549,6 +605,15 @@ def run_co2_decay_analysis(
     events = identify_injection_events(co2_log)
     print(f"Found {len(events)} injection events")
 
+    # Calculate dynamic decay end for each event
+    for event in events:
+        event["decay_end"] = calculate_dynamic_decay_end(
+            co2_data,
+            event["decay_start"],
+            event["decay_end"],  # This is the max (2-hour) end from identify_injection_events
+            threshold_ppm=DECAY_END_THRESHOLD_PPM,
+        )
+
     # Analyze each event
     print("\nAnalyzing injection events...")
     results = []
@@ -576,10 +641,14 @@ def run_co2_decay_analysis(
                 plot_co2_decay_event(
                     co2_data=co2_data,
                     injection_time=event["injection_start"],
+                    decay_start=event["decay_start"],
+                    decay_end=event["decay_end"],
                     lambda_value=result["lambda_average_mean"],
                     lambda_std=result["lambda_average_std"],
                     output_path=plot_path,
                     event_number=i + 1,
+                    alpha=alpha,
+                    beta=beta,
                 )
         else:
             skip_reason = result.get("skip_reason", "Unknown reason")
