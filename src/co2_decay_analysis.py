@@ -22,7 +22,7 @@ Key Metrics Calculated:
 
 Analysis Features:
     - 6-minute rolling average applied to reduce sensor noise
-    - Dynamic decay window ending when C_bedroom within 200 ppm of C_outside
+    - Dynamic decay window ending when C_bedroom within 250 ppm of average C_outside and C_entry
     - Maximum 2-hour decay analysis window as fallback
     - Three source concentration methods for uncertainty assessment
     - Automatic detection and reporting of skipped events with reasons
@@ -360,8 +360,10 @@ def calculate_dynamic_decay_end(
     if len(decay_data) == 0:
         return max_decay_end
 
-    # Find when bedroom CO2 is within threshold of outside
-    diff = decay_data["C_bedroom"] - decay_data["C_outside"]
+    # Find when bedroom CO2 is within threshold of the average between outside and entry
+    diff = (
+        decay_data["C_bedroom"] - (decay_data["C_outside"] + decay_data["C_entry"]) / 2
+    )
 
     # Find first point where difference drops below threshold
     below_threshold = diff < threshold_ppm
