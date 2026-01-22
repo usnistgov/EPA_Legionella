@@ -18,8 +18,12 @@ Key Functions:
     - save_figure: Save figures with proper DPI and formatting
     - format_datetime_axis: Apply standard datetime axis formatting
     - add_injection_marker: Add CO2 injection event markers to plots
+    - add_shower_markers: Add shower ON/OFF event markers to plots
     - plot_co2_decay_event: Generate CO2 decay analysis plots with fitted curves
     - plot_lambda_summary: Generate summary bar charts of air-change rates
+    - plot_environmental_time_series: Time series plots for RH/Temp/Wind data
+    - plot_pre_post_comparison: Box plots comparing pre vs post shower periods
+    - plot_sensor_comparison_bars: Bar charts comparing sensor readings
 
 Processing Features:
     - 300 DPI output for publication-quality resolution
@@ -27,6 +31,7 @@ Processing Features:
     - Colorblind-friendly color palette
     - Automatic datetime axis formatting with rotation
     - Exponential decay curve fitting and overlay
+    - Shower event annotation support
 
 Methodology:
     1. Apply consistent matplotlib rcParams for all figures
@@ -38,6 +43,11 @@ Methodology:
 Output Files:
     - event_XX_decay.png: Individual CO2 decay event plots
     - lambda_summary.png: Bar chart summary of air-change rates across events
+    - event_XX_rh_timeseries.png: RH time series around shower events
+    - event_XX_temp_timeseries.png: Temperature time series around shower events
+    - event_XX_wind_timeseries.png: Wind data time series around shower events
+    - rh_pre_post_boxplot.png: Box plot comparing pre/post shower RH
+    - temp_pre_post_boxplot.png: Box plot comparing pre/post shower temperature
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -80,7 +90,32 @@ COLORS = {
     "fit": "#9467bd",  # Purple
     "injection": "#e377c2",  # Pink
     "grid": "#cccccc",
+    # Extended palette for environmental sensors
+    "inside": "#17becf",  # Cyan
+    "living": "#bcbd22",  # Yellow-green
+    "family": "#8c564b",  # Brown
+    "bathroom": "#e377c2",  # Pink
+    "shower_on": "#d62728",  # Red
+    "shower_off": "#2ca02c",  # Green
+    "pre_shower": "#1f77b4",  # Blue
+    "post_shower": "#ff7f0e",  # Orange
+    "wind_speed": "#9467bd",  # Purple
+    "wind_direction": "#17becf",  # Cyan
 }
+
+# Extended color list for multi-sensor plots
+SENSOR_COLORS = [
+    "#1f77b4",  # Blue
+    "#ff7f0e",  # Orange
+    "#2ca02c",  # Green
+    "#d62728",  # Red
+    "#9467bd",  # Purple
+    "#8c564b",  # Brown
+    "#e377c2",  # Pink
+    "#7f7f7f",  # Gray
+    "#bcbd22",  # Yellow-green
+    "#17becf",  # Cyan
+]
 
 # Line styles
 LINE_WIDTH_DATA = 1.5
@@ -527,6 +562,355 @@ def plot_lambda_summary(
     ax.set_xticks(list(events))
     ax.legend(loc="upper right")
     ax.set_ylim(bottom=0)
+
+    if output_path is not None:
+        save_figure(fig, output_path, close=False)
+
+    return fig
+
+
+# =============================================================================
+# Environmental Data Plots (RH, Temperature, Wind)
+# =============================================================================
+
+
+def add_shower_markers(
+    ax,
+    shower_on: datetime,
+    shower_off: datetime,
+    label_on: str = "Shower ON",
+    label_off: str = "Shower OFF",
+):
+    """
+    Add vertical lines marking shower start and end times.
+
+    Args:
+        ax: Matplotlib axes object
+        shower_on: Datetime when shower turned on
+        shower_off: Datetime when shower turned off
+        label_on: Label for shower start
+        label_off: Label for shower end
+    """
+    ax.axvline(
+        shower_on,
+        color=COLORS["shower_on"],
+        linestyle="--",
+        linewidth=LINE_WIDTH_ANNOTATION,
+        label=label_on,
+        alpha=0.8,
+    )
+    ax.axvline(
+        shower_off,
+        color=COLORS["shower_off"],
+        linestyle="--",
+        linewidth=LINE_WIDTH_ANNOTATION,
+        label=label_off,
+        alpha=0.8,
+    )
+
+
+def add_analysis_windows(
+    ax,
+    pre_start: datetime,
+    pre_end: datetime,
+    post_start: datetime,
+    post_end: datetime,
+    alpha: float = 0.1,
+):
+    """
+    Add shaded regions indicating pre and post shower analysis windows.
+
+    Args:
+        ax: Matplotlib axes object
+        pre_start: Start of pre-shower window
+        pre_end: End of pre-shower window (shower ON time)
+        post_start: Start of post-shower window (shower OFF time)
+        post_end: End of post-shower window
+        alpha: Transparency for shaded regions
+    """
+    ax.axvspan(pre_start, pre_end, alpha=alpha, color=COLORS["pre_shower"],
+               label="Pre-shower (30 min)")
+    ax.axvspan(post_start, post_end, alpha=alpha, color=COLORS["post_shower"],
+               label="Post-shower (2 hr)")
+
+
+def plot_environmental_time_series(
+    data_dict: dict,
+    shower_on: datetime,
+    shower_off: datetime,
+    variable_type: str,
+    output_path: Optional[Path] = None,
+    event_number: Optional[int] = None,
+    hours_before: float = 1.0,
+    hours_after: float = 3.0,
+    show_windows: bool = True,
+) -> Optional[Figure]:
+    """
+    Plot time series of environmental data (RH, Temperature, or Wind) around a shower event.
+
+    Args:
+        data_dict: Dictionary of {sensor_name: DataFrame} with 'datetime' and value columns
+        shower_on: Datetime when shower turned on
+        shower_off: Datetime when shower turned off
+        variable_type: Type of variable ('rh', 'temperature', or 'wind')
+        output_path: Path to save figure (optional)
+        event_number: Event number for title
+        hours_before: Hours before shower ON to include
+        hours_after: Hours after shower OFF to include
+        show_windows: If True, shade pre/post analysis windows
+
+    Returns:
+        Matplotlib figure object or None if no data
+    """
+    # Define time window
+    window_start = shower_on - pd.Timedelta(hours=hours_before)
+    window_end = shower_off + pd.Timedelta(hours=hours_after)
+
+    # Variable-specific settings
+    var_settings = {
+        "rh": {
+            "ylabel": "Relative Humidity (%)",
+            "title_base": "Relative Humidity",
+            "value_col_pattern": ["rh", "humidity", "RH"],
+        },
+        "temperature": {
+            "ylabel": "Temperature (\u00b0C)",
+            "title_base": "Temperature",
+            "value_col_pattern": ["temp", "temperature", "T_"],
+        },
+        "wind": {
+            "ylabel": "Value",
+            "title_base": "Wind Data",
+            "value_col_pattern": ["wind", "Wind"],
+        },
+    }
+
+    settings = var_settings.get(variable_type, var_settings["rh"])
+
+    # Create figure
+    fig, ax = create_figure(figsize=(12, 6))
+
+    # Plot each sensor
+    plotted_any = False
+    for i, (sensor_name, df) in enumerate(data_dict.items()):
+        if df is None or df.empty:
+            continue
+
+        # Filter to time window
+        if "datetime" not in df.columns:
+            continue
+
+        mask = (df["datetime"] >= window_start) & (df["datetime"] <= window_end)
+        plot_data = df[mask].copy()
+
+        if len(plot_data) == 0:
+            continue
+
+        # Find value column
+        value_col = None
+        for col in plot_data.columns:
+            if col != "datetime":
+                for pattern in settings["value_col_pattern"]:
+                    if pattern.lower() in col.lower():
+                        value_col = col
+                        break
+                if value_col:
+                    break
+        if value_col is None:
+            # Use first non-datetime column
+            non_dt_cols = [c for c in plot_data.columns if c != "datetime"]
+            if non_dt_cols:
+                value_col = non_dt_cols[0]
+
+        if value_col is None:
+            continue
+
+        color = SENSOR_COLORS[i % len(SENSOR_COLORS)]
+        ax.plot(
+            plot_data["datetime"],
+            plot_data[value_col],
+            color=color,
+            linewidth=LINE_WIDTH_DATA,
+            label=sensor_name,
+            alpha=0.8,
+        )
+        plotted_any = True
+
+    if not plotted_any:
+        plt.close(fig)
+        return None
+
+    # Add shower markers
+    add_shower_markers(ax, shower_on, shower_off)
+
+    # Add analysis window shading
+    if show_windows:
+        pre_start = shower_on - pd.Timedelta(minutes=30)
+        post_end = shower_off + pd.Timedelta(hours=2)
+        add_analysis_windows(ax, pre_start, shower_on, shower_off, post_end)
+
+    # Formatting
+    ax.set_ylabel(settings["ylabel"])
+    ax.set_xlabel("Time")
+    ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND - 1, ncol=2)
+
+    # Title
+    title = settings["title_base"]
+    if event_number is not None:
+        title = f"Event {event_number}: {title}"
+    title += f"\n{shower_on.strftime('%Y-%m-%d')}"
+    ax.set_title(title)
+
+    format_datetime_axis(ax, interval_minutes=30)
+
+    if output_path is not None:
+        save_figure(fig, output_path, close=False)
+
+    return fig
+
+
+def plot_pre_post_comparison(
+    pre_data: dict,
+    post_data: dict,
+    variable_type: str,
+    output_path: Optional[Path] = None,
+    title_suffix: str = "",
+) -> Figure:
+    """
+    Create box plots comparing pre-shower vs post-shower distributions for each sensor.
+
+    Args:
+        pre_data: Dictionary of {sensor_name: array of pre-shower values}
+        post_data: Dictionary of {sensor_name: array of post-shower values}
+        variable_type: Type of variable ('rh', 'temperature', or 'wind')
+        output_path: Path to save figure (optional)
+        title_suffix: Additional text for title
+
+    Returns:
+        Matplotlib figure object
+    """
+    var_settings = {
+        "rh": {"ylabel": "Relative Humidity (%)", "title_base": "Relative Humidity"},
+        "temperature": {"ylabel": "Temperature (\u00b0C)", "title_base": "Temperature"},
+        "wind_speed": {"ylabel": "Wind Speed (m/s)", "title_base": "Wind Speed"},
+        "wind_direction": {"ylabel": "Wind Direction (\u00b0)", "title_base": "Wind Direction"},
+    }
+    settings = var_settings.get(variable_type, {"ylabel": "Value", "title_base": variable_type})
+
+    # Get sensors that have both pre and post data
+    sensors = [s for s in pre_data.keys() if s in post_data]
+    if not sensors:
+        fig, ax = create_figure(figsize=(10, 6))
+        ax.text(0.5, 0.5, "No data available", ha="center", va="center", transform=ax.transAxes)
+        return fig
+
+    n_sensors = len(sensors)
+    fig, ax = create_figure(figsize=(max(10, n_sensors * 0.8), 6))
+
+    positions_pre = np.arange(n_sensors) * 2
+    positions_post = positions_pre + 0.7
+
+    # Prepare data for boxplots
+    pre_values = [np.array(pre_data[s]) for s in sensors]
+    post_values = [np.array(post_data[s]) for s in sensors]
+
+    # Filter out empty arrays
+    valid_pre = [(i, v) for i, v in enumerate(pre_values) if len(v) > 0]
+    valid_post = [(i, v) for i, v in enumerate(post_values) if len(v) > 0]
+
+    if valid_pre:
+        bp_pre = ax.boxplot(
+            [v for _, v in valid_pre],
+            positions=[positions_pre[i] for i, _ in valid_pre],
+            widths=0.6,
+            patch_artist=True,
+        )
+        for patch in bp_pre["boxes"]:
+            patch.set_facecolor(COLORS["pre_shower"])
+            patch.set_alpha(0.7)
+
+    if valid_post:
+        bp_post = ax.boxplot(
+            [v for _, v in valid_post],
+            positions=[positions_post[i] for i, _ in valid_post],
+            widths=0.6,
+            patch_artist=True,
+        )
+        for patch in bp_post["boxes"]:
+            patch.set_facecolor(COLORS["post_shower"])
+            patch.set_alpha(0.7)
+
+    # Labels and formatting
+    ax.set_xticks(positions_pre + 0.35)
+    ax.set_xticklabels(sensors, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
+    ax.set_ylabel(settings["ylabel"])
+    ax.set_title(f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}")
+
+    # Legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=COLORS["pre_shower"], alpha=0.7, label="Pre-shower (30 min)"),
+        Patch(facecolor=COLORS["post_shower"], alpha=0.7, label="Post-shower (2 hr)"),
+    ]
+    ax.legend(handles=legend_elements, loc="upper right")
+
+    plt.tight_layout()
+
+    if output_path is not None:
+        save_figure(fig, output_path, close=False)
+
+    return fig
+
+
+def plot_sensor_summary_bars(
+    summary_data: pd.DataFrame,
+    metric_col: str,
+    error_col: Optional[str] = None,
+    variable_type: str = "rh",
+    output_path: Optional[Path] = None,
+    title: Optional[str] = None,
+) -> Figure:
+    """
+    Create bar chart of summary statistics across sensors.
+
+    Args:
+        summary_data: DataFrame with sensor names as index and metric columns
+        metric_col: Column name for the main metric to plot
+        error_col: Column name for error bars (optional)
+        variable_type: Type of variable for y-axis label
+        output_path: Path to save figure (optional)
+        title: Custom title (optional)
+
+    Returns:
+        Matplotlib figure object
+    """
+    var_settings = {
+        "rh": {"ylabel": "Relative Humidity (%)"},
+        "temperature": {"ylabel": "Temperature (\u00b0C)"},
+        "wind_speed": {"ylabel": "Wind Speed (m/s)"},
+        "wind_direction": {"ylabel": "Wind Direction (\u00b0)"},
+    }
+    settings = var_settings.get(variable_type, {"ylabel": "Value"})
+
+    n_sensors = len(summary_data)
+    fig, ax = create_figure(figsize=(max(10, n_sensors * 0.6), 6))
+
+    x = np.arange(n_sensors)
+    values = summary_data[metric_col].values
+    errors = summary_data[error_col].values if error_col and error_col in summary_data else None
+
+    colors = [SENSOR_COLORS[i % len(SENSOR_COLORS)] for i in range(n_sensors)]
+
+    ax.bar(x, values, yerr=errors, capsize=3, color=colors, alpha=0.8)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(summary_data.index, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
+    ax.set_ylabel(settings["ylabel"])
+
+    if title:
+        ax.set_title(title)
+
+    plt.tight_layout()
 
     if output_path is not None:
         save_figure(fig, output_path, close=False)
