@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Example script demonstrating data path utilities for EPA Legionella Project.
 

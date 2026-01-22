@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Script to download QuantAQ MODULAIR-PM data for indoor/outdoor sensors.
 

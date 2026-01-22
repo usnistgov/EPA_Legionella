@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Process CO2 injection log files into a consolidated state-change log.
 
@@ -24,7 +26,7 @@ import pandas as pd
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.data_paths import get_data_root, get_common_file, get_common_file_config
+from src.data_paths import get_common_file, get_common_file_config, get_data_root
 
 
 def parse_mixed_delimiter_file(filepath):
