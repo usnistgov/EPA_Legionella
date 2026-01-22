@@ -361,20 +361,18 @@ def calculate_dynamic_decay_end(
         return max_decay_end
 
     # Find when bedroom CO2 is within threshold of the average between outside and entry
-    diff = (
-        decay_data["C_bedroom"] - (decay_data["C_outside"] + decay_data["C_entry"]) / 2
-    )
+    source_avg = (decay_data["C_outside"] + decay_data["C_entry"]).div(2)
+    diff = decay_data["C_bedroom"] - source_avg
 
     # Find first point where difference drops below threshold
     below_threshold = diff < threshold_ppm
     if below_threshold.any():
         first_below_idx = below_threshold.idxmax()
-        # Get the datetime value and convert properly
-        decay_end_series = decay_data.loc[
-            decay_data.index == first_below_idx, "datetime"
-        ]
-        if len(decay_end_series) > 0:
-            return decay_end_series.iloc[0].to_pydatetime()
+        # Get the datetime value using scalar access and convert to datetime
+        decay_end_value = decay_data.at[first_below_idx, "datetime"]
+        if isinstance(decay_end_value, datetime):
+            return decay_end_value
+        return pd.Timestamp(str(decay_end_value)).to_pydatetime()
 
     return max_decay_end
 
