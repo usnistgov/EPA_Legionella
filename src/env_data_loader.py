@@ -133,12 +133,6 @@ SENSOR_CONFIG = {
         "column": "RH_MBa_M3_C5",
         "variable_type": "rh",
     },
-    "Vaisala Out RH": {
-        "instrument": "Vaisala_HMP45A",
-        "location": "DAQ",
-        "column": "RH_Out_M4_C2",
-        "variable_type": "rh",
-    },
     # DAQ Vaisala HMP155 Temperature sensors
     "Vaisala Bed1 Temp": {
         "instrument": "Vaisala_HMP155",
@@ -163,12 +157,6 @@ SENSOR_CONFIG = {
         "instrument": "Vaisala_HMP45A",
         "location": "DAQ",
         "column": "T_MBa_M5_C1",
-        "variable_type": "temperature",
-    },
-    "Vaisala Out Temp": {
-        "instrument": "Vaisala_HMP45A",
-        "location": "DAQ",
-        "column": "T_Out_M5_C6",
         "variable_type": "temperature",
     },
     # AIO2 Wind sensors
@@ -254,13 +242,15 @@ def identify_shower_events(
             post_end = shower_off + timedelta(hours=post_shower_hours)
             duration_min = (shower_off - shower_on).total_seconds() / 60
 
-            events.append({
-                "shower_on": shower_on,
-                "shower_off": shower_off,
-                "duration_min": duration_min,
-                "pre_start": pre_start,
-                "post_end": post_end,
-            })
+            events.append(
+                {
+                    "shower_on": shower_on,
+                    "shower_off": shower_off,
+                    "duration_min": duration_min,
+                    "pre_start": pre_start,
+                    "post_end": post_end,
+                }
+            )
 
         i += 1
 
@@ -524,6 +514,7 @@ def get_sensors_by_type(variable_type: str) -> Dict:
         Dict of {sensor_name: config} for matching sensors
     """
     return {
-        name: cfg for name, cfg in SENSOR_CONFIG.items()
+        name: cfg
+        for name, cfg in SENSOR_CONFIG.items()
         if cfg["variable_type"] == variable_type
     }
