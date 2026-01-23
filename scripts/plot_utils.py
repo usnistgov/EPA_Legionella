@@ -140,6 +140,7 @@ def apply_style():
             "legend.fontsize": FONT_SIZE_LEGEND,
             # Figure settings
             "figure.dpi": FIGURE_DPI,
+            "figure.max_open_warning": 100,  # Suppress warning for many open figures
             "savefig.dpi": FIGURE_DPI,
             "savefig.format": FIGURE_FORMAT,
             "savefig.bbox": "tight",
@@ -628,10 +629,20 @@ def add_analysis_windows(
         post_end: End of post-shower window
         alpha: Transparency for shaded regions
     """
-    ax.axvspan(pre_start, pre_end, alpha=alpha, color=COLORS["pre_shower"],
-               label="Pre-shower (30 min)")
-    ax.axvspan(post_start, post_end, alpha=alpha, color=COLORS["post_shower"],
-               label="Post-shower (2 hr)")
+    ax.axvspan(
+        pre_start,
+        pre_end,
+        alpha=alpha,
+        color=COLORS["pre_shower"],
+        label="Pre-shower (30 min)",
+    )
+    ax.axvspan(
+        post_start,
+        post_end,
+        alpha=alpha,
+        color=COLORS["post_shower"],
+        label="Post-shower (2 hr)",
+    )
 
 
 def plot_environmental_time_series(
@@ -721,7 +732,9 @@ def plot_environmental_time_series(
                 continue
 
             # Determine if this is speed or direction based on sensor name or column
-            is_direction = "direction" in sensor_name.lower() or "direction" in value_col.lower()
+            is_direction = (
+                "direction" in sensor_name.lower() or "direction" in value_col.lower()
+            )
 
             if is_direction:
                 ax2.plot(
@@ -769,8 +782,8 @@ def plot_environmental_time_series(
         # Get shower marker handles
         lines_shower, labels_shower = ax.get_legend_handles_labels()
         # Filter out previously added lines
-        shower_lines = lines_shower[len(lines1):]
-        shower_labels = labels_shower[len(labels1):]
+        shower_lines = lines_shower[len(lines1) :]
+        shower_labels = labels_shower[len(labels1) :]
 
         ax.legend(
             lines1 + lines2 + shower_lines,
@@ -882,15 +895,27 @@ def plot_pre_post_comparison(
         "rh": {"ylabel": "Relative Humidity (%)", "title_base": "Relative Humidity"},
         "temperature": {"ylabel": "Temperature (\u00b0C)", "title_base": "Temperature"},
         "wind_speed": {"ylabel": "Wind Speed (m/s)", "title_base": "Wind Speed"},
-        "wind_direction": {"ylabel": "Wind Direction (\u00b0)", "title_base": "Wind Direction"},
+        "wind_direction": {
+            "ylabel": "Wind Direction (\u00b0)",
+            "title_base": "Wind Direction",
+        },
     }
-    settings = var_settings.get(variable_type, {"ylabel": "Value", "title_base": variable_type})
+    settings = var_settings.get(
+        variable_type, {"ylabel": "Value", "title_base": variable_type}
+    )
 
     # Get sensors that have both pre and post data
     sensors = [s for s in pre_data.keys() if s in post_data]
     if not sensors:
         fig, ax = create_figure(figsize=(10, 6))
-        ax.text(0.5, 0.5, "No data available", ha="center", va="center", transform=ax.transAxes)
+        ax.text(
+            0.5,
+            0.5,
+            "No data available",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
         return fig
 
     n_sensors = len(sensors)
@@ -933,10 +958,13 @@ def plot_pre_post_comparison(
     ax.set_xticks(positions_pre + 0.35)
     ax.set_xticklabels(sensors, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
     ax.set_ylabel(settings["ylabel"])
-    ax.set_title(f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}")
+    ax.set_title(
+        f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}"
+    )
 
     # Legend
     from matplotlib.patches import Patch
+
     legend_elements = [
         Patch(facecolor=COLORS["pre_shower"], alpha=0.7, label="Pre-shower (30 min)"),
         Patch(facecolor=COLORS["post_shower"], alpha=0.7, label="Post-shower (2 hr)"),
@@ -986,14 +1014,20 @@ def plot_sensor_summary_bars(
 
     x = np.arange(n_sensors)
     values = summary_data[metric_col].values
-    errors = summary_data[error_col].values if error_col and error_col in summary_data else None
+    errors = (
+        summary_data[error_col].values
+        if error_col and error_col in summary_data
+        else None
+    )
 
     colors = [SENSOR_COLORS[i % len(SENSOR_COLORS)] for i in range(n_sensors)]
 
     ax.bar(x, values, yerr=errors, capsize=3, color=colors, alpha=0.8)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(summary_data.index, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
+    ax.set_xticklabels(
+        summary_data.index, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1
+    )
     ax.set_ylabel(settings["ylabel"])
 
     if title:

@@ -129,7 +129,7 @@ def load_all_aranet_files(location: str) -> pd.DataFrame:
 
     # Get the file pattern for this location
     location_config = config["locations"].get(location, {})
-    file_pattern = location_config.get("file_pattern", f"{location}_*_week.xlsx")
+    file_pattern = location_config.get("file_pattern", f"{location}_*_all.xlsx")
 
     # Find all matching files
     files = sorted(base_path.glob(file_pattern))
