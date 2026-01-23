@@ -90,6 +90,35 @@ from src.env_data_loader import (  # noqa: E402
 PRE_SHOWER_MINUTES = 30  # Minutes before shower ON for baseline
 POST_SHOWER_HOURS = 2  # Hours after shower OFF for analysis
 
+# Custom display order for RH and Temperature sensors (indoor to outdoor)
+# This order is used for bar charts and boxplots
+SENSOR_DISPLAY_ORDER = [
+    "Vaisala MBa",
+    "Vaisala Bed1",
+    "Aranet4 Bedroom",
+    "QuantAQ Inside",
+    "Vaisala Liv",
+    "Aranet4 Entry",
+    "Aranet4 Outside",
+    "QuantAQ Outside",
+]
+
+
+def get_sensor_sort_key(sensor_name: str) -> int:
+    """
+    Get sort key for a sensor based on the display order.
+
+    Args:
+        sensor_name: Full sensor name (e.g., "Vaisala MBa RH")
+
+    Returns:
+        Integer sort key (lower = displayed first)
+    """
+    for i, prefix in enumerate(SENSOR_DISPLAY_ORDER):
+        if sensor_name.startswith(prefix):
+            return i
+    return len(SENSOR_DISPLAY_ORDER)  # Unknown sensors go last
+
 
 # =============================================================================
 # Statistical Analysis Functions
@@ -191,11 +220,14 @@ def create_summary_dataframe(
         for name, cfg in SENSOR_CONFIG.items()
         if cfg["variable_type"] == variable_type
     ]
+    # Sort sensors by display order for RH and temperature
+    if variable_type in ("rh", "temperature"):
+        sensors = sorted(sensors, key=get_sensor_sort_key)
 
     rows = []
     for sensor_name in sensors:
-        pre_means, pre_stds = [], []
-        post_means, post_stds, post_ranges = [], [], []
+        pre_means, pre_stds, pre_maxs = [], [], []
+        post_means, post_stds, post_maxs, post_ranges = [], [], [], []
 
         for event_results in all_results:
             if sensor_name in event_results:
@@ -203,17 +235,21 @@ def create_summary_dataframe(
                 if not np.isnan(stats["pre"]["mean"]):
                     pre_means.append(stats["pre"]["mean"])
                     pre_stds.append(stats["pre"]["std"])
+                    pre_maxs.append(stats["pre"]["max"])
                 if not np.isnan(stats["post"]["mean"]):
                     post_means.append(stats["post"]["mean"])
                     post_stds.append(stats["post"]["std"])
+                    post_maxs.append(stats["post"]["max"])
                     post_ranges.append(stats["post"]["range"])
 
         row = {
             "Sensor": sensor_name,
             "Pre_Mean": np.mean(pre_means) if pre_means else np.nan,
             "Pre_Std": np.mean(pre_stds) if pre_stds else np.nan,
+            "Pre_Max": np.mean(pre_maxs) if pre_maxs else np.nan,
             "Post_Mean": np.mean(post_means) if post_means else np.nan,
             "Post_Std": np.mean(post_stds) if post_stds else np.nan,
+            "Post_Max": np.mean(post_maxs) if post_maxs else np.nan,
             "Post_Range": np.mean(post_ranges) if post_ranges else np.nan,
             "N_Events": len(pre_means),
         }
@@ -241,6 +277,9 @@ def create_event_details_dataframe(
         for name, cfg in SENSOR_CONFIG.items()
         if cfg["variable_type"] == variable_type
     ]
+    # Sort sensors by display order for RH and temperature
+    if variable_type in ("rh", "temperature"):
+        sensors = sorted(sensors, key=get_sensor_sort_key)
 
     rows = []
     for i, (event, results) in enumerate(zip(events, all_results)):
@@ -415,6 +454,9 @@ def generate_comparison_plots(all_results: List[Dict], output_dir: Path):
             for name, cfg in SENSOR_CONFIG.items()
             if cfg["variable_type"] == var_type
         ]
+        # Sort sensors by display order for RH and temperature
+        if var_type in ("rh", "temperature"):
+            sensors = sorted(sensors, key=get_sensor_sort_key)
 
         pre_data = {s: [] for s in sensors}
         post_data = {s: [] for s in sensors}
@@ -605,10 +647,13 @@ def run_rh_temp_analysis(
             for _, row in summary_df.iterrows():
                 if not np.isnan(row["Pre_Mean"]):
                     print(f"  {row['Sensor']}:")
-                    print(f"    Pre:  {row['Pre_Mean']:.2f} ± {row['Pre_Std']:.2f}")
+                    print(
+                        f"    Pre:  {row['Pre_Mean']:.2f} ± {row['Pre_Std']:.2f} "
+                        f"(max: {row['Pre_Max']:.2f})"
+                    )
                     print(
                         f"    Post: {row['Post_Mean']:.2f} ± {row['Post_Std']:.2f} "
-                        f"(range: {row['Post_Range']:.2f})"
+                        f"(max: {row['Post_Max']:.2f}, range: {row['Post_Range']:.2f})"
                     )
 
     print("\n" + "=" * 60)

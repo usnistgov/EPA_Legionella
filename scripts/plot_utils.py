@@ -679,7 +679,8 @@ def plot_environmental_time_series(
             "value_col_pattern": ["temp", "temperature", "T_"],
         },
         "wind": {
-            "ylabel": "Value",
+            "ylabel": "Wind Speed (m/s)",
+            "ylabel2": "Wind Direction (\u00b0)",
             "title_base": "Wind Data",
             "value_col_pattern": ["wind", "Wind"],
         },
@@ -690,58 +691,149 @@ def plot_environmental_time_series(
     # Create figure
     fig, ax = create_figure(figsize=(12, 6))
 
-    # Plot each sensor
-    plotted_any = False
-    for i, (sensor_name, df) in enumerate(data_dict.items()):
-        if df is None or df.empty:
-            continue
+    # For wind data, use dual y-axes
+    if variable_type == "wind":
+        ax2 = ax.twinx()
+        speed_plotted = False
+        direction_plotted = False
 
-        # Filter to time window
-        if "datetime" not in df.columns:
-            continue
+        for sensor_name, df in data_dict.items():
+            if df is None or df.empty:
+                continue
 
-        mask = (df["datetime"] >= window_start) & (df["datetime"] <= window_end)
-        plot_data = df[mask].copy()
+            if "datetime" not in df.columns:
+                continue
 
-        if len(plot_data) == 0:
-            continue
+            mask = (df["datetime"] >= window_start) & (df["datetime"] <= window_end)
+            plot_data = df[mask].copy()
 
-        # Find value column
-        value_col = None
-        for col in plot_data.columns:
-            if col != "datetime":
-                for pattern in settings["value_col_pattern"]:
-                    if pattern.lower() in col.lower():
-                        value_col = col
-                        break
-                if value_col:
+            if len(plot_data) == 0:
+                continue
+
+            # Find value column
+            value_col = None
+            for col in plot_data.columns:
+                if col != "datetime":
+                    value_col = col
                     break
-        if value_col is None:
-            # Use first non-datetime column
-            non_dt_cols = [c for c in plot_data.columns if c != "datetime"]
-            if non_dt_cols:
-                value_col = non_dt_cols[0]
 
-        if value_col is None:
-            continue
+            if value_col is None:
+                continue
 
-        color = SENSOR_COLORS[i % len(SENSOR_COLORS)]
-        ax.plot(
-            plot_data["datetime"],
-            plot_data[value_col],
-            color=color,
-            linewidth=LINE_WIDTH_DATA,
-            label=sensor_name,
-            alpha=0.8,
+            # Determine if this is speed or direction based on sensor name or column
+            is_direction = "direction" in sensor_name.lower() or "direction" in value_col.lower()
+
+            if is_direction:
+                ax2.plot(
+                    plot_data["datetime"],
+                    plot_data[value_col],
+                    color=COLORS["wind_direction"],
+                    linewidth=LINE_WIDTH_DATA,
+                    label=sensor_name,
+                    alpha=0.8,
+                    linestyle="--",
+                )
+                direction_plotted = True
+            else:
+                ax.plot(
+                    plot_data["datetime"],
+                    plot_data[value_col],
+                    color=COLORS["wind_speed"],
+                    linewidth=LINE_WIDTH_DATA,
+                    label=sensor_name,
+                    alpha=0.8,
+                )
+                speed_plotted = True
+
+        if not speed_plotted and not direction_plotted:
+            plt.close(fig)
+            return None
+
+        # Set y-axis labels with units
+        ax.set_ylabel(settings["ylabel"], color=COLORS["wind_speed"])
+        ax.tick_params(axis="y", labelcolor=COLORS["wind_speed"])
+        ax2.set_ylabel(settings["ylabel2"], color=COLORS["wind_direction"])
+        ax2.tick_params(axis="y", labelcolor=COLORS["wind_direction"])
+
+        # Set direction axis limits
+        if direction_plotted:
+            ax2.set_ylim(0, 360)
+
+        # Combine legends from both axes
+        lines1, labels1 = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+
+        # Add shower markers
+        add_shower_markers(ax, shower_on, shower_off)
+
+        # Get shower marker handles
+        lines_shower, labels_shower = ax.get_legend_handles_labels()
+        # Filter out previously added lines
+        shower_lines = lines_shower[len(lines1):]
+        shower_labels = labels_shower[len(labels1):]
+
+        ax.legend(
+            lines1 + lines2 + shower_lines,
+            labels1 + labels2 + shower_labels,
+            loc="upper right",
+            fontsize=FONT_SIZE_LEGEND - 1,
         )
-        plotted_any = True
 
-    if not plotted_any:
-        plt.close(fig)
-        return None
+    else:
+        # Standard single-axis plotting for RH and temperature
+        plotted_any = False
+        for i, (sensor_name, df) in enumerate(data_dict.items()):
+            if df is None or df.empty:
+                continue
 
-    # Add shower markers
-    add_shower_markers(ax, shower_on, shower_off)
+            if "datetime" not in df.columns:
+                continue
+
+            mask = (df["datetime"] >= window_start) & (df["datetime"] <= window_end)
+            plot_data = df[mask].copy()
+
+            if len(plot_data) == 0:
+                continue
+
+            # Find value column
+            value_col = None
+            for col in plot_data.columns:
+                if col != "datetime":
+                    for pattern in settings["value_col_pattern"]:
+                        if pattern.lower() in col.lower():
+                            value_col = col
+                            break
+                    if value_col:
+                        break
+            if value_col is None:
+                non_dt_cols = [c for c in plot_data.columns if c != "datetime"]
+                if non_dt_cols:
+                    value_col = non_dt_cols[0]
+
+            if value_col is None:
+                continue
+
+            color = SENSOR_COLORS[i % len(SENSOR_COLORS)]
+            ax.plot(
+                plot_data["datetime"],
+                plot_data[value_col],
+                color=color,
+                linewidth=LINE_WIDTH_DATA,
+                label=sensor_name,
+                alpha=0.8,
+            )
+            plotted_any = True
+
+        if not plotted_any:
+            plt.close(fig)
+            return None
+
+        # Add shower markers
+        add_shower_markers(ax, shower_on, shower_off)
+
+        # Formatting
+        ax.set_ylabel(settings["ylabel"])
+        ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND - 1, ncol=2)
 
     # Add analysis window shading
     if show_windows:
@@ -749,10 +841,7 @@ def plot_environmental_time_series(
         post_end = shower_off + pd.Timedelta(hours=2)
         add_analysis_windows(ax, pre_start, shower_on, shower_off, post_end)
 
-    # Formatting
-    ax.set_ylabel(settings["ylabel"])
     ax.set_xlabel("Time")
-    ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND - 1, ncol=2)
 
     # Title
     title = settings["title_base"]
