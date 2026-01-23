@@ -38,11 +38,6 @@ Output Files:
     - Backups: Original files renamed with _backup suffix (e.g., MH_CO2andFanProgram_20260118_backup.txt)
     - Fixed files: Corrected files replace the originals
 
-Applications:
-    - Recovery from data logging failures
-    - Filling gaps in continuous monitoring data
-    - Maintaining consistent log file series for analysis
-
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
 Date: 2026

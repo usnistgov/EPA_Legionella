@@ -44,12 +44,6 @@ Output Files:
     - plots/temp_pre_post_boxplot.png: Pre/post temperature comparison
     - plots/wind_pre_post_boxplot.png: Pre/post wind comparison
 
-Applications:
-    - Characterize baseline indoor environmental conditions
-    - Quantify humidity increase from shower operation
-    - Assess ventilation effectiveness post-shower
-    - Support aerosol transport and exposure modeling
-
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
 Date: 2026
