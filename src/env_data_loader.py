@@ -399,11 +399,13 @@ def load_daq_data(start_date, end_date) -> pd.DataFrame:
     all_data = []
     for filepath in files:
         try:
-            df = pd.read_csv(filepath, sep="\t")
+            # index_col=False prevents pandas from using first column as index
+            # (needed because DAQ files have trailing tabs causing column misalignment)
+            df = pd.read_csv(filepath, sep="\t", index_col=False)
             if "Date" in df.columns and "Time" in df.columns:
                 df["datetime"] = pd.to_datetime(
                     df["Date"].astype(str) + " " + df["Time"].astype(str),
-                    format="%m/%d/%Y %I:%M:%S %p",
+                    format="%m/%d/%Y %H:%M:%S",
                 )
             if "datetime" in df.columns:
                 mask = (df["datetime"] >= start_date) & (df["datetime"] <= end_date)
@@ -447,7 +449,7 @@ def load_aio2_data(start_date, end_date) -> pd.DataFrame:
             if "Date" in df.columns and "Time" in df.columns:
                 df["datetime"] = pd.to_datetime(
                     df["Date"].astype(str) + " " + df["Time"].astype(str),
-                    format="%m/%d/%Y %I:%M:%S %p",
+                    format="%m/%d/%Y %H:%M:%S",
                 )
             if "datetime" in df.columns:
                 mask = (df["datetime"] >= start_date) & (df["datetime"] <= end_date)
