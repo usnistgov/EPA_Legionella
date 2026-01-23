@@ -58,14 +58,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.data_paths import get_common_file_config, get_data_root
 
-
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
 # Default reference and target dates (January 2026)
 DEFAULT_REFERENCE_DATE = "20260116"
-DEFAULT_TARGET_DATES = ["20260118", "20260119", "20260120", "20260121", "20260122"]
+DEFAULT_TARGET_DATES = [
+    "20260117",
+    "20260118",
+    "20260119",
+    "20260120",
+    "20260121",
+    "20260122",
+]
 
 # Log file configurations
 LOG_CONFIGS = {
@@ -311,9 +317,9 @@ def process_log_type(log_type, reference_date_str, target_date_strs):
         tuple: (success_count, failure_count)
     """
     config = LOG_CONFIGS[log_type]
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Processing {config['name']} Log Files")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Get directory path from data_config.json
     try:
