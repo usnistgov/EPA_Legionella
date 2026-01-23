@@ -73,9 +73,9 @@ def process_co2_logs(input_dir, output_file):
     """
     input_path = Path(input_dir)
 
-    # Find all daily log files
+    # Find all daily log files (exclude backup files created by fix_log_files.py)
     pattern = str(input_path / "MH_CO2andFanProgram_*.txt")
-    files = sorted(glob.glob(pattern))
+    files = sorted([f for f in glob.glob(pattern) if "_backup" not in os.path.basename(f)])
 
     if not files:
         print(f"No files found matching pattern: {pattern}")
