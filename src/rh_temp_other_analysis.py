@@ -389,7 +389,9 @@ def generate_time_series_plots(
         print(f"\nGenerating time series plots for events: {specific_events}")
     elif max_events is not None:
         event_indices = list(range(min(max_events, len(events))))
-        print(f"\nGenerating time series plots for first {len(event_indices)} events...")
+        print(
+            f"\nGenerating time series plots for first {len(event_indices)} events..."
+        )
     else:
         # Plot all events by default
         event_indices = list(range(len(events)))
@@ -418,7 +420,9 @@ def generate_time_series_plots(
                     data_dict[sensor_name] = data
 
             if data_dict:
-                output_path = plot_dir / f"event_{event_num:02d}_{var_type}_timeseries.png"
+                output_path = (
+                    plot_dir / f"event_{event_num:02d}_{var_type}_timeseries.png"
+                )
                 plot_environmental_time_series(
                     data_dict=data_dict,
                     shower_on=event["shower_on"],
@@ -616,11 +620,8 @@ def run_rh_temp_analysis(
 
     # Generate plots
     if generate_plots:
-        generate_time_series_plots(
-            events, output_dir, max_plot_events, specific_events
-        )
+        generate_time_series_plots(events, output_dir, max_plot_events, specific_events)
         generate_comparison_plots(all_results, output_dir)
-        generate_summary_bar_charts(all_results, output_dir)
         print(f"\nPlots saved to: {output_dir / 'plots'}")
 
     # Print summary
@@ -704,7 +705,7 @@ def main():
         type=str,
         default=None,
         help="Specific event numbers to plot, comma-separated (e.g., '1,3,5'). "
-             "Overrides --max-plot-events. Events are 1-indexed.",
+        "Overrides --max-plot-events. Events are 1-indexed.",
     )
 
     args = parser.parse_args()
