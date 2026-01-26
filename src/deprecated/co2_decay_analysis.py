@@ -45,6 +45,8 @@ Output Files:
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
 Date: 2026
+
+This script has been deprecated and replaced by...
 """
 
 import sys

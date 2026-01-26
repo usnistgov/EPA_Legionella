@@ -1,0 +1,504 @@
+PYTHON SCRIPT GENERATION PROMPT TEMPLATE
+==========================================
+
+TASK DESCRIPTION:
+-----------------
+[FILL IN THIS SECTION WITH YOUR SPECIFIC REQUIREMENTS]
+
+Provide the following information:
+- **Purpose**: What analysis or processing does this script perform?
+- **Input Data**: What files/formats does it read? (e.g., Excel files with specific columns, CSV sensor data)
+- **Processing Steps**: What calculations, transformations, or analyses are needed?
+- **Output**: What files should be generated? What format? (e.g., Excel with multiple sheets, CSV files)
+- **Key Metrics**: What specific values, statistics, or results should be calculated?
+- **Special Requirements**: Any instrument-specific handling, time synchronization, baseline corrections, etc.
+- **Data Sources**: How many different instruments/sensors/locations need to be processed?
+
+Example task description:
+"Create a script that calculates decay rates of PM2.5 concentrations from air quality sensor data. 
+Read CSV files from 3 QuantAQ sensors and Excel files from 2 AeroTrak instruments. Calculate exponential 
+decay rates for each experiment, apply baseline corrections, and output results to Excel with summary 
+statistics. Handle time synchronization between instruments and filter out invalid readings."
+
+
+SCRIPT DESIGN PHILOSOPHY:
+-------------------------
+Generate a Python script that adheres to the following style guidelines and structural conventions:
+
+**CRITICAL: Length and Modularity Requirements**
+1. Keep the main script under 1000 lines of code
+2. If functionality exceeds this limit, spin off logical portions into separate utility modules:
+   - Create reusable utility modules (e.g., data_processing_utils.py, statistical_utils.py)
+   - Extract instrument-specific processing into separate modules
+   - Move configuration dictionaries to separate config files if they're very large
+   - Import these modules at the top of the main script
+   
+3. Prioritize efficiency and reduce repetition:
+   - Consolidate repetitive processing blocks into parameterized functions
+   - Use loops or list comprehensions instead of duplicated code sections
+   - Create general-purpose functions that handle multiple cases via parameters
+   - Eliminate redundant calculations by storing intermediate results
+
+SCRIPT HEADER REQUIREMENTS:
+---------------------------
+1. Begin with shebang line: #!/usr/bin/env python3
+2. Include encoding declaration: # -*- coding: utf-8 -*-
+3. Provide comprehensive module-level docstring with the following structure:
+   - Script title with underline using equals signs (=)
+   - Multi-paragraph overview explaining the script's purpose and context
+   - "Key Metrics Calculated:" or "Key Functions:" section with bulleted list using 4-space indentation and dashes
+   - "Analysis Features:" or "Processing Features:" section listing major capabilities
+   - "Methodology:" section with numbered steps explaining the workflow
+   - "Output Files:" section describing what files are generated
+   - "Applications:" section explaining use cases or contexts for the results
+   - Author, Institution, and Date information at the end
+   
+   Example format:
+   """
+   [Script Title]
+   ==============
+   
+   [Overview paragraph 1 - primary purpose]
+   [Overview paragraph 2 - additional context]
+   
+   Key Metrics Calculated:
+       - [Metric 1]: [Brief description]
+       - [Metric 2]: [Brief description]
+   
+   Analysis Features:
+       - [Feature 1 with specific details]
+       - [Feature 2 with specific details]
+   
+   Methodology:
+       1. [Step 1]
+       2. [Step 2]
+       ...
+   
+   Output Files:
+       - [filename.xlsx]: [Description of contents]
+   
+   Author: [Name]
+   Institution: [Institution]
+   Date: [Year]
+   """
+
+IMPORT ORGANIZATION:
+--------------------
+1. Standard library imports first (os, warnings, traceback)
+2. Third-party imports second (pandas, numpy)
+3. Local utility module imports third (from utils import ...)
+4. Suppress warnings if needed: warnings.filterwarnings("ignore")
+5. Use explicit imports, avoid wildcard imports (import *)
+6. Group imports logically with blank lines between groups:
+   ```python
+   # Standard library
+   import os
+   import warnings
+   
+   # Third-party
+   import pandas as pd
+   import numpy as np
+   
+   # Local modules (if applicable)
+   from utils.data_processing import apply_time_shift, filter_by_dates
+   from config import INSTRUMENT_CONFIG
+   ```
+
+CONSTANT AND CONFIGURATION STRUCTURE:
+--------------------------------------
+1. Define file paths as ALL_CAPS constants immediately after imports
+2. Load configuration files (Excel, CSV) into variables
+3. Create nested configuration dictionaries for complex setups with clear, hierarchical structure
+4. Use descriptive keys and include inline comments explaining non-obvious values
+5. For instrument or data source configurations, include:
+   - File paths
+   - Processing parameters
+   - Time adjustments/shifts
+   - Lists of data columns to process
+   - Special case handling dictionaries
+   - Baseline values or calculation methods
+
+FUNCTION ORGANIZATION:
+----------------------
+1. Group related functions with section headers using comment blocks:
+   # ============================================================================
+   # [SECTION NAME] (e.g., UTILITY FUNCTIONS, DATA PROCESSING FUNCTIONS)
+   # ============================================================================
+
+2. Design functions for reusability and efficiency:
+   - Create general-purpose functions with parameters instead of specialized variants
+   - Example: One process_instrument_data(instrument_type, params) function instead of
+     process_aerotrak(), process_quantaq(), etc.
+   - Use **kwargs or config dictionaries to handle varying parameters
+   - Return consistent data structures across similar functions
+   - Consider which functions might be useful in other scripts (candidates for utility modules)
+
+3. For each function:
+   - Use descriptive snake_case names
+   - Include docstring explaining purpose, parameters, and return values
+   - Note any parameter changes or special handling
+   - Return clear, predictable outputs
+   - Handle errors with try-except blocks where appropriate
+   - Add inline comments for complex logic only (code should be self-documenting where possible)
+
+4. Function docstring format:
+   """Brief description of function purpose
+   
+   Parameters:
+       param1 (type): Description
+       param2 (type): Description
+   
+   Returns:
+       return_type: Description of return value
+   
+   Note: [Any important notes about usage or changes]
+   """
+
+5. Eliminate repetition by:
+   - Using loops to process multiple similar items
+   - Consolidating print statements into formatted output functions
+   - Creating wrapper functions for commonly-used operation sequences
+
+ERROR HANDLING APPROACH:
+------------------------
+1. Use try-except blocks for operations that may fail
+2. Catch specific exceptions: (KeyError, ValueError, TypeError, IndexError)
+3. Print informative error messages with context
+4. Truncate long error messages: str(e)[:100]
+5. Continue processing other data when one element fails
+6. Track and report failed operations
+
+MODULAR DESIGN AND UTILITY MODULES:
+------------------------------------
+When the main script approaches 1000 lines, extract reusable components:
+
+1. Create utility modules for:
+   - Generic data processing functions (e.g., time_utils.py, data_validation.py)
+   - Statistical calculations used across multiple scripts
+   - Instrument-specific processing routines
+   - File I/O and format conversion functions
+   - Plotting and visualization helpers (if applicable)
+
+2. Module organization pattern (unless noted otherwise):
+   ```
+project-name/
+├── .gitignore              # Files to exclude from Git
+├── README.md               # Project overview and usage
+├── LICENSE                 # MIT, GPL-3.0, or Apache 2.0
+├── requirements.txt        # Conda and/or Pip dependencies
+├── environment.yaml 		# Conda environment specification
+├── CITATION.md             # How to cite your code
+│
+├── data/
+│   ├── README.md          # Data documentation & sources
+│   ├── raw/               # Original, immutable data
+│   ├── processed/         # Cleaned, derived data
+│   └── metadata/          # Data dictionaries, sensor info
+│
+├── scripts/
+│   ├── 01_data_cleaning.py
+│   ├── 02_analysis.py
+│   └── 03_visualization.py
+│
+├── notebooks/
+│   ├── exploratory_analysis.ipynb
+│   └── figure_generation.ipynb
+│
+├── src/
+│   ├── __init__.py
+│   ├── data_processing.py
+│   └── plotting.py
+│
+├── tests/
+│   ├── test_data_processing.py
+│   └── test_calculations.py
+│
+├── results/
+│   ├── figures/
+│   ├── tables/
+│   └── output_data/
+│
+└── docs/
+    ├── methodology.md
+    └── instrument_specs.md
+   ```
+
+3. Import pattern in main script:
+   ```python
+   from utils.data_processing import apply_time_shift, filter_by_dates
+   from utils.statistical_analysis import calculate_rolling_average
+   from config import INSTRUMENT_CONFIG, FILE_PATHS
+   ```
+
+4. Criteria for extraction:
+   - Functions used or potentially useful in multiple scripts
+   - Self-contained processing routines with clear inputs/outputs
+   - Large configuration dictionaries (>50 lines)
+   - Repeated code blocks that differ only in parameters
+   - Complex algorithms that obscure the main analysis flow
+
+DATA PROCESSING PATTERNS:
+-------------------------
+1. Use pandas DataFrames for tabular data
+2. Apply operations using .loc[] to avoid SettingWithCopyWarning
+3. Convert data types explicitly: pd.to_datetime(), pd.to_numeric(errors='coerce')
+4. Use masks for conditional operations
+5. Apply time-based filtering with datetime operations
+6. Create copies of data when performing destructive operations: .copy()
+7. Handle missing data appropriately with dropna() or explicit None checks
+
+EFFICIENCY AND CODE REDUCTION EXAMPLES:
+----------------------------------------
+INSTEAD OF repetitive code blocks:
+```python
+# Process AeroTrak bedroom data
+aerotrak_b_data = pd.read_excel(aerotrak_b_path)
+aerotrak_b_data = apply_time_shift(aerotrak_b_data, 'AeroTrakB')
+aerotrak_b_data = filter_data(aerotrak_b_data)
+
+# Process AeroTrak kitchen data
+aerotrak_k_data = pd.read_excel(aerotrak_k_path)
+aerotrak_k_data = apply_time_shift(aerotrak_k_data, 'AeroTrakK')
+aerotrak_k_data = filter_data(aerotrak_k_data)
+
+# Process QuantAQ bedroom data
+quantaq_b_data = pd.read_csv(quantaq_b_path)
+quantaq_b_data = apply_time_shift(quantaq_b_data, 'QuantAQB')
+quantaq_b_data = filter_data(quantaq_b_data)
+```
+
+USE parameterized functions and loops:
+```python
+def load_and_process_instrument(instrument_name, config):
+    """Load and process data for any instrument based on config"""
+    # Determine file type and read accordingly
+    file_path = config['file_path']
+    if file_path.endswith('.xlsx'):
+        data = pd.read_excel(file_path)
+    elif file_path.endswith('.csv'):
+        data = pd.read_csv(file_path)
+    
+    data = apply_time_shift(data, instrument_name)
+    data = filter_data(data)
+    return data
+
+# Process all instruments in a loop
+instrument_data = {}
+for instrument_name, config in INSTRUMENT_CONFIG.items():
+    instrument_data[instrument_name] = load_and_process_instrument(instrument_name, config)
+```
+
+INSTEAD OF duplicate calculation blocks:
+```python
+# Calculate metrics for PM2.5
+pm25_peak = data['PM2.5'].max()
+pm25_mean = data['PM2.5'].mean()
+pm25_std = data['PM2.5'].std()
+
+# Calculate metrics for PM10
+pm10_peak = data['PM10'].max()
+pm10_mean = data['PM10'].mean()
+pm10_std = data['PM10'].std()
+```
+
+USE vectorized operations or function with loops:
+```python
+def calculate_pm_metrics(data, pm_columns):
+    """Calculate metrics for multiple PM sizes"""
+    metrics = {}
+    for pm_col in pm_columns:
+        metrics[pm_col] = {
+            'peak': data[pm_col].max(),
+            'mean': data[pm_col].mean(),
+            'std': data[pm_col].std()
+        }
+    return metrics
+
+pm_metrics = calculate_pm_metrics(data, ['PM2.5', 'PM10'])
+
+CONSOLE OUTPUT FORMATTING:
+--------------------------
+1. Use separator lines for major sections:
+   print(f"\n{'='*60}")
+   print("[SECTION HEADER]")
+   print(f"{'='*60}")
+
+2. Show progress during processing:
+   print(f"Processing [item]...")
+   print(f"  Sub-task: [details]")
+
+3. Display results with aligned formatting:
+   - Use f-strings with specified precision: f"{value:.3f}"
+   - Show "N/A" for missing values: f"{value:.3f}" if value is not None else "N/A"
+   - Include units in output: f"{value:.3f} mg/m³"
+
+4. Print summary statistics at the end:
+   - Total items processed
+   - Mean values for key metrics
+   - Data quality indicators
+
+OUTPUT FILE GENERATION:
+-----------------------
+1. Use os.path.join() for cross-platform path handling
+2. Save results to Excel with multiple sheets using pd.ExcelWriter:
+   with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
+       df1.to_excel(writer, sheet_name="Sheet1", index=False)
+       df2.to_excel(writer, sheet_name="Sheet2", index=False)
+
+3. Check for empty DataFrames before saving:
+   if df.empty:
+       print("WARNING: No data to save")
+   
+4. Print confirmation with file path after saving
+
+MAIN EXECUTION STRUCTURE:
+-------------------------
+1. Use standard Python idiom with streamlined main function:
+   ```python
+   if __name__ == "__main__":
+       # Run main analysis function(s)
+       results = main_analysis_function()
+       
+       print("\n" + "=" * 80)
+       print("ANALYSIS COMPLETE")
+       print("=" * 80)
+   ```
+
+2. Main analysis function should be concise and high-level:
+   - Load configuration and initialize storage
+   - Call modular processing functions for each major step
+   - Compile results from processing functions
+   - Save results and print summaries
+   - Return processed DataFrames
+   
+3. Keep main analysis function focused on workflow, not implementation details:
+   ```python
+   def main_analysis():
+       """Execute complete analysis workflow"""
+       # Load data
+       instrument_data = load_all_instruments(INSTRUMENT_CONFIG)
+       
+       # Process each burn/experiment
+       results = process_experiments(instrument_data, burn_log)
+       
+       # Save and summarize
+       save_results(results, OUTPUT_PATH)
+       print_summary_statistics(results)
+       
+       return results
+   ```
+
+4. Delegate detailed operations to helper functions:
+   - This keeps the main flow readable
+   - Makes testing and debugging easier
+   - Allows reuse of components in other scripts
+
+VARIABLE NAMING CONVENTIONS:
+----------------------------
+1. Constants: ALL_CAPS_WITH_UNDERSCORES
+2. Functions: snake_case_descriptive_names
+3. Variables: snake_case_with_clear_meaning
+4. Avoid single-letter variables except for common iterators (i, j) or mathematical notation
+5. Use suffixes to indicate data type:
+   - _df for DataFrames
+   - _path for file paths
+   - _data for raw data structures
+   - _results for output collections
+   - _ratio, _mean, _std for calculated values
+
+COMMENT STYLE:
+--------------
+1. Use inline comments to explain "why" not "what"
+2. Add comments for non-obvious parameters or magic numbers
+3. Comment on data quality considerations or assumptions
+4. Note any manual corrections or special case handling
+5. Reference related functions or scripts when reusing code patterns
+
+QUALITY ASSURANCE PATTERNS:
+---------------------------
+1. Validate inputs before processing:
+   - Check for required columns
+   - Verify datetime formats
+   - Confirm file existence
+   
+2. Apply data quality filters:
+   - Remove outliers with defined criteria
+   - Check for reasonable value ranges
+   - Handle negative values appropriately
+   
+3. Provide diagnostic output:
+   - Print row counts after filtering
+   - Show before/after values for transformations
+   - Report missing data counts
+
+CALCULATION DOCUMENTATION:
+--------------------------
+1. For complex calculations:
+   - Add multi-line comments explaining the algorithm
+   - Reference equations or methodologies
+   - Show units in variable names or comments
+   - Explain any non-standard approaches
+
+2. For statistical operations:
+   - Document the time window or data range used
+   - Specify how missing data is handled
+   - Note any filtering criteria applied
+
+PANDAS-SPECIFIC BEST PRACTICES:
+-------------------------------
+1. Chain operations for clarity where appropriate
+2. Use .copy() to avoid SettingWithCopyWarning
+3. Prefer .loc[] and .iloc[] over direct indexing
+4. Use vectorized operations instead of loops when possible
+5. Handle datetime operations with pandas datetime methods
+6. Use .dropna() strategically rather than filling with arbitrary values
+
+ADDITIONAL REQUIREMENTS:
+------------------------
+1. Include meaningful print statements for debugging and progress tracking
+2. Make the script runnable from command line with relative paths
+3. Structure code to be modular and reusable
+4. Avoid hardcoding values that might change; use constants or config dictionaries
+5. Maintain consistent indentation (4 spaces)
+6. Keep line length reasonable (aim for <100 characters where practical)
+7. Use empty lines to separate logical blocks of code
+8. End script with clear completion message
+
+TARGET OUTPUT FORMAT:
+--------------------
+The script should produce:
+- Clean, formatted console output showing progress and results
+- Excel files with appropriately named sheets
+- Summary statistics that validate the analysis
+- Clear error messages if problems occur
+- Professional documentation suitable for scientific/technical work
+
+ADAPTATION INSTRUCTIONS:
+------------------------
+When applying this style to create a new script:
+
+1. **Check line count throughout development** - aim for <1000 lines in main script
+2. Adjust the docstring to match your specific analysis or task
+3. Define appropriate constants for your data paths and parameters
+4. Create configuration dictionaries matching your data sources
+5. **Identify repetitive operations and consolidate them into parameterized functions**
+6. **Look for opportunities to use loops instead of duplicated code blocks**
+7. Implement utility functions needed for your specific data processing
+8. **Extract reusable functions into separate utility modules if approaching 1000 lines**
+9. Build main analysis function following a high-level workflow pattern
+10. Ensure output files and console messages are clear and informative
+11. Test error handling with various edge cases
+12. Verify that the script can run independently with proper file paths
+
+CODE EFFICIENCY CHECKLIST:
+---------------------------
+Before finalizing the script, verify:
+□ No code blocks are duplicated more than once (use functions instead)
+□ Similar operations on different data use the same parameterized function
+□ Configuration data is externalized, not hardcoded throughout
+□ Loops are used for processing multiple similar items
+□ Helper functions delegate specific tasks from the main function
+□ Print statements are consolidated into formatting functions where practical
+□ The main script is under 1000 lines (or logical modules are extracted)
+□ Each function has a single, clear purpose
+□ Complex nested logic is broken into smaller functions
