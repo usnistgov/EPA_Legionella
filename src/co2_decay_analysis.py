@@ -9,11 +9,6 @@ air-change rate (λ) for the EPA Legionella study manufactured home test
 facility. The analysis uses an analytical approach with linear regression
 to solve the mass balance equation for ventilation rate.
 
-The air-change rate is a critical parameter for understanding building
-ventilation and is used in subsequent particle emission and deposition
-calculations. Accurate λ values enable quantification of aerosol transport
-and exposure risks from shower-generated Legionella-containing particles.
-
 Key Metrics Calculated:
     - λ (air-change rate): Rate of air exchange with outdoors (h⁻¹)
     - λ_average: Using average source concentration (C_outside + C_entry)/2
@@ -65,11 +60,10 @@ import sys
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 warnings.filterwarnings("ignore")
 
@@ -637,9 +631,10 @@ def plot_co2_decay_event_analytical(
         alpha (float): Fraction of infiltration from outside
         beta (float): Fraction of infiltration from entry zone
     """
-    import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
-    from scripts.plot_utils import apply_style, save_figure, COLORS, LINE_WIDTH_DATA
+    import matplotlib.pyplot as plt
+
+    from scripts.plot_utils import COLORS, LINE_WIDTH_DATA, apply_style, save_figure
 
     apply_style()
 
@@ -766,7 +761,9 @@ def plot_co2_decay_event_analytical(
         y_arr = np.array(y_values)
         t_arr = np.array(t_values)
 
-        ax2.scatter(t_arr, y_arr, color=COLORS["bedroom"], alpha=0.5, s=10, label="Data")
+        ax2.scatter(
+            t_arr, y_arr, color=COLORS["bedroom"], alpha=0.5, s=10, label="Data"
+        )
 
         # Plot regression line
         t_line = np.array([0, t_arr.max()])
@@ -829,8 +826,10 @@ def run_co2_decay_analysis(
     print("Analytical Method (Linear Regression)")
     print("=" * 60)
     print(f"Parameters: α={alpha}, β={beta}")
-    print(f"Decay window: {abs(DECAY_START_OFFSET_MIN)} min before hour to "
-          f"{DECAY_DURATION_HOURS} hours after")
+    print(
+        f"Decay window: {abs(DECAY_START_OFFSET_MIN)} min before hour to "
+        f"{DECAY_DURATION_HOURS} hours after"
+    )
 
     # Set output directory
     if output_dir is None:
@@ -928,6 +927,7 @@ def run_co2_decay_analysis(
         "n_valid_events": int(results_df["lambda_average_mean"].notna().sum()),
     }
 
+    valid_values = pd.Series(dtype=float)
     for mode in ["average", "outside", "entry"]:
         col = f"lambda_{mode}_mean"
         r2_col = f"lambda_{mode}_r_squared"
