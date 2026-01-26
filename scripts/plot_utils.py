@@ -570,6 +570,218 @@ def plot_lambda_summary(
     return fig
 
 
+def plot_co2_decay_event_analytical(
+    co2_data: pd.DataFrame,
+    event: dict,
+    result: dict,
+    output_path: Optional[Path] = None,
+    event_number: Optional[int] = None,
+    alpha: float = 0.5,
+    beta: float = 0.5,
+) -> Optional[Figure]:
+    """
+    Plot CO2 decay data with analytical linear regression fit for a single event.
+
+    Creates a two-panel figure:
+        1. Top panel: CO2 concentrations vs time with exponential fit curve
+        2. Bottom panel: Linearized plot (y vs t) with regression line
+
+    The analytical method uses: -ln[(C(t) - C_avg) / (C_0 - C_avg)] = λ·t
+    where λ is determined by linear regression (slope).
+
+    Parameters:
+        co2_data (pd.DataFrame): DataFrame with columns: datetime, C_bedroom, C_entry, C_outside
+        event (dict): Dict with injection event timing containing:
+            - injection_start: datetime of CO2 injection
+            - decay_start: datetime to begin decay analysis
+            - decay_end: datetime to end decay analysis
+        result (dict): Dict with analysis results containing:
+            - lambda_average_mean: calculated λ value (h⁻¹)
+            - lambda_average_std: standard error of λ
+            - lambda_average_r_squared: R² of linear fit
+            - c_source_mean: mean source concentration
+            - _y_values: list of y values for regression plot
+            - _t_values: list of t values for regression plot
+        output_path (Path): Path to save figure (optional)
+        event_number (int): Event number for title
+        alpha (float): Fraction of infiltration from outside
+        beta (float): Fraction of infiltration from entry zone
+
+    Returns:
+        Matplotlib figure object or None if no data
+    """
+    apply_style()
+
+    injection_time = event["injection_start"]
+    decay_start = event["decay_start"]
+    decay_end = event["decay_end"]
+    lambda_value = result.get("lambda_average_mean", np.nan)
+    lambda_std = result.get("lambda_average_std", np.nan)
+
+    # Define time window for plotting
+    hours_before = 1.0
+    hours_after = 0.5  # After decay_end
+    window_start = injection_time - pd.Timedelta(hours=hours_before)
+    window_end = decay_end + pd.Timedelta(hours=hours_after)
+
+    # Filter data to window
+    mask = (co2_data["datetime"] >= window_start) & (co2_data["datetime"] <= window_end)
+    plot_data = co2_data[mask].copy()
+
+    if len(plot_data) == 0:
+        return None
+
+    # Create two-panel figure
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[2, 1])
+
+    # -------------------------------------------------------------------------
+    # Top panel: CO2 concentrations vs time
+    # -------------------------------------------------------------------------
+    ax1.plot(
+        plot_data["datetime"],
+        plot_data["C_bedroom"],
+        color=COLORS["bedroom"],
+        linewidth=LINE_WIDTH_DATA,
+        label="Bedroom",
+    )
+    ax1.plot(
+        plot_data["datetime"],
+        plot_data["C_entry"],
+        color=COLORS["entry"],
+        linewidth=LINE_WIDTH_DATA,
+        label="Entry",
+    )
+    ax1.plot(
+        plot_data["datetime"],
+        plot_data["C_outside"],
+        color=COLORS["outside"],
+        linewidth=LINE_WIDTH_DATA,
+        label="Outside",
+    )
+
+    # Add fitted exponential decay curve if lambda is valid
+    if not np.isnan(lambda_value):
+        # Get decay window data
+        decay_mask = (co2_data["datetime"] >= decay_start) & (
+            co2_data["datetime"] <= decay_end
+        )
+        decay_data = co2_data[decay_mask].copy()
+
+        if len(decay_data) > 0:
+            c_0 = float(decay_data["C_bedroom"].iloc[0])
+            c_avg = result.get("c_source_mean", result.get("c_outside_mean", 400))
+
+            # Calculate time in hours
+            t0 = decay_data["datetime"].iloc[0]
+            t_hours = (decay_data["datetime"] - t0).dt.total_seconds() / 3600.0
+
+            # Calculate fitted curve: C(t) = C_avg + (C_0 - C_avg) * exp(-λ*t)
+            c_fit = c_avg + (c_0 - c_avg) * np.exp(-lambda_value * t_hours)
+
+            # Format label with uncertainty
+            if not np.isnan(lambda_std):
+                fit_label = f"Fit (λ={lambda_value:.3f}±{lambda_std:.3f} h⁻¹)"
+            else:
+                fit_label = f"Fit (λ={lambda_value:.3f} h⁻¹)"
+
+            ax1.plot(
+                decay_data["datetime"],
+                c_fit,
+                color=COLORS["fit"],
+                linewidth=LINE_WIDTH_FIT,
+                linestyle="--",
+                label=fit_label,
+            )
+
+    # Add markers for injection and decay window
+    add_injection_marker(ax1, injection_time)
+    ax1.axvline(
+        decay_start,
+        color=COLORS["lambda"],
+        linestyle=":",
+        linewidth=LINE_WIDTH_ANNOTATION,
+        alpha=0.7,
+        label="Decay window",
+    )
+    ax1.axvline(
+        decay_end,
+        color=COLORS["lambda"],
+        linestyle=":",
+        linewidth=LINE_WIDTH_ANNOTATION,
+        alpha=0.7,
+    )
+
+    ax1.set_ylabel("CO$_2$ Concentration (ppm)")
+    ax1.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
+    ax1.set_ylim(bottom=0)
+
+    # Title
+    title = "CO$_2$ Decay Analysis (Analytical Method)"
+    if event_number is not None:
+        title = f"Event {event_number}: {title}"
+    title += f"\n{injection_time.strftime('%Y-%m-%d %H:%M')}"
+    ax1.set_title(title)
+
+    format_datetime_axis(ax1, interval_minutes=30)
+
+    # -------------------------------------------------------------------------
+    # Bottom panel: Linearized plot (y vs t) with regression line
+    # -------------------------------------------------------------------------
+    y_values = result.get("_y_values", [])
+    t_values = result.get("_t_values", [])
+
+    if y_values and t_values and not np.isnan(lambda_value):
+        y_arr = np.array(y_values)
+        t_arr = np.array(t_values)
+
+        ax2.scatter(
+            t_arr, y_arr, color=COLORS["bedroom"], alpha=0.5, s=10, label="Data"
+        )
+
+        # Plot regression line (forced through origin)
+        t_line = np.array([0, t_arr.max()])
+        y_line = lambda_value * t_line
+        r_squared = result.get("lambda_average_r_squared", np.nan)
+
+        if not np.isnan(r_squared):
+            reg_label = f"λ = {lambda_value:.4f} h⁻¹ (R² = {r_squared:.4f})"
+        else:
+            reg_label = f"λ = {lambda_value:.4f} h⁻¹"
+
+        ax2.plot(
+            t_line,
+            y_line,
+            color=COLORS["fit"],
+            linewidth=LINE_WIDTH_FIT,
+            label=reg_label,
+        )
+
+        ax2.set_xlabel("Time since decay start (hours)")
+        ax2.set_ylabel("$-\\ln[(C(t) - C_{avg}) / (C_0 - C_{avg})]$")
+        ax2.legend(loc="upper left", fontsize=FONT_SIZE_LEGEND)
+        ax2.set_xlim(left=0)
+        ax2.set_ylim(bottom=0)
+    else:
+        ax2.text(
+            0.5,
+            0.5,
+            "Insufficient data for linear regression",
+            ha="center",
+            va="center",
+            transform=ax2.transAxes,
+            fontsize=FONT_SIZE_LABEL,
+        )
+        ax2.set_xlabel("Time since decay start (hours)")
+        ax2.set_ylabel("$-\\ln[(C(t) - C_{avg}) / (C_0 - C_{avg})]$")
+
+    plt.tight_layout()
+
+    if output_path is not None:
+        save_figure(fig, output_path, close=False)
+
+    return fig
+
+
 # =============================================================================
 # Environmental Data Plots (RH, Temperature, Wind)
 # =============================================================================
