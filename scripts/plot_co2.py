@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -238,7 +239,7 @@ def plot_co2_decay_event(
     # Add markers
     add_injection_marker(ax, injection_time)
     ax.axvline(
-        decay_start,
+        float(mdates.date2num(decay_start)),
         color=COLORS["lambda"],
         linestyle=":",
         linewidth=LINE_WIDTH_ANNOTATION,
@@ -246,7 +247,7 @@ def plot_co2_decay_event(
         label="Decay window",
     )
     ax.axvline(
-        decay_end,
+        float(mdates.date2num(decay_end)),
         color=COLORS["lambda"],
         linestyle=":",
         linewidth=LINE_WIDTH_ANNOTATION,
@@ -514,7 +515,7 @@ def plot_lambda_summary(
     overall_mean = np.nanmean(lambda_avg)
     if not np.isnan(overall_mean):
         ax.axhline(
-            overall_mean,
+            float(overall_mean),
             color=COLORS["fit"],
             linestyle="--",
             linewidth=LINE_WIDTH_FIT,
