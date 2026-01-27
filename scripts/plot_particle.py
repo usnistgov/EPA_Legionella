@@ -18,9 +18,9 @@ Institution: National Institute of Standards and Technology (NIST)
 Date: 2026
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -242,7 +242,14 @@ def plot_penetration_summary(
     ax.set_xticks(x)
     ax.set_xticklabels(bin_labels, rotation=45, ha="right")
     ax.set_ylim(0, 1.1)
-    ax.axhline(y=0.7, color="gray", linestyle="--", linewidth=1, alpha=0.5, label="Expected range")
+    ax.axhline(
+        y=0.7,
+        color="gray",
+        linestyle="--",
+        linewidth=1,
+        alpha=0.5,
+        label="Expected range",
+    )
     ax.axhline(y=0.9, color="gray", linestyle="--", linewidth=1, alpha=0.5)
 
     ax.grid(True, alpha=0.3, axis="y")
@@ -394,7 +401,10 @@ def plot_emission_summary(
     ax.set_xticklabels(bin_labels, rotation=45, ha="right")
 
     # Use log scale if range is large
-    if max(E_means) > 0 and max(E_means) / min([m for m in E_means if m > 0] + [1]) > 100:
+    if (
+        max(E_means) > 0
+        and max(E_means) / min([m for m in E_means if m > 0] + [1]) > 100
+    ):
         ax.set_yscale("log")
 
     ax.grid(True, alpha=0.3, axis="y")
@@ -421,7 +431,6 @@ def plot_size_distribution_summary(
     apply_style()
 
     bin_nums = list(particle_bins.keys())
-    bin_labels = [particle_bins[i]["name"] for i in bin_nums]
     bin_centers = [
         (particle_bins[i]["min"] + particle_bins[i]["max"]) / 2 for i in bin_nums
     ]
