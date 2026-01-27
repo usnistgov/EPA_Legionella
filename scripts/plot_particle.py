@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from plot_style import (
+from scripts.plot_style import (
     COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
@@ -151,7 +151,8 @@ def plot_particle_decay_event(
 
     # Count valid bins
     valid_bins = sum(
-        1 for bin_num in particle_bins.keys()
+        1
+        for bin_num in particle_bins.keys()
         if not np.isnan(result.get(f"bin{bin_num}_E_mean", np.nan))
     )
     textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
@@ -465,7 +466,9 @@ def plot_size_distribution_summary(
     )
     axes[0].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
     axes[0].set_ylabel("Penetration Factor (p)", fontsize=FONT_SIZE_LABEL)
-    axes[0].set_title("(a) Penetration Factor", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
+    axes[0].set_title(
+        "(a) Penetration Factor", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
+    )
     axes[0].grid(True, alpha=0.3)
     axes[0].set_ylim(0, 1.1)
 
@@ -490,7 +493,9 @@ def plot_size_distribution_summary(
     )
     axes[1].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
     axes[1].set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
-    axes[1].set_title("(b) Deposition Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
+    axes[1].set_title(
+        "(b) Deposition Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
+    )
     axes[1].grid(True, alpha=0.3)
 
     # Panel 3: Emission rate
@@ -514,7 +519,9 @@ def plot_size_distribution_summary(
     )
     axes[2].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
     axes[2].set_ylabel("Emission Rate E (#/min)", fontsize=FONT_SIZE_LABEL)
-    axes[2].set_title("(c) Emission Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
+    axes[2].set_title(
+        "(c) Emission Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
+    )
     axes[2].grid(True, alpha=0.3)
 
     # Apply log scale if needed

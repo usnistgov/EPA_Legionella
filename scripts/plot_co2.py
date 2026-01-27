@@ -29,7 +29,7 @@ import numpy.typing as npt
 import pandas as pd
 from matplotlib.figure import Figure
 
-from plot_style import (
+from scripts.plot_style import (
     COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
@@ -533,7 +533,9 @@ def plot_lambda_summary(
 
     ax.set_xlabel("Event Number")
     ax.set_ylabel("Air-Change Rate λ (h⁻¹)")
-    ax.set_title("Air-Change Rate Summary Across All Events", fontweight=TITLE_FONTWEIGHT)
+    ax.set_title(
+        "Air-Change Rate Summary Across All Events", fontweight=TITLE_FONTWEIGHT
+    )
     ax.set_xticks(list(events))
     ax.legend(loc="upper right")
     ax.set_ylim(bottom=0)
