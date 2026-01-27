@@ -14,6 +14,7 @@ specialized submodules for backward compatibility:
     - plot_style: Core styling constants and utilities
     - plot_co2: CO2 decay analysis plots
     - plot_environmental: Environmental data plots (RH, Temp, Wind)
+    - plot_particle: Particle decay and emission analysis plots
 
 Key Functions:
     - create_figure: Create consistently styled matplotlib figures
@@ -27,6 +28,11 @@ Key Functions:
     - plot_environmental_time_series: Time series plots for RH/Temp/Wind data
     - plot_pre_post_comparison: Box plots comparing pre vs post shower periods
     - plot_sensor_summary_bars: Bar charts comparing sensor readings
+    - plot_particle_decay_event: Individual particle decay curves per event/bin
+    - plot_penetration_summary: Bar charts of penetration factors by size
+    - plot_deposition_summary: Bar charts of deposition rates by size
+    - plot_emission_summary: Bar charts of emission rates by size
+    - plot_size_distribution_summary: Multi-panel summary of all metrics
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -77,6 +83,15 @@ from scripts.plot_environmental import (
     plot_sensor_summary_bars,
 )
 
+# Particle decay and emission plots
+from scripts.plot_particle import (
+    plot_deposition_summary,
+    plot_emission_summary,
+    plot_particle_decay_event,
+    plot_penetration_summary,
+    plot_size_distribution_summary,
+)
+
 # Define __all__ for explicit public API
 __all__ = [
     # Style constants
@@ -111,4 +126,10 @@ __all__ = [
     "plot_environmental_time_series",
     "plot_pre_post_comparison",
     "plot_sensor_summary_bars",
+    # Particle plots
+    "plot_deposition_summary",
+    "plot_emission_summary",
+    "plot_particle_decay_event",
+    "plot_penetration_summary",
+    "plot_size_distribution_summary",
 ]
