@@ -366,8 +366,14 @@ def plot_pre_post_comparison(
     sensors = [s for s in pre_data.keys() if s in post_data]
     if not sensors:
         fig, ax = create_figure(figsize=(10, 6))
-        ax.text(0.5, 0.5, "No data available", ha="center", va="center",
-                transform=ax.transAxes)
+        ax.text(
+            0.5,
+            0.5,
+            "No data available",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
         return fig
 
     n_sensors = len(sensors)
@@ -404,10 +410,12 @@ def plot_pre_post_comparison(
             patch.set_facecolor(COLORS["post_shower"])
             patch.set_alpha(0.7)
 
-    ax.set_xticks(positions_pre + 0.35)
+    ax.set_xticks((positions_pre + 0.35).tolist())
     ax.set_xticklabels(sensors, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
     ax.set_ylabel(settings["ylabel"])
-    ax.set_title(f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}")
+    ax.set_title(
+        f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}"
+    )
 
     legend_elements = [
         Patch(facecolor=COLORS["pre_shower"], alpha=0.7, label="Pre-shower (30 min)"),
@@ -451,9 +459,9 @@ def plot_sensor_summary_bars(
     fig, ax = create_figure(figsize=(max(10, n_sensors * 0.6), 6))
 
     x = np.arange(n_sensors)
-    values = summary_data[metric_col].values
+    values = np.asarray(summary_data[metric_col].astype(float).values, dtype=float)
     errors = (
-        summary_data[error_col].values
+        np.asarray(summary_data[error_col].astype(float).values, dtype=float)
         if error_col and error_col in summary_data
         else None
     )
