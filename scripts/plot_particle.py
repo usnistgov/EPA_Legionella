@@ -44,30 +44,25 @@ from scripts.plot_style import (
 def plot_particle_decay_event(
     particle_data: pd.DataFrame,
     event: Dict,
-    bin_num: int,
-    bin_info: Dict,
+    particle_bins: Dict,
     result: Dict,
     output_path: Path,
     event_number: int,
 ) -> None:
     """
-    Plot particle concentration decay for a single event and bin.
+    Plot particle concentration decay for a single event showing all bins.
 
-    Shows inside and outside concentrations with marked analysis windows.
+    Shows inside concentrations for all particle size bins with marked analysis windows.
 
     Parameters:
         particle_data: DataFrame with particle concentrations
         event: Event timing dictionary
-        bin_num: Particle bin number (0-6)
-        bin_info: Bin information dictionary
-        result: Analysis results for this event
+        particle_bins: Dictionary of all particle bin information
+        result: Analysis results for this event (all bins)
         output_path: Path to save the figure
         event_number: Event number for title
     """
     apply_style()
-
-    col_inside = f"{bin_info['column']}_inside"
-    col_outside = f"{bin_info['column']}_outside"
 
     # Extract data for plotting window (2 hours before shower to 3 hours after)
     plot_start = event["shower_on"] - timedelta(hours=2)
@@ -79,83 +74,86 @@ def plot_particle_decay_event(
     plot_data = particle_data[mask].copy()
 
     if plot_data.empty:
-        print(f"    Warning: No data for event {event_number}, bin {bin_num}")
+        print(f"    Warning: No data for event {event_number}")
         return
 
-    fig, ax = create_figure(figsize=(10, 6))
+    fig, ax = create_figure(figsize=(12, 7))
 
-    # Plot concentrations
-    ax.plot(
-        plot_data["datetime"],
-        plot_data[col_inside],
-        label="Inside (Bedroom)",
-        color=COLORS["bedroom"],
-        linewidth=LINE_WIDTH_DATA,
-    )
-    ax.plot(
-        plot_data["datetime"],
-        plot_data[col_outside],
-        label="Outside",
-        color=COLORS["outside"],
-        linewidth=LINE_WIDTH_DATA,
-        alpha=0.7,
-    )
+    # Plot inside concentrations for all bins
+    for bin_num, bin_info in particle_bins.items():
+        col_inside = f"{bin_info['column']}_inside"
+
+        if col_inside in plot_data.columns:
+            # Check if this bin has valid results
+            E_mean = result.get(f"bin{bin_num}_E_mean", np.nan)
+            linestyle = "-" if not np.isnan(E_mean) else "--"
+            alpha = 0.9 if not np.isnan(E_mean) else 0.4
+
+            ax.plot(
+                plot_data["datetime"],
+                plot_data[col_inside],
+                label=f"Bin {bin_num} ({bin_info['name']} µm)",
+                color=SENSOR_COLORS[bin_num % len(SENSOR_COLORS)],
+                linewidth=LINE_WIDTH_DATA,
+                linestyle=linestyle,
+                alpha=alpha,
+            )
 
     # Add vertical markers for key times
     ax.axvline(
         event["penetration_start"],
         color=COLORS["grid"],
-        linestyle="--",
-        linewidth=1,
-        alpha=0.5,
-        label="Penetration window",
+        linestyle=":",
+        linewidth=1.5,
+        alpha=0.6,
+        label="Penetration window start",
     )
     ax.axvline(
         event["shower_on"],
         color=COLORS["shower_on"],
         linestyle="--",
-        linewidth=1.5,
+        linewidth=2,
         label="Shower ON",
     )
     ax.axvline(
         event["shower_off"],
         color=COLORS["shower_off"],
         linestyle="--",
-        linewidth=1.5,
+        linewidth=2,
         label="Shower OFF",
     )
     ax.axvline(
         event["deposition_end"],
         color=COLORS["grid"],
-        linestyle="--",
-        linewidth=1,
-        alpha=0.5,
-        label="Deposition window",
+        linestyle=":",
+        linewidth=1.5,
+        alpha=0.6,
+        label="Deposition window end",
     )
 
     # Formatting
     ax.set_xlabel("Time", fontsize=FONT_SIZE_LABEL)
     ax.set_ylabel("Particle Concentration (#/cm³)", fontsize=FONT_SIZE_LABEL)
 
-    bin_name = bin_info["name"]
     title = (
-        f"Event {event_number}: Particle Decay - Bin {bin_num} ({bin_name} µm)\n"
+        f"Event {event_number}: Particle Decay - All Size Bins\n"
         f"{event['shower_on'].strftime('%Y-%m-%d %H:%M')}"
     )
     ax.set_title(title, fontsize=FONT_SIZE_TITLE, fontweight="bold")
 
-    # Add results text box
-    p_mean = result.get(f"bin{bin_num}_p_mean", np.nan)
-    beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
-    E_mean = result.get(f"bin{bin_num}_E_mean", np.nan)
+    # Add results text box with summary
     lambda_ach = result.get("lambda_ach", np.nan)
+    textstr = f"λ = {lambda_ach:.4f} h⁻¹\n\n"
 
-    textstr = f"λ = {lambda_ach:.4f} h⁻¹\n"
-    textstr += f"p = {p_mean:.3f}\n" if not np.isnan(p_mean) else "p = N/A\n"
-    textstr += f"β = {beta_mean:.3f} h⁻¹\n" if not np.isnan(beta_mean) else "β = N/A\n"
-    textstr += f"E = {E_mean:.2e} #/min" if not np.isnan(E_mean) else "E = N/A"
+    # Count valid bins
+    valid_bins = sum(
+        1 for bin_num in particle_bins.keys()
+        if not np.isnan(result.get(f"bin{bin_num}_E_mean", np.nan))
+    )
+    textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
+    textstr += "(Solid = valid, Dashed = invalid)"
 
-    props = dict(boxstyle="round", facecolor="white", alpha=0.8, edgecolor="gray")
+    props = dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray")
     ax.text(
         0.02,
         0.98,
@@ -166,7 +164,12 @@ def plot_particle_decay_event(
         bbox=props,
     )
 
-    ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND, framealpha=0.9)
+    ax.legend(
+        loc="upper right",
+        fontsize=FONT_SIZE_LEGEND - 1,
+        framealpha=0.9,
+        ncol=2,
+    )
     ax.grid(True, alpha=0.3)
     ax.tick_params(labelsize=FONT_SIZE_TICK)
 

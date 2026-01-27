@@ -808,6 +808,11 @@ def run_particle_analysis(
     print("\nAnalyzing shower events...")
     results = []
 
+    # Setup plot directory
+    plot_dir = output_dir / "plots"
+    if generate_plots:
+        plot_dir.mkdir(exist_ok=True)
+
     for event in events:
         event_num = event["event_number"]
         lambda_ach = event.get("lambda_ach", np.nan)
@@ -832,6 +837,23 @@ def run_particle_analysis(
                 valid_bins += 1
 
         print(f"    Successfully analyzed {valid_bins}/{len(PARTICLE_BINS)} bins")
+
+        # Generate individual event plot if enabled (all bins on one plot)
+        if generate_plots and valid_bins > 0:
+            try:
+                from scripts.plot_particle import plot_particle_decay_event
+
+                plot_path = plot_dir / f"event_{event_num:02d}_pm_decay.png"
+                plot_particle_decay_event(
+                    particle_data=particle_data,
+                    event=event,
+                    particle_bins=PARTICLE_BINS,
+                    result=result,
+                    output_path=plot_path,
+                    event_number=event_num,
+                )
+            except ImportError:
+                pass  # Already warned about missing plot module
 
     # Create results DataFrame
     results_df = pd.DataFrame(results)
@@ -896,11 +918,10 @@ def run_particle_analysis(
         plot_dir = output_dir / "plots"
         plot_dir.mkdir(exist_ok=True)
 
-        # Import plot_particle functions (will be created next)
+        # Import plot_particle functions
         try:
-            from scripts.plot_particle import (  # noqa: F401
+            from scripts.plot_particle import (
                 plot_emission_summary,
-                plot_particle_decay_event,
                 plot_penetration_summary,
             )
 
