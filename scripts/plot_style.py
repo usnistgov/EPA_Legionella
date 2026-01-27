@@ -227,7 +227,7 @@ def add_vertical_marker(
         alpha: Line transparency
     """
     ax.axvline(
-        time,
+        float(mdates.date2num(time)),
         color=color,
         linestyle=linestyle,
         linewidth=LINE_WIDTH_ANNOTATION,
