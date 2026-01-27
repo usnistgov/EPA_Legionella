@@ -48,7 +48,7 @@ Methodology:
 Output Files:
     - co2_lambda_summary.csv: Per-event results with all λ calculations
     - co2_lambda_overall_summary.csv: Aggregated statistics across all events
-    - plots/event_XX_decay.png: Individual decay plots with fitted curves
+    - plots/event_XX_co2_decay.png: Individual decay plots with fitted curves
     - plots/lambda_summary.png: Summary bar chart of λ values
 
 Author: Nathan Lima
@@ -351,7 +351,9 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
             )
 
             # Use custom decay duration if specified for this event, otherwise use default
-            decay_duration = CUSTOM_DECAY_DURATIONS.get(event_number, DECAY_DURATION_HOURS)
+            decay_duration = CUSTOM_DECAY_DURATIONS.get(
+                event_number, DECAY_DURATION_HOURS
+            )
             decay_end = decay_start + timedelta(hours=decay_duration)
 
             events.append(
@@ -704,7 +706,7 @@ def run_co2_decay_analysis(
 
             # Generate plot for this event if enabled
             if generate_plots:
-                plot_path = plot_dir / f"event_{i + 1:02d}_decay.png"
+                plot_path = plot_dir / f"event_{i + 1:02d}_co2_decay.png"
                 plot_co2_decay_event_analytical(
                     co2_data=co2_data,
                     event=event,
