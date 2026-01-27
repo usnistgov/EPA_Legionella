@@ -16,6 +16,7 @@ Key Components:
     - create_figure(): Create figures with standard settings
     - save_figure(): Save figures with proper DPI and formatting
     - format_datetime_axis(): Standard datetime axis formatting
+    - format_title(): Standard title formatting for consistency
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -24,7 +25,7 @@ Date: 2026
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -46,6 +47,9 @@ FONT_SIZE_LABEL = 10
 FONT_SIZE_TICK = 9
 FONT_SIZE_LEGEND = 9
 FONT_SIZE_ANNOTATION = 8
+
+# Title formatting - CONSISTENT ACROSS ALL PLOTS
+TITLE_FONTWEIGHT = "normal"  # Changed from 'bold' for consistency
 
 # Color palette (colorblind-friendly)
 COLORS = {
@@ -144,7 +148,8 @@ def create_figure(
     figsize: Optional[Tuple[float, float]] = None,
     sharex: bool = False,
     sharey: bool = False,
-) -> Tuple[Figure, Axes]:
+    height_ratios: Optional[list] = None,
+) -> Tuple[Figure, Union[Axes, list]]:
     """
     Create a figure with consistent styling.
 
@@ -154,6 +159,7 @@ def create_figure(
         figsize: Figure size in inches (width, height). Defaults based on layout.
         sharex: Share x-axis among subplots
         sharey: Share y-axis among subplots
+        height_ratios: Height ratios for subplots (for gridspec)
 
     Returns:
         Tuple of (figure, axes)
@@ -165,12 +171,17 @@ def create_figure(
         height = 4 if nrows == 1 else 3 * nrows
         figsize = (width, height)
 
+    gridspec_kw = {}
+    if height_ratios is not None:
+        gridspec_kw["height_ratios"] = height_ratios
+
     fig, axes = plt.subplots(
         nrows,
         ncols,
         figsize=figsize,
         sharex=sharex,
         sharey=sharey,
+        gridspec_kw=gridspec_kw if gridspec_kw else None,
         constrained_layout=True,
     )
 
@@ -205,6 +216,30 @@ def format_datetime_axis(ax: Axes, interval_minutes: int = 30) -> None:
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
     plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
+
+
+def format_title(
+    base_title: str,
+    event_number: Optional[int] = None,
+    event_datetime: Optional[datetime] = None,
+) -> str:
+    """
+    Format title consistently across all plot types.
+
+    Parameters:
+        base_title: Base title string (e.g., "CO2 Decay Analysis")
+        event_number: Event number to prepend (optional)
+        event_datetime: Datetime to append (optional)
+
+    Returns:
+        Formatted title string
+    """
+    title = base_title
+    if event_number is not None:
+        title = f"Event {event_number}: {title}"
+    if event_datetime is not None:
+        title += f"\n{event_datetime.strftime('%Y-%m-%d %H:%M')}"
+    return title
 
 
 def add_vertical_marker(

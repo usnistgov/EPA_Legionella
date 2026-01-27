@@ -29,16 +29,18 @@ import numpy.typing as npt
 import pandas as pd
 from matplotlib.figure import Figure
 
-from scripts.plot_style import (
+from plot_style import (
     COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
     LINE_WIDTH_ANNOTATION,
     LINE_WIDTH_DATA,
     LINE_WIDTH_FIT,
+    TITLE_FONTWEIGHT,
     apply_style,
     create_figure,
     format_datetime_axis,
+    format_title,
     save_figure,
 )
 
@@ -256,14 +258,17 @@ def plot_co2_decay_event(
 
     ax.set_ylabel("CO$_2$ Concentration (ppm)")
     ax.set_xlabel("Time")
-    ax.legend(loc="upper right")
-    ax.set_ylim(bottom=0)
 
-    title = "CO$_2$ Decay Event"
-    if event_number is not None:
-        title = f"Event {event_number}: {title}"
-    title += f"\n{injection_time.strftime('%Y-%m-%d %H:%M')}"
-    ax.set_title(title)
+    # Use consistent title formatting
+    title = format_title(
+        "CO$_2$ Decay Analysis (Numerical Method)",
+        event_number=event_number,
+        event_datetime=injection_time,
+    )
+    ax.set_title(title, fontweight=TITLE_FONTWEIGHT)
+
+    ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
+    ax.set_ylim(bottom=0)
 
     format_datetime_axis(ax, interval_minutes=30)
 
@@ -301,7 +306,10 @@ def plot_co2_decay_event_analytical(
     Returns:
         Matplotlib figure object or None if no data
     """
-    apply_style()
+    # Use create_figure with height_ratios for consistent styling
+    fig, (ax1, ax2) = create_figure(
+        nrows=2, ncols=1, figsize=(10, 8), height_ratios=[2, 1]
+    )
 
     injection_time = event["injection_start"]
     decay_start = event["decay_start"]
@@ -318,9 +326,8 @@ def plot_co2_decay_event_analytical(
     plot_data = co2_data[mask].copy()
 
     if len(plot_data) == 0:
+        plt.close(fig)
         return None
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[2, 1])
 
     # Top panel: CO2 concentrations
     ax1.plot(
@@ -397,11 +404,13 @@ def plot_co2_decay_event_analytical(
     ax1.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
     ax1.set_ylim(bottom=0)
 
-    title = "CO$_2$ Decay Analysis (Analytical Method)"
-    if event_number is not None:
-        title = f"Event {event_number}: {title}"
-    title += f"\n{injection_time.strftime('%Y-%m-%d %H:%M')}"
-    ax1.set_title(title)
+    # Use consistent title formatting (no fontweight='bold')
+    title = format_title(
+        "CO$_2$ Decay Analysis (Analytical Method)",
+        event_number=event_number,
+        event_datetime=injection_time,
+    )
+    ax1.set_title(title, fontweight=TITLE_FONTWEIGHT)
 
     format_datetime_axis(ax1, interval_minutes=30)
 
@@ -524,7 +533,7 @@ def plot_lambda_summary(
 
     ax.set_xlabel("Event Number")
     ax.set_ylabel("Air-Change Rate λ (h⁻¹)")
-    ax.set_title("Air-Change Rate Summary Across All Events")
+    ax.set_title("Air-Change Rate Summary Across All Events", fontweight=TITLE_FONTWEIGHT)
     ax.set_xticks(list(events))
     ax.legend(loc="upper right")
     ax.set_ylim(bottom=0)

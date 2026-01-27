@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from scripts.plot_style import (
+from plot_style import (
     COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
@@ -34,9 +34,11 @@ from scripts.plot_style import (
     FONT_SIZE_TITLE,
     LINE_WIDTH_DATA,
     SENSOR_COLORS,
+    TITLE_FONTWEIGHT,
     apply_style,
     create_figure,
     format_datetime_axis,
+    format_title,
     save_figure,
 )
 
@@ -135,11 +137,13 @@ def plot_particle_decay_event(
     ax.set_xlabel("Time", fontsize=FONT_SIZE_LABEL)
     ax.set_ylabel("Particle Concentration (#/cm³)", fontsize=FONT_SIZE_LABEL)
 
-    title = (
-        f"Event {event_number}: Particle Decay - All Size Bins\n"
-        f"{event['shower_on'].strftime('%Y-%m-%d %H:%M')}"
+    # Use consistent title formatting (no fontweight='bold')
+    title = format_title(
+        "Particle Decay - All Size Bins",
+        event_number=event_number,
+        event_datetime=event["shower_on"],
     )
-    ax.set_title(title, fontsize=FONT_SIZE_TITLE, fontweight="bold")
+    ax.set_title(title, fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
 
     # Add results text box with summary
     lambda_ach = result.get("lambda_ach", np.nan)
@@ -239,7 +243,7 @@ def plot_penetration_summary(
     ax.set_title(
         "Penetration Factor by Particle Size\n(Mean ± Std Dev)",
         fontsize=FONT_SIZE_TITLE,
-        fontweight="bold",
+        fontweight=TITLE_FONTWEIGHT,
     )
 
     ax.set_xticks(x)
@@ -323,7 +327,7 @@ def plot_deposition_summary(
     ax.set_title(
         "Deposition Rate by Particle Size\n(Mean ± Std Dev)",
         fontsize=FONT_SIZE_TITLE,
-        fontweight="bold",
+        fontweight=TITLE_FONTWEIGHT,
     )
 
     ax.set_xticks(x)
@@ -397,7 +401,7 @@ def plot_emission_summary(
     ax.set_title(
         "Shower Emission Rate by Particle Size\n(Mean ± Std Dev)",
         fontsize=FONT_SIZE_TITLE,
-        fontweight="bold",
+        fontweight=TITLE_FONTWEIGHT,
     )
 
     ax.set_xticks(x)
@@ -438,7 +442,7 @@ def plot_size_distribution_summary(
         (particle_bins[i]["min"] + particle_bins[i]["max"]) / 2 for i in bin_nums
     ]
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axes = create_figure(nrows=1, ncols=3, figsize=(15, 5))
 
     # Panel 1: Penetration factor
     p_means = []
@@ -461,7 +465,7 @@ def plot_size_distribution_summary(
     )
     axes[0].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
     axes[0].set_ylabel("Penetration Factor (p)", fontsize=FONT_SIZE_LABEL)
-    axes[0].set_title("(a) Penetration Factor", fontsize=FONT_SIZE_TITLE)
+    axes[0].set_title("(a) Penetration Factor", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
     axes[0].grid(True, alpha=0.3)
     axes[0].set_ylim(0, 1.1)
 
@@ -486,7 +490,7 @@ def plot_size_distribution_summary(
     )
     axes[1].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
     axes[1].set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
-    axes[1].set_title("(b) Deposition Rate", fontsize=FONT_SIZE_TITLE)
+    axes[1].set_title("(b) Deposition Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
     axes[1].grid(True, alpha=0.3)
 
     # Panel 3: Emission rate
@@ -510,7 +514,7 @@ def plot_size_distribution_summary(
     )
     axes[2].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
     axes[2].set_ylabel("Emission Rate E (#/min)", fontsize=FONT_SIZE_LABEL)
-    axes[2].set_title("(c) Emission Rate", fontsize=FONT_SIZE_TITLE)
+    axes[2].set_title("(c) Emission Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
     axes[2].grid(True, alpha=0.3)
 
     # Apply log scale if needed
