@@ -93,15 +93,15 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.event_matching import (  # noqa: E402
-    build_event_mapping,
-    get_lambda_for_shower,
-    print_event_matching_summary,
-)
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
     get_instrument_path,
+)
+
+from scripts.event_matching import (  # noqa: E402
+    get_lambda_for_shower,
+    print_event_matching_summary,
 )
 
 # =============================================================================
@@ -288,6 +288,7 @@ def load_co2_lambda_results() -> pd.DataFrame:
 
     df = pd.read_csv(co2_results_path)
     df["decay_start"] = pd.to_datetime(df["decay_start"])
+    df["injection_start"] = pd.to_datetime(df["injection_start"])
 
     print(f"\nLoaded CO2 λ results: {len(df)} events")
 
@@ -791,22 +792,37 @@ def run_particle_analysis(
 
     # Load CO2 lambda results
     co2_results = load_co2_lambda_results()
-
-    # Match events with CO2 lambda values (by closest decay_start time)
+    
+    # Match events with CO2 lambda values using proper time-based matching
+    # The CO2 injection occurs ~40 minutes AFTER the shower starts (at :40 of the hour)
+    # So we look for CO2 events that occur AFTER the shower_on time
+    print("\nMatching shower events to CO2 injection events...")
     for event in events:
-        # Find matching CO2 event (within ±30 minutes of shower_off)
-        time_diffs = abs(
-            (co2_results["decay_start"] - event["shower_off"]).dt.total_seconds() / 60
+        shower_time = event["shower_on"]
+        
+        # Use the event_matching module for proper matching
+        lambda_val, co2_idx = get_lambda_for_shower(
+            shower_time, 
+            co2_results,
+            lambda_column="lambda_average_mean",
+            time_tolerance_hours=1.5  # Allow up to 1.5 hours between shower and CO2 injection
         )
-        closest_idx = time_diffs.idxmin()
-
-        if time_diffs[closest_idx] < 30:
-            event["lambda_ach"] = co2_results.loc[closest_idx, "lambda_average_mean"]
+        
+        if lambda_val is not None and not np.isnan(lambda_val):
+            event["lambda_ach"] = lambda_val
+            event["co2_event_idx"] = co2_idx
+            co2_time = co2_results.iloc[co2_idx]["injection_start"]
+            print(
+                f"  Shower {event['event_number']} ({shower_time.strftime('%H:%M')}) "
+                f"→ CO2 event {co2_idx + 1} ({co2_time.strftime('%H:%M')}), "
+                f"λ={lambda_val:.4f} h⁻¹"
+            )
         else:
             event["lambda_ach"] = np.nan
+            event["co2_event_idx"] = None
             print(
-                f"  Warning: No matching CO2 event for shower {event['event_number']} "
-                f"({event['shower_on'].strftime('%Y-%m-%d %H:%M')})"
+                f"  Shower {event['event_number']} ({shower_time.strftime('%Y-%m-%d %H:%M')}): "
+                f"No matching CO2 event found"
             )
 
     # Analyze each event
