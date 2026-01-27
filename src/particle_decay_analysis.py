@@ -83,7 +83,7 @@ import sys
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -93,11 +93,6 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.plot_utils import (  # noqa: E402
-    add_shower_markers,
-    create_figure,
-    save_figure,
-)
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
@@ -178,7 +173,9 @@ def load_quantaq_data(location: str) -> pd.DataFrame:
                 continue
 
             # Extract only particle bin columns
-            bin_cols = ["datetime"] + [PARTICLE_BINS[i]["column"] for i in PARTICLE_BINS]
+            bin_cols = ["datetime"] + [
+                PARTICLE_BINS[i]["column"] for i in PARTICLE_BINS
+            ]
             available_cols = [col for col in bin_cols if col in df.columns]
             df = df[available_cols]
 
@@ -339,7 +336,8 @@ def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
                     "event_number": event_number,
                     "shower_on": shower_on,
                     "shower_off": shower_off,
-                    "shower_duration_min": (shower_off - shower_on).total_seconds() / 60,
+                    "shower_duration_min": (shower_off - shower_on).total_seconds()
+                    / 60,
                     "penetration_start": penetration_start,
                     "penetration_end": shower_on,
                     "deposition_start": deposition_start,
@@ -395,11 +393,16 @@ def calculate_penetration_factor(
             "skip_reason": f"Insufficient data: {len(window_data)} points (minimum 10 required)",
         }
 
-    c_inside = window_data[col_inside].values
-    c_outside = window_data[col_outside].values
+    c_inside = np.asarray(window_data[col_inside].values, dtype=np.float64)
+    c_outside = np.asarray(window_data[col_outside].values, dtype=np.float64)
 
     # Remove invalid points
-    valid_mask = (c_inside > 0) & (c_outside > 0) & (~np.isnan(c_inside)) & (~np.isnan(c_outside))
+    valid_mask = (
+        (c_inside > 0)
+        & (c_outside > 0)
+        & (~np.isnan(c_inside))
+        & (~np.isnan(c_outside))
+    )
 
     if np.sum(valid_mask) < 10:
         return {
@@ -484,8 +487,8 @@ def calculate_deposition_rate(
             "skip_reason": f"Insufficient data: {len(window_data)} points (minimum 20 required)",
         }
 
-    c_inside = window_data[col_inside].values
-    c_outside = window_data[col_outside].values
+    c_inside = np.asarray(window_data[col_inside].values, dtype=np.float64)
+    c_outside = np.asarray(window_data[col_outside].values, dtype=np.float64)
 
     # Check for sufficient concentration difference
     c_ratio = c_inside[0] / np.mean(c_outside)
@@ -587,11 +590,10 @@ def calculate_emission_rate(
             "skip_reason": f"Insufficient data: {len(shower_data)} points (minimum 5 required)",
         }
 
-    c_inside = shower_data[col_inside].values
-    c_outside = shower_data[col_outside].values
+    c_inside = np.asarray(shower_data[col_inside].values, dtype=np.float64)
+    c_outside = np.asarray(shower_data[col_outside].values, dtype=np.float64)
 
     V = BEDROOM_VOLUME_M3  # m³
-    dt_hours = TIME_STEP_MINUTES / 60.0  # hours
     dt_minutes = TIME_STEP_MINUTES  # minutes
 
     # Calculate E for each time step
@@ -670,8 +672,6 @@ def analyze_event_all_bins(
     }
 
     for bin_num in PARTICLE_BINS.keys():
-        bin_name = PARTICLE_BINS[bin_num]["name"]
-
         # Calculate penetration factor
         p_result = calculate_penetration_factor(
             particle_data,
@@ -690,7 +690,9 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
-            results[f"bin{bin_num}_skip_reason"] = p_result.get("skip_reason", "Unknown")
+            results[f"bin{bin_num}_skip_reason"] = p_result.get(
+                "skip_reason", "Unknown"
+            )
             continue
 
         p_mean = p_result["p_mean"]
@@ -713,7 +715,9 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
-            results[f"bin{bin_num}_skip_reason"] = beta_result.get("skip_reason", "Unknown")
+            results[f"bin{bin_num}_skip_reason"] = beta_result.get(
+                "skip_reason", "Unknown"
+            )
             continue
 
         beta_mean = beta_result["beta_mean"]
@@ -786,7 +790,9 @@ def run_particle_analysis(
     # Match events with CO2 lambda values (by closest decay_start time)
     for event in events:
         # Find matching CO2 event (within ±30 minutes of shower_off)
-        time_diffs = abs((co2_results["decay_start"] - event["shower_off"]).dt.total_seconds() / 60)
+        time_diffs = abs(
+            (co2_results["decay_start"] - event["shower_off"]).dt.total_seconds() / 60
+        )
         closest_idx = time_diffs.idxmin()
 
         if time_diffs[closest_idx] < 30:
@@ -849,9 +855,13 @@ def run_particle_analysis(
         if len(valid_p) > 0:
             print(f"  p (penetration):     {valid_p.mean():.3f} ± {valid_p.std():.3f}")
         if len(valid_beta) > 0:
-            print(f"  β (deposition):      {valid_beta.mean():.3f} ± {valid_beta.std():.3f} h⁻¹")
+            print(
+                f"  β (deposition):      {valid_beta.mean():.3f} ± {valid_beta.std():.3f} h⁻¹"
+            )
         if len(valid_E) > 0:
-            print(f"  E (emission):        {valid_E.mean():.2e} ± {valid_E.std():.2e} #/min")
+            print(
+                f"  E (emission):        {valid_E.mean():.2e} ± {valid_E.std():.2e} #/min"
+            )
         print(f"  Valid events:        {len(valid_E)}/{len(results)}")
 
     # Save results
@@ -873,7 +883,9 @@ def run_particle_analysis(
         ]
 
         results_df[p_cols].to_excel(writer, sheet_name="p_penetration", index=False)
-        results_df[beta_cols].to_excel(writer, sheet_name="beta_deposition", index=False)
+        results_df[beta_cols].to_excel(
+            writer, sheet_name="beta_deposition", index=False
+        )
         results_df[E_cols].to_excel(writer, sheet_name="E_emission", index=False)
 
     print(f"\nResults saved to: {output_file}")
@@ -893,8 +905,12 @@ def run_particle_analysis(
             )
 
             # Generate summary plots
-            plot_penetration_summary(results_df, PARTICLE_BINS, plot_dir / "penetration_summary.png")
-            plot_emission_summary(results_df, PARTICLE_BINS, plot_dir / "emission_summary.png")
+            plot_penetration_summary(
+                results_df, PARTICLE_BINS, plot_dir / "penetration_summary.png"
+            )
+            plot_emission_summary(
+                results_df, PARTICLE_BINS, plot_dir / "emission_summary.png"
+            )
 
             print(f"  Plots saved to: {plot_dir}")
         except ImportError:
@@ -907,9 +923,7 @@ def main():
     """Main entry point for command-line usage."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Particle Decay & Emission Analysis"
-    )
+    parser = argparse.ArgumentParser(description="Particle Decay & Emission Analysis")
     parser.add_argument(
         "--output-dir",
         type=str,
