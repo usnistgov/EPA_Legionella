@@ -91,7 +91,16 @@ DEFAULT_BETA = 0.5  # Fraction from entry zone (α + β = 1)
 
 # Analysis timing parameters (minutes)
 DECAY_START_OFFSET_MIN = -10  # Start 10 min before the hour (at :50)
-DECAY_DURATION_HOURS = 2  # Decay analysis duration (hours)
+DECAY_DURATION_HOURS = 2  # Default decay analysis duration (hours)
+
+# Custom decay durations for specific events (event_number: duration_hours)
+# Event numbers are 1-indexed (i.e., the first event is event 1)
+CUSTOM_DECAY_DURATIONS = {
+    5: 1.75,  # Event 5 uses 1.75 hours instead of default 2 hours
+    # Add more custom durations as needed:
+    # 7: 1.5,
+    # 10: 2.5,
+}
 
 # Rolling average parameters
 ROLLING_WINDOW_MIN = 6  # Rolling average window (minutes)
@@ -289,11 +298,13 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
     Returns:
         List[Dict]: List of dicts with injection event details:
         {
+            'event_number': int (1-indexed),
             'injection_start': datetime when CO2 valve opened,
             'injection_end': datetime when CO2 valve closed,
             'fan_off': datetime when mixing fan turned off,
             'decay_start': datetime to begin decay analysis,
-            'decay_end': datetime to end decay analysis
+            'decay_end': datetime to end decay analysis,
+            'decay_duration_hours': float (decay window duration)
         }
     """
     events = []
@@ -301,12 +312,15 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
     # Find rows where CO2 transitions from 0 to non-zero (injection start)
     co2_log = co2_log.sort_values("datetime_EDT").reset_index(drop=True)
 
+    event_number = 0  # Track event number (will be 1-indexed)
+
     for i in range(len(co2_log) - 1):
         current_row = co2_log.iloc[i]
         next_row = co2_log.iloc[i + 1]
 
         # Check for CO2 turning ON
         if current_row["CO2"] == 0 and next_row["CO2"] > 0:
+            event_number += 1  # Increment event number (1-indexed)
             injection_start = next_row["datetime_EDT"]
 
             # Find when CO2 turns OFF (within the next hour)
@@ -335,16 +349,20 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
             decay_start = hour_after_injection + timedelta(
                 minutes=DECAY_START_OFFSET_MIN
             )
-            # Fixed 2-hour decay window
-            decay_end = decay_start + timedelta(hours=DECAY_DURATION_HOURS)
+
+            # Use custom decay duration if specified for this event, otherwise use default
+            decay_duration = CUSTOM_DECAY_DURATIONS.get(event_number, DECAY_DURATION_HOURS)
+            decay_end = decay_start + timedelta(hours=decay_duration)
 
             events.append(
                 {
+                    "event_number": event_number,
                     "injection_start": injection_start,
                     "injection_end": injection_end,
                     "fan_off": fan_off,
                     "decay_start": decay_start,
                     "decay_end": decay_end,
+                    "decay_duration_hours": decay_duration,
                 }
             )
 
@@ -569,9 +587,11 @@ def analyze_injection_event(
         Dict: Dictionary with analysis results for all three methods
     """
     result = {
+        "event_number": event.get("event_number", None),
         "injection_start": event["injection_start"],
         "decay_start": event["decay_start"],
         "decay_end": event["decay_end"],
+        "decay_duration_hours": event.get("decay_duration_hours", DECAY_DURATION_HOURS),
     }
 
     # Calculate lambda using three methods
@@ -658,9 +678,17 @@ def run_co2_decay_analysis(
     plot_dir = output_dir / "plots"
 
     for i, event in enumerate(events):
+        event_num = i + 1
+        decay_duration = event.get("decay_duration_hours", DECAY_DURATION_HOURS)
+        duration_info = (
+            f" [custom: {decay_duration}h]"
+            if event_num in CUSTOM_DECAY_DURATIONS
+            else ""
+        )
         print(
-            f"  Event {i + 1}/{len(events)}: "
+            f"  Event {event_num}/{len(events)}: "
             f"{event['injection_start'].strftime('%Y-%m-%d %H:%M')}"
+            f"{duration_info}"
         )
 
         result = analyze_injection_event(co2_data, event, alpha, beta)
