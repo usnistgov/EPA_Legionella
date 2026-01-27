@@ -93,15 +93,14 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.event_matching import (  # noqa: E402
+    get_lambda_for_shower,
+    print_event_matching_summary,
+)
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
     get_instrument_path,
-)
-
-from scripts.event_matching import (  # noqa: E402
-    get_lambda_for_shower,
-    print_event_matching_summary,
 )
 
 # =============================================================================
@@ -792,22 +791,23 @@ def run_particle_analysis(
 
     # Load CO2 lambda results
     co2_results = load_co2_lambda_results()
-    
+
     # Match events with CO2 lambda values using proper time-based matching
     # The CO2 injection occurs ~40 minutes AFTER the shower starts (at :40 of the hour)
     # So we look for CO2 events that occur AFTER the shower_on time
     print("\nMatching shower events to CO2 injection events...")
     for event in events:
         shower_time = event["shower_on"]
-        
+
         # Use the event_matching module for proper matching
         lambda_val, co2_idx = get_lambda_for_shower(
-            shower_time, 
+            shower_time,
             co2_results,
             lambda_column="lambda_average_mean",
-            time_tolerance_hours=1.5  # Allow up to 1.5 hours between shower and CO2 injection
+            time_tolerance_before=20.0,  # minutes before shower
+            time_tolerance_after=40.0,  # minutes after shower
         )
-        
+
         if lambda_val is not None and not np.isnan(lambda_val):
             event["lambda_ach"] = lambda_val
             event["co2_event_idx"] = co2_idx
