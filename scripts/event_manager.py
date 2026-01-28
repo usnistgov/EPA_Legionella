@@ -45,6 +45,7 @@ Institution: National Institute of Standards and Technology (NIST)
 Date: January 2026
 """
 
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -52,8 +53,14 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
 # Import existing event matching functions
-from event_matching import match_shower_to_co2_event, get_lambda_for_shower
+try:
+    from event_matching import match_shower_to_co2_event, get_lambda_for_shower
+except ImportError:
+    from scripts.event_matching import match_shower_to_co2_event, get_lambda_for_shower
 
 
 # =============================================================================
