@@ -260,6 +260,46 @@ def format_title(
     return title
 
 
+def format_test_name_for_filename(test_name: str) -> str:
+    """
+    Format test name for use in filenames.
+
+    Removes replicate number and converts to lowercase with underscores.
+    Example: "0114_HW_Morning_R01" -> "0114_hw_morning"
+
+    Parameters:
+        test_name: Original test name (e.g., "0114_HW_Morning_R01")
+
+    Returns:
+        Formatted filename string (lowercase, underscores, no replicate)
+    """
+    # Remove replicate number (_R01, _R02, etc.)
+    import re
+    name = re.sub(r'_R\d+$', '', test_name)
+    # Convert to lowercase
+    return name.lower()
+
+
+def format_test_name_for_title(test_name: str) -> str:
+    """
+    Format test name for use in figure titles.
+
+    Removes replicate number and converts to proper case with spaces.
+    Example: "0114_HW_Morning_R01" -> "0114 HW Morning"
+
+    Parameters:
+        test_name: Original test name (e.g., "0114_HW_Morning_R01")
+
+    Returns:
+        Formatted title string (proper case, spaces, no replicate)
+    """
+    # Remove replicate number (_R01, _R02, etc.)
+    import re
+    name = re.sub(r'_R\d+$', '', test_name)
+    # Replace underscores with spaces
+    return name.replace('_', ' ')
+
+
 def add_vertical_marker(
     ax: Axes,
     time: datetime,

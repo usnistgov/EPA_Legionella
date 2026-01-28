@@ -755,9 +755,10 @@ def run_co2_decay_analysis(
 
             # Generate plot for this event if enabled
             if generate_plots:
-                # Use test_name for filename
-                safe_test_name = test_name.replace("/", "-").replace(":", "-")
-                plot_path = plot_dir / f"{safe_test_name}_co2_decay.png"
+                # Format filename: event_01-0114_hw_morning_co2_decay.png
+                from scripts.plot_style import format_test_name_for_filename
+                formatted_name = format_test_name_for_filename(test_name)
+                plot_path = plot_dir / f"event_{event_num:02d}-{formatted_name}_co2_decay.png"
                 plot_co2_decay_event_analytical(
                     co2_data=co2_data,
                     event=event,

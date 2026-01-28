@@ -40,6 +40,7 @@ from scripts.plot_style import (
     apply_style,
     create_figure,
     format_datetime_axis,
+    format_test_name_for_title,
     format_title,
     save_figure,
 )
@@ -406,9 +407,10 @@ def plot_co2_decay_event_analytical(
     ax1.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
     ax1.set_ylim(bottom=0)
 
-    # Use consistent title formatting: "Event # - test_name"
+    # Use consistent title formatting: "Event 01 - 0114 HW Morning: CO2 Decay"
     if test_name:
-        title = f"Event {event_number} - {test_name}: CO$_2$ Decay"
+        formatted_name = format_test_name_for_title(test_name)
+        title = f"Event {event_number:02d} - {formatted_name}: CO$_2$ Decay"
     else:
         title = format_title(
             "CO$_2$ Decay Analysis (Analytical Method)",

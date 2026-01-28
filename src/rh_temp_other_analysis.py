@@ -436,10 +436,11 @@ def generate_time_series_plots(
                     data_dict[sensor_name] = data
 
             if data_dict:
-                # Use test_name for filename
-                safe_test_name = test_name.replace("/", "-").replace(":", "-")
+                # Format filename: event_01-0114_hw_morning_rh_timeseries.png
+                from scripts.plot_style import format_test_name_for_filename
+                formatted_name = format_test_name_for_filename(test_name)
                 output_path = (
-                    plot_dir / f"{safe_test_name}_{var_type}_timeseries.png"
+                    plot_dir / f"event_{event_num:02d}-{formatted_name}_{var_type}_timeseries.png"
                 )
                 plot_environmental_time_series(
                     data_dict=data_dict,

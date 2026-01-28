@@ -44,6 +44,7 @@ from scripts.plot_style import (
     apply_style,
     create_figure,
     format_datetime_axis,
+    format_test_name_for_title,
     format_title,
     save_figure,
 )
@@ -135,9 +136,10 @@ def plot_particle_decay_event(
     ax.set_xlabel("Time", fontsize=FONT_SIZE_LABEL)
     ax.set_ylabel("Particle Concentration (#/cm³)", fontsize=FONT_SIZE_LABEL)
 
-    # Use consistent title formatting: "Event # - test_name"
+    # Use consistent title formatting: "Event 01 - 0114 HW Morning: PM Decay"
     if test_name:
-        title = f"Event {event_number} - {test_name}: PM Decay"
+        formatted_name = format_test_name_for_title(test_name)
+        title = f"Event {event_number:02d} - {formatted_name}: PM Decay"
     else:
         title = format_title(
             "Particle Decay - All Size Bins",

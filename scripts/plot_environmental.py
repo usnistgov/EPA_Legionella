@@ -42,6 +42,7 @@ from scripts.plot_style import (
     add_shower_on_marker,
     create_figure,
     format_datetime_axis,
+    format_test_name_for_title,
     save_figure,
 )
 
@@ -317,9 +318,10 @@ def plot_environmental_time_series(
 
     ax.set_xlabel("Time")
 
-    # Use consistent title formatting: "Event # - test_name"
+    # Use consistent title formatting: "Event 01 - 0114 HW Morning: Relative Humidity"
     if test_name:
-        title = f"Event {event_number} - {test_name}: {settings['title_base']}"
+        formatted_name = format_test_name_for_title(test_name)
+        title = f"Event {event_number:02d} - {formatted_name}: {settings['title_base']}"
     else:
         title = settings["title_base"]
         if event_number is not None:

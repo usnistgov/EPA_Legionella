@@ -69,6 +69,8 @@ from scripts.plot_style import (
     apply_style,
     create_figure,
     format_datetime_axis,
+    format_test_name_for_filename,
+    format_test_name_for_title,
     save_figure,
 )
 
@@ -126,6 +128,8 @@ __all__ = [
     "apply_style",
     "create_figure",
     "format_datetime_axis",
+    "format_test_name_for_filename",
+    "format_test_name_for_title",
     "save_figure",
     # CO2 plots
     "add_injection_marker",

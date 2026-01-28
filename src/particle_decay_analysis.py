@@ -927,10 +927,11 @@ def run_particle_analysis(
         if generate_plots and valid_bins > 0:
             try:
                 from scripts.plot_particle import plot_particle_decay_event
+                from scripts.plot_style import format_test_name_for_filename
 
-                # Use test_name in filename for better organization
-                safe_test_name = test_name.replace("/", "-").replace(":", "-")
-                plot_path = plot_dir / f"{safe_test_name}_pm_decay.png"
+                # Format filename: event_01-0114_hw_morning_pm_decay.png
+                formatted_name = format_test_name_for_filename(test_name)
+                plot_path = plot_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
                 plot_particle_decay_event(
                     particle_data=particle_data,
                     event=event,
