@@ -414,8 +414,9 @@ def generate_time_series_plots(
 
     for idx in event_indices:
         event = events[idx]
-        event_num = idx + 1  # 1-indexed for display
-        print(f"  Event {event_num}: {event['shower_on'].strftime('%Y-%m-%d %H:%M')}")
+        event_num = event.get("event_number", idx + 1)  # Use event_number from event dict
+        test_name = event.get("test_name", f"Event_{event_num:02d}")
+        print(f"  {test_name}: {event['shower_on'].strftime('%Y-%m-%d %H:%M')}")
 
         start_date = event["pre_start"] - timedelta(hours=1)
         end_date = event["post_end"] + timedelta(hours=1)
@@ -435,8 +436,10 @@ def generate_time_series_plots(
                     data_dict[sensor_name] = data
 
             if data_dict:
+                # Use test_name for filename
+                safe_test_name = test_name.replace("/", "-").replace(":", "-")
                 output_path = (
-                    plot_dir / f"event_{event_num:02d}_{var_type}_timeseries.png"
+                    plot_dir / f"{safe_test_name}_{var_type}_timeseries.png"
                 )
                 plot_environmental_time_series(
                     data_dict=data_dict,
@@ -445,6 +448,7 @@ def generate_time_series_plots(
                     variable_type=var_type,
                     output_path=output_path,
                     event_number=event_num,
+                    test_name=test_name,
                 )
 
 

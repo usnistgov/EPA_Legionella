@@ -280,21 +280,37 @@ def load_co2_lambda_results() -> pd.DataFrame:
 
     Returns:
         pd.DataFrame: DataFrame with λ values per event
+
+    Raises:
+        FileNotFoundError: If CO2 analysis results are not found
     """
     output_dir = get_data_root() / "output"
     co2_results_path = output_dir / "co2_lambda_summary.csv"
 
     if not co2_results_path.exists():
+        print("\n" + "="*80)
+        print("DEPENDENCY REQUIRED")
+        print("="*80)
+        print(f"\n❌ CO2 lambda results not found: {co2_results_path}")
+        print("\n📋 Required Dependency:")
+        print("   The particle analysis requires air change rates (λ) from CO2 analysis.")
+        print("\n▶  Action Required:")
+        print("   Run the CO2 decay analysis first:")
+        print("   python src/co2_decay_analysis.py")
+        print("\n📌 Analysis Order:")
+        print("   1. co2_decay_analysis.py     (provides λ values)")
+        print("   2. rh_temp_other_analysis.py  (optional)")
+        print("   3. particle_decay_analysis.py (requires λ from step 1)")
+        print("\n" + "="*80 + "\n")
         raise FileNotFoundError(
-            f"CO2 lambda results not found: {co2_results_path}\n"
-            "Run src/co2_decay_analysis.py first to generate this file."
+            f"CO2 lambda results not found. Please run co2_decay_analysis.py first."
         )
 
     df = pd.read_csv(co2_results_path)
     df["decay_start"] = pd.to_datetime(df["decay_start"])
     df["injection_start"] = pd.to_datetime(df["injection_start"])
 
-    print(f"\nLoaded CO2 λ results: {len(df)} events")
+    print(f"\n✓ Loaded CO2 λ results: {len(df)} events")
 
     return df
 
@@ -922,6 +938,7 @@ def run_particle_analysis(
                     result=result,
                     output_path=plot_path,
                     event_number=event_num,
+                    test_name=test_name,
                 )
             except ImportError:
                 pass  # Already warned about missing plot module

@@ -20,7 +20,7 @@ Date: 2026
 
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,7 +34,13 @@ from scripts.plot_style import (
     FONT_SIZE_TITLE,
     LINE_WIDTH_DATA,
     SENSOR_COLORS,
+    SHOWER_OFF_STYLE,
+    SHOWER_ON_STYLE,
     TITLE_FONTWEIGHT,
+    WINDOW_ALPHA,
+    add_shaded_window,
+    add_shower_off_marker,
+    add_shower_on_marker,
     apply_style,
     create_figure,
     format_datetime_axis,
@@ -50,6 +56,7 @@ def plot_particle_decay_event(
     result: Dict,
     output_path: Path,
     event_number: int,
+    test_name: Optional[str] = None,
 ) -> None:
     """
     Plot particle concentration decay for a single event showing all bins.
@@ -63,6 +70,7 @@ def plot_particle_decay_event(
         result: Analysis results for this event (all bins)
         output_path: Path to save the figure
         event_number: Event number for title
+        test_name: Test name for title (e.g., "0114_HW_Morning_R01")
     """
     apply_style()
 
@@ -101,48 +109,41 @@ def plot_particle_decay_event(
                 alpha=alpha,
             )
 
-    # Add vertical markers for key times
-    ax.axvline(
+    # Add shaded windows for analysis periods (like CO2 plots)
+    add_shaded_window(
+        ax,
         event["penetration_start"],
-        color=COLORS["grid"],
-        linestyle=":",
-        linewidth=1.5,
-        alpha=0.6,
-        label="Penetration window start",
-    )
-    ax.axvline(
         event["shower_on"],
-        color=COLORS["shower_on"],
-        linestyle="--",
-        linewidth=2,
-        label="Shower ON",
+        color=COLORS["pre_shower"],
+        label="Penetration window (1 hr)",
+        alpha=WINDOW_ALPHA,
     )
-    ax.axvline(
+    add_shaded_window(
+        ax,
         event["shower_off"],
-        color=COLORS["shower_off"],
-        linestyle="--",
-        linewidth=2,
-        label="Shower OFF",
-    )
-    ax.axvline(
         event["deposition_end"],
-        color=COLORS["grid"],
-        linestyle=":",
-        linewidth=1.5,
-        alpha=0.6,
-        label="Deposition window end",
+        color=COLORS["post_shower"],
+        label="Deposition window (2 hr)",
+        alpha=WINDOW_ALPHA,
     )
+
+    # Add shower ON/OFF markers using centralized styles
+    add_shower_on_marker(ax, event["shower_on"], label="Shower ON")
+    add_shower_off_marker(ax, event["shower_off"], label="Shower OFF")
 
     # Formatting
     ax.set_xlabel("Time", fontsize=FONT_SIZE_LABEL)
     ax.set_ylabel("Particle Concentration (#/cm³)", fontsize=FONT_SIZE_LABEL)
 
-    # Use consistent title formatting (no fontweight='bold')
-    title = format_title(
-        "Particle Decay - All Size Bins",
-        event_number=event_number,
-        event_datetime=event["shower_on"],
-    )
+    # Use consistent title formatting: "Event # - test_name"
+    if test_name:
+        title = f"Event {event_number} - {test_name}: PM Decay"
+    else:
+        title = format_title(
+            "Particle Decay - All Size Bins",
+            event_number=event_number,
+            event_datetime=event["shower_on"],
+        )
     ax.set_title(title, fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
 
     # Add results text box with summary
