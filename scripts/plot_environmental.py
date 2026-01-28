@@ -36,6 +36,10 @@ from scripts.plot_style import (
     LINE_WIDTH_ANNOTATION,
     LINE_WIDTH_DATA,
     SENSOR_COLORS,
+    SHOWER_OFF_STYLE,
+    SHOWER_ON_STYLE,
+    add_shower_off_marker,
+    add_shower_on_marker,
     create_figure,
     format_datetime_axis,
     save_figure,
@@ -50,7 +54,7 @@ def add_shower_markers(
     label_off: str = "Shower OFF",
 ) -> None:
     """
-    Add vertical lines marking shower start and end times.
+    Add vertical lines marking shower start and end times using centralized styles.
 
     Parameters:
         ax: Matplotlib axes object
@@ -59,22 +63,8 @@ def add_shower_markers(
         label_on: Label for shower start
         label_off: Label for shower end
     """
-    ax.axvline(
-        shower_on,
-        color=COLORS["shower_on"],
-        linestyle="--",
-        linewidth=LINE_WIDTH_ANNOTATION,
-        label=label_on,
-        alpha=0.8,
-    )
-    ax.axvline(
-        shower_off,
-        color=COLORS["shower_off"],
-        linestyle="--",
-        linewidth=LINE_WIDTH_ANNOTATION,
-        label=label_off,
-        alpha=0.8,
-    )
+    add_shower_on_marker(ax, shower_on, label=label_on)
+    add_shower_off_marker(ax, shower_off, label=label_off)
 
 
 def add_analysis_windows(
@@ -276,6 +266,7 @@ def plot_environmental_time_series(
     variable_type: str,
     output_path: Optional[Path] = None,
     event_number: Optional[int] = None,
+    test_name: Optional[str] = None,
     hours_before: float = 1.0,
     hours_after: float = 3.0,
     show_windows: bool = True,
@@ -290,6 +281,7 @@ def plot_environmental_time_series(
         variable_type: Type of variable ('rh', 'temperature', or 'wind')
         output_path: Path to save figure (optional)
         event_number: Event number for title
+        test_name: Test name for title (e.g., "0114_HW_Morning_R01")
         hours_before: Hours before shower ON to include
         hours_after: Hours after shower OFF to include
         show_windows: If True, shade pre/post analysis windows
@@ -325,10 +317,14 @@ def plot_environmental_time_series(
 
     ax.set_xlabel("Time")
 
-    title = settings["title_base"]
-    if event_number is not None:
-        title = f"Event {event_number}: {title}"
-    title += f"\n{shower_on.strftime('%Y-%m-%d')}"
+    # Use consistent title formatting: "Event # - test_name"
+    if test_name:
+        title = f"Event {event_number} - {test_name}: {settings['title_base']}"
+    else:
+        title = settings["title_base"]
+        if event_number is not None:
+            title = f"Event {event_number}: {title}"
+        title += f"\n{shower_on.strftime('%Y-%m-%d')}"
     ax.set_title(title)
 
     format_datetime_axis(ax, interval_minutes=30)

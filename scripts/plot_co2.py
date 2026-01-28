@@ -284,6 +284,7 @@ def plot_co2_decay_event_analytical(
     result: dict,
     output_path: Optional[Path] = None,
     event_number: Optional[int] = None,
+    test_name: Optional[str] = None,
     alpha: float = 0.5,
     beta: float = 0.5,
 ) -> Optional[Figure]:
@@ -300,6 +301,7 @@ def plot_co2_decay_event_analytical(
                 lambda_average_r_squared, c_source_mean, _y_values, _t_values
         output_path: Path to save figure (optional)
         event_number: Event number for title
+        test_name: Test name for title (e.g., "0114_HW_Morning_R01")
         alpha: Fraction of infiltration from outside
         beta: Fraction of infiltration from entry zone
 
@@ -404,12 +406,15 @@ def plot_co2_decay_event_analytical(
     ax1.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
     ax1.set_ylim(bottom=0)
 
-    # Use consistent title formatting (no fontweight='bold')
-    title = format_title(
-        "CO$_2$ Decay Analysis (Analytical Method)",
-        event_number=event_number,
-        event_datetime=injection_time,
-    )
+    # Use consistent title formatting: "Event # - test_name"
+    if test_name:
+        title = f"Event {event_number} - {test_name}: CO$_2$ Decay"
+    else:
+        title = format_title(
+            "CO$_2$ Decay Analysis (Analytical Method)",
+            event_number=event_number,
+            event_datetime=injection_time,
+        )
     ax1.set_title(title, fontweight=TITLE_FONTWEIGHT)
 
     format_datetime_axis(ax1, interval_minutes=30)

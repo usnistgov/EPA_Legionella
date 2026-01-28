@@ -98,6 +98,24 @@ LINE_WIDTH_ANNOTATION = 1.0
 # Marker settings
 MARKER_SIZE = 4
 
+# Shower/Activation event marker styles (centralized for consistency)
+SHOWER_ON_STYLE = {
+    "color": "#2ca02c",  # Green
+    "linestyle": "--",
+    "linewidth": 2.0,
+    "alpha": 0.8,
+}
+
+SHOWER_OFF_STYLE = {
+    "color": "#d62728",  # Red
+    "linestyle": "--",
+    "linewidth": 2.0,
+    "alpha": 0.8,
+}
+
+# Analysis window shaded region styles
+WINDOW_ALPHA = 0.15  # Transparency for shaded analysis windows
+
 
 # =============================================================================
 # Core Utility Functions
@@ -268,4 +286,74 @@ def add_vertical_marker(
         linewidth=LINE_WIDTH_ANNOTATION,
         label=label,
         alpha=alpha,
+    )
+
+
+def add_shower_on_marker(
+    ax: Axes,
+    time: datetime,
+    label: str = "Shower ON",
+) -> None:
+    """
+    Add shower ON marker with consistent styling.
+
+    Parameters:
+        ax: Matplotlib axes object
+        time: Datetime when shower turned on
+        label: Label for legend
+    """
+    ax.axvline(
+        float(mdates.date2num(time)),
+        label=label,
+        **SHOWER_ON_STYLE,
+    )
+
+
+def add_shower_off_marker(
+    ax: Axes,
+    time: datetime,
+    label: str = "Shower OFF",
+) -> None:
+    """
+    Add shower OFF marker with consistent styling.
+
+    Parameters:
+        ax: Matplotlib axes object
+        time: Datetime when shower turned off
+        label: Label for legend
+    """
+    ax.axvline(
+        float(mdates.date2num(time)),
+        label=label,
+        **SHOWER_OFF_STYLE,
+    )
+
+
+def add_shaded_window(
+    ax: Axes,
+    start_time: datetime,
+    end_time: datetime,
+    color: str,
+    label: Optional[str] = None,
+    alpha: Optional[float] = None,
+) -> None:
+    """
+    Add a shaded time window to a plot.
+
+    Parameters:
+        ax: Matplotlib axes object
+        start_time: Start of the window
+        end_time: End of the window
+        color: Fill color
+        label: Label for legend (optional)
+        alpha: Transparency (uses WINDOW_ALPHA if not specified)
+    """
+    if alpha is None:
+        alpha = WINDOW_ALPHA
+    ax.axvspan(
+        float(mdates.date2num(start_time)),
+        float(mdates.date2num(end_time)),
+        alpha=alpha,
+        color=color,
+        label=label,
     )

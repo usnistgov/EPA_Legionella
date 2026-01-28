@@ -690,6 +690,7 @@ def run_co2_decay_analysis(
 
     for i, event in enumerate(events):
         event_num = event.get("event_number", i + 1)
+        test_name = event.get("test_name", f"Event_{event_num:02d}")
         injection_time = event["injection_start"]
 
         # Check if corresponding shower event is excluded
@@ -699,13 +700,14 @@ def run_co2_decay_analysis(
 
         if is_excluded_flag:
             print(
-                f"  Event {event_num}/{len(events)} "
+                f"  {test_name} "
                 f"({injection_time.strftime('%Y-%m-%d %H:%M')}): "
                 f"Skipped (excluded: {exclusion_reason})"
             )
             # Add to results as skipped
             result = {
                 "event_number": event_num,
+                "test_name": test_name,
                 "injection_start": injection_time,
                 "decay_start": event["decay_start"],
                 "decay_end": event["decay_end"],
@@ -734,12 +736,13 @@ def run_co2_decay_analysis(
             else ""
         )
         print(
-            f"  Event {event_num}/{len(events)}: "
+            f"  {test_name}: "
             f"{injection_time.strftime('%Y-%m-%d %H:%M')}"
             f"{duration_info}"
         )
 
         result = analyze_injection_event(co2_data, event, alpha, beta)
+        result["test_name"] = test_name  # Add test_name to result
         results.append(result)
 
         # Print summary for this event
@@ -752,13 +755,16 @@ def run_co2_decay_analysis(
 
             # Generate plot for this event if enabled
             if generate_plots:
-                plot_path = plot_dir / f"event_{event_num:02d}_co2_decay.png"
+                # Use test_name for filename
+                safe_test_name = test_name.replace("/", "-").replace(":", "-")
+                plot_path = plot_dir / f"{safe_test_name}_co2_decay.png"
                 plot_co2_decay_event_analytical(
                     co2_data=co2_data,
                     event=event,
                     result=result,
                     output_path=plot_path,
                     event_number=event_num,
+                    test_name=test_name,
                     alpha=alpha,
                     beta=beta,
                 )
