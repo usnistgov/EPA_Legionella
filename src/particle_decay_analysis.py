@@ -97,6 +97,11 @@ from scripts.event_matching import (  # noqa: E402
     get_lambda_for_shower,
     print_event_matching_summary,
 )
+from scripts.event_manager import (  # noqa: E402
+    process_events_with_management,
+    filter_events_by_date,
+    is_event_excluded,
+)
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
@@ -669,11 +674,17 @@ def analyze_event_all_bins(
         Dict: Results for all bins
     """
     results = {
-        "event_number": event["event_number"],
+        "event_number": event.get("event_number", 0),
+        "test_name": event.get("test_name", ""),
+        "water_temp": event.get("water_temp", ""),
+        "time_of_day": event.get("time_of_day", ""),
+        "fan_during_test": event.get("fan_during_test", False),
+        "replicate_num": event.get("replicate_num", 0),
         "shower_on": event["shower_on"],
         "shower_off": event["shower_off"],
-        "shower_duration_min": event["shower_duration_min"],
+        "shower_duration_min": event.get("shower_duration_min", event.get("duration_min", 0)),
         "lambda_ach": lambda_ach,
+        "co2_event_idx": event.get("co2_event_idx", None),
     }
 
     for bin_num in PARTICLE_BINS.keys():
@@ -786,44 +797,73 @@ def run_particle_analysis(
     # Load shower log and identify events
     print("\nLoading shower log...")
     shower_log = load_shower_log()
-    events = identify_shower_events(shower_log)
-    print(f"Found {len(events)} shower events")
+    raw_events = identify_shower_events(shower_log)
+    print(f"Found {len(raw_events)} raw shower events")
 
     # Load CO2 lambda results
     co2_results = load_co2_lambda_results()
 
-    # Match events with CO2 lambda values using proper time-based matching
-    # The CO2 injection occurs ~40 minutes AFTER the shower starts (at :40 of the hour)
-    # So we look for CO2 events that occur AFTER the shower_on time
-    print("\nMatching shower events to CO2 injection events...")
+    # Process events using the enhanced event management system
+    # This handles:
+    # - Date filtering (>= 2026-01-14)
+    # - Missing event detection and synthetic event creation
+    # - Test condition naming (e.g., 0114_HW_Morning_R01)
+    # - Event exclusions (e.g., 2026-01-22 15:00 tour)
+    # - Comprehensive logging to event_log.csv
+    print("\nProcessing events with event management system...")
+    events, co2_events_processed, event_log = process_events_with_management(
+        raw_events,
+        [],  # CO2 events (will be loaded from co2_results)
+        shower_log,
+        co2_results,
+        output_dir,
+        create_synthetic=True
+    )
+
+    # Match events with CO2 lambda values
+    # (Already done in process_events_with_management, but we print summary here)
+    print("\nEvent Matching Summary:")
+    matched_count = 0
+    excluded_count = 0
+    missing_lambda_count = 0
+
     for event in events:
         shower_time = event["shower_on"]
 
-        # Use the event_matching module for proper matching
-        lambda_val, co2_idx = get_lambda_for_shower(
-            shower_time,
-            co2_results,
-            lambda_column="lambda_average_mean",
-            time_tolerance_before=20.0,  # minutes before shower
-            time_tolerance_after=40.0,  # minutes after shower
-        )
+        # Check if excluded
+        is_excluded_flag, exclusion_reason = is_event_excluded(shower_time)
+        if is_excluded_flag:
+            excluded_count += 1
+            print(
+                f"  Event {event.get('event_number', '?')} "
+                f"({shower_time.strftime('%Y-%m-%d %H:%M')}): "
+                f"EXCLUDED - {exclusion_reason}"
+            )
+            continue
 
-        if lambda_val is not None and not np.isnan(lambda_val):
-            event["lambda_ach"] = lambda_val
-            event["co2_event_idx"] = co2_idx
-            co2_time = co2_results.iloc[co2_idx]["injection_start"]
-            print(
-                f"  Shower {event['event_number']} ({shower_time.strftime('%H:%M')}) "
-                f"→ CO2 event {co2_idx + 1} ({co2_time.strftime('%H:%M')}), "
-                f"λ={lambda_val:.4f} h⁻¹"
-            )
+        # Check if has lambda value
+        lambda_val = event.get("lambda_ach", np.nan)
+        if not np.isnan(lambda_val):
+            matched_count += 1
+            co2_idx = event.get("co2_event_idx")
+            if co2_idx is not None and co2_idx < len(co2_results):
+                co2_time = co2_results.iloc[co2_idx]["injection_start"]
+                print(
+                    f"  {event.get('test_name', 'Event ' + str(event.get('event_number', '?')))} "
+                    f"({shower_time.strftime('%m/%d %H:%M')}) "
+                    f"→ CO2 {co2_idx + 1} ({co2_time.strftime('%H:%M')}), "
+                    f"λ={lambda_val:.4f} h⁻¹"
+                )
         else:
-            event["lambda_ach"] = np.nan
-            event["co2_event_idx"] = None
+            missing_lambda_count += 1
             print(
-                f"  Shower {event['event_number']} ({shower_time.strftime('%Y-%m-%d %H:%M')}): "
-                f"No matching CO2 event found"
+                f"  {event.get('test_name', 'Event ' + str(event.get('event_number', '?')))} "
+                f"({shower_time.strftime('%m/%d %H:%M')}): "
+                f"No λ value available"
             )
+
+    print(f"\nTotal: {len(events)} events | Matched: {matched_count} | "
+          f"Excluded: {excluded_count} | Missing λ: {missing_lambda_count}")
 
     # Analyze each event
     print("\nAnalyzing shower events...")
@@ -835,17 +875,25 @@ def run_particle_analysis(
         plot_dir.mkdir(exist_ok=True)
 
     for event in events:
-        event_num = event["event_number"]
+        event_num = event.get("event_number", 0)
+        test_name = event.get("test_name", f"Event_{event_num}")
+        shower_time = event["shower_on"]
         lambda_ach = event.get("lambda_ach", np.nan)
 
+        # Skip excluded events
+        is_excluded_flag, exclusion_reason = is_event_excluded(shower_time)
+        if is_excluded_flag:
+            print(f"  {test_name}: Skipped (excluded: {exclusion_reason})")
+            continue
+
+        # Skip events without lambda
         if np.isnan(lambda_ach):
-            print(f"  Event {event_num}: Skipped (no λ from CO2 analysis)")
+            print(f"  {test_name}: Skipped (no λ from CO2 analysis)")
             continue
 
         print(
-            f"  Event {event_num}/{len(events)}: "
-            f"{event['shower_on'].strftime('%Y-%m-%d %H:%M')} "
-            f"(λ={lambda_ach:.4f} h⁻¹)"
+            f"  {test_name} ({shower_time.strftime('%m/%d %H:%M')}): "
+            f"λ={lambda_ach:.4f} h⁻¹"
         )
 
         result = analyze_event_all_bins(particle_data, event, lambda_ach)
@@ -864,7 +912,9 @@ def run_particle_analysis(
             try:
                 from scripts.plot_particle import plot_particle_decay_event
 
-                plot_path = plot_dir / f"event_{event_num:02d}_pm_decay.png"
+                # Use test_name in filename for better organization
+                safe_test_name = test_name.replace("/", "-").replace(":", "-")
+                plot_path = plot_dir / f"{safe_test_name}_pm_decay.png"
                 plot_particle_decay_event(
                     particle_data=particle_data,
                     event=event,

@@ -1,0 +1,629 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Event Management System
+=======================
+
+This module provides enhanced event matching, filtering, naming, and logging
+capabilities for the EPA Legionella project.
+
+Key Features:
+    - Date filtering to exclude pre-experiment data
+    - Missing event detection and synthetic event creation
+    - Test parameter-based naming convention (e.g., 0114_HW_Morning_R01)
+    - Bath fan status detection for test conditions
+    - Event exclusion system with reason logging
+    - Comprehensive event_log.csv for tracking all events and issues
+
+Naming Convention Format:
+    MMDD_TempCode_TimeOfDay_RNN
+
+    Components:
+    - MMDD: Month and day (e.g., 0114 for January 14)
+    - TempCode: HW (Hot Water) or CW (Cold Water)
+    - TimeOfDay: Morning, Afternoon, Evening, or Night
+    - RNN: Replicate number (R01, R02, etc.)
+
+    Examples:
+    - 0114_HW_Morning_R01
+    - 0122_CW_Afternoon_R03
+    - 0125_CW_Evening_R01
+
+Time of Day Categories:
+    - Morning: 5am - 11am
+    - Afternoon: 11am - 5pm
+    - Evening: 5pm - 9pm
+    - Night: 9pm - 5am
+
+Test Parameters:
+    - Water Temperature: Hot (before 2026-01-22 14:00), Cold (after)
+    - Time of Day: Based on shower start time
+    - Bath Fan Status: Fan running during or within 2 hours after shower
+
+Author: Nathan Lima
+Institution: National Institute of Standards and Technology (NIST)
+Date: January 2026
+"""
+
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+
+# Import existing event matching functions
+from event_matching import match_shower_to_co2_event, get_lambda_for_shower
+
+
+# =============================================================================
+# Configuration Constants
+# =============================================================================
+
+# Experiment start date - data before this is excluded
+EXPERIMENT_START_DATE = datetime(2026, 1, 14, 0, 0, 0)
+
+# Water temperature transition date/time
+HOT_WATER_END_TIME = datetime(2026, 1, 22, 14, 0, 0)  # 2PM on Jan 22
+
+# Time of day boundaries (hour of day)
+TIME_OF_DAY_RANGES = {
+    "Morning": (5, 11),    # 5am - 11am
+    "Afternoon": (11, 17),  # 11am - 5pm
+    "Evening": (17, 21),    # 5pm - 9pm
+    "Night": (21, 5),       # 9pm - 5am (wraps around midnight)
+}
+
+# Predefined exclusions: datetime -> reason
+EXCLUDED_EVENTS = {
+    datetime(2026, 1, 22, 15, 0, 0): "Tour in house during test",
+}
+
+# Expected CO2 to shower timing offset (minutes)
+EXPECTED_CO2_BEFORE_SHOWER = 20
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+def get_time_of_day(dt: datetime) -> str:
+    """
+    Determine time of day category based on hour.
+
+    Parameters:
+        dt: Datetime to categorize
+
+    Returns:
+        String: "Morning", "Afternoon", "Evening", or "Night"
+    """
+    hour = dt.hour
+
+    if TIME_OF_DAY_RANGES["Morning"][0] <= hour < TIME_OF_DAY_RANGES["Morning"][1]:
+        return "Morning"
+    elif TIME_OF_DAY_RANGES["Afternoon"][0] <= hour < TIME_OF_DAY_RANGES["Afternoon"][1]:
+        return "Afternoon"
+    elif TIME_OF_DAY_RANGES["Evening"][0] <= hour < TIME_OF_DAY_RANGES["Evening"][1]:
+        return "Evening"
+    else:
+        return "Night"
+
+
+def get_water_temperature_code(dt: datetime) -> str:
+    """
+    Determine water temperature code based on datetime.
+
+    Hot water was used before 2026-01-22 14:00.
+    Cold water is used after 2026-01-22 14:00.
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        String: "HW" (hot water) or "CW" (cold water)
+    """
+    if dt < HOT_WATER_END_TIME:
+        return "HW"
+    else:
+        return "CW"
+
+
+def check_fan_during_test(
+    shower_on: datetime,
+    shower_off: datetime,
+    shower_log: pd.DataFrame
+) -> bool:
+    """
+    Check if bath fan ran during shower or within 2 hours after shower.
+
+    Fan running before shower is for space draw-down and not a test parameter.
+
+    Parameters:
+        shower_on: Shower start time
+        shower_off: Shower end time
+        shower_log: DataFrame with shower and bath_fan state changes
+
+    Returns:
+        Boolean: True if fan ran during test period, False otherwise
+    """
+    # Check period: from shower_on to 2 hours after shower_off
+    test_start = shower_on
+    test_end = shower_off + timedelta(hours=2)
+
+    # Filter log to test period
+    mask = (shower_log["datetime_EDT"] >= test_start) & \
+           (shower_log["datetime_EDT"] <= test_end)
+    test_period_log = shower_log[mask]
+
+    # Check if fan was ever on during this period
+    if len(test_period_log) > 0:
+        return (test_period_log["bath_fan"] > 0).any()
+
+    return False
+
+
+def generate_test_name(
+    shower_time: datetime,
+    water_temp: str,
+    time_of_day: str,
+    replicate_num: int,
+    fan_status: bool = False
+) -> str:
+    """
+    Generate a test condition name following the naming convention.
+
+    Format: MMDD_TempCode_TimeOfDay[_Fan]_RNN
+
+    Parameters:
+        shower_time: Datetime of shower start
+        water_temp: "HW" or "CW"
+        time_of_day: "Morning", "Afternoon", "Evening", or "Night"
+        replicate_num: Replicate number (1-indexed)
+        fan_status: Whether bath fan ran during test (default False)
+
+    Returns:
+        String: Test name (e.g., "0114_HW_Morning_R01")
+    """
+    # Format date as MMDD
+    date_str = shower_time.strftime("%m%d")
+
+    # Build name components
+    components = [date_str, water_temp, time_of_day]
+
+    # Add fan status if applicable
+    if fan_status:
+        components.append("Fan")
+
+    # Add replicate number
+    components.append(f"R{replicate_num:02d}")
+
+    return "_".join(components)
+
+
+# =============================================================================
+# Event Filtering and Validation
+# =============================================================================
+
+def filter_events_by_date(
+    events: List[Dict],
+    start_date: datetime = EXPERIMENT_START_DATE
+) -> List[Dict]:
+    """
+    Filter events to only include those on or after the experiment start date.
+
+    Parameters:
+        events: List of event dictionaries
+        start_date: Minimum date/time to include (default: 2026-01-14)
+
+    Returns:
+        Filtered list of events
+    """
+    filtered = []
+    for event in events:
+        event_time = event.get("shower_on") or event.get("injection_start")
+        if event_time and event_time >= start_date:
+            filtered.append(event)
+
+    return filtered
+
+
+def is_event_excluded(event_time: datetime) -> Tuple[bool, Optional[str]]:
+    """
+    Check if an event should be excluded from analysis.
+
+    Parameters:
+        event_time: Datetime of the event
+
+    Returns:
+        Tuple of (is_excluded: bool, reason: str or None)
+    """
+    # Check exact match first
+    if event_time in EXCLUDED_EVENTS:
+        return True, EXCLUDED_EVENTS[event_time]
+
+    # Check for events within 1 minute (to handle slight timing differences)
+    for excluded_time, reason in EXCLUDED_EVENTS.items():
+        if abs((event_time - excluded_time).total_seconds()) < 60:
+            return True, reason
+
+    return False, None
+
+
+# =============================================================================
+# Missing Event Detection and Synthetic Event Creation
+# =============================================================================
+
+def create_synthetic_co2_event(
+    shower_time: datetime,
+    event_number: int
+) -> Dict:
+    """
+    Create a synthetic CO2 event for a shower that has no matching CO2 data.
+
+    The synthetic event has expected timing but no actual measurement data.
+
+    Parameters:
+        shower_time: Datetime when shower started
+        event_number: Event number for this synthetic CO2 event
+
+    Returns:
+        Dictionary with synthetic CO2 event structure
+    """
+    # Expected CO2 injection: 20 minutes before shower
+    injection_start = shower_time - timedelta(minutes=EXPECTED_CO2_BEFORE_SHOWER)
+    injection_end = injection_start + timedelta(minutes=4)  # 4-minute injection
+    fan_off = injection_start + timedelta(minutes=5)  # Fan off at 5 minutes
+
+    # Decay analysis would start at :50 (10 minutes before next hour)
+    hour_after_injection = injection_start.replace(
+        minute=0, second=0, microsecond=0
+    ) + timedelta(hours=1)
+    decay_start = hour_after_injection + timedelta(minutes=-10)  # At :50
+    decay_end = decay_start + timedelta(hours=2)  # 2-hour analysis window
+
+    return {
+        "event_number": event_number,
+        "injection_start": injection_start,
+        "injection_end": injection_end,
+        "fan_off": fan_off,
+        "decay_start": decay_start,
+        "decay_end": decay_end,
+        "decay_duration_hours": 2.0,
+        "is_synthetic": True,  # Flag to indicate this is not real data
+    }
+
+
+def detect_missing_events(
+    shower_events: List[Dict],
+    co2_events: List[Dict],
+    time_tolerance_minutes: float = 10.0
+) -> Tuple[List[int], List[int]]:
+    """
+    Detect missing events in either shower or CO2 logs.
+
+    Parameters:
+        shower_events: List of shower event dictionaries
+        co2_events: List of CO2 event dictionaries
+        time_tolerance_minutes: Tolerance for matching (default 10 minutes)
+
+    Returns:
+        Tuple of (shower_indices_missing_co2, co2_indices_missing_shower)
+    """
+    showers_missing_co2 = []
+    co2_missing_shower = []
+
+    # Check each shower for matching CO2
+    for i, shower_event in enumerate(shower_events):
+        shower_time = shower_event["shower_on"]
+        expected_co2_time = shower_time - timedelta(minutes=EXPECTED_CO2_BEFORE_SHOWER)
+
+        # Look for matching CO2 event
+        found_match = False
+        for co2_event in co2_events:
+            co2_time = co2_event["injection_start"]
+            time_diff = abs((co2_time - expected_co2_time).total_seconds() / 60.0)
+
+            if time_diff <= time_tolerance_minutes:
+                found_match = True
+                break
+
+        if not found_match:
+            showers_missing_co2.append(i)
+
+    # Check each CO2 for matching shower
+    for i, co2_event in enumerate(co2_events):
+        co2_time = co2_event["injection_start"]
+        expected_shower_time = co2_time + timedelta(minutes=EXPECTED_CO2_BEFORE_SHOWER)
+
+        # Look for matching shower event
+        found_match = False
+        for shower_event in shower_events:
+            shower_time = shower_event["shower_on"]
+            time_diff = abs((shower_time - expected_shower_time).total_seconds() / 60.0)
+
+            if time_diff <= time_tolerance_minutes:
+                found_match = True
+                break
+
+        if not found_match:
+            co2_missing_shower.append(i)
+
+    return showers_missing_co2, co2_missing_shower
+
+
+# =============================================================================
+# Event Naming and Replicate Tracking
+# =============================================================================
+
+def assign_test_names(
+    shower_events: List[Dict],
+    shower_log: pd.DataFrame
+) -> List[Dict]:
+    """
+    Assign test condition names to all shower events.
+
+    Handles replicate numbering for tests with the same conditions.
+
+    Parameters:
+        shower_events: List of shower event dictionaries
+        shower_log: DataFrame with shower and bath_fan state changes
+
+    Returns:
+        List of events with added 'test_name' field
+    """
+    # Track replicate numbers by condition (excluding replicate number)
+    replicate_counters = {}
+
+    for event in shower_events:
+        shower_time = event["shower_on"]
+        shower_off = event["shower_off"]
+
+        # Determine test parameters
+        water_temp = get_water_temperature_code(shower_time)
+        time_of_day = get_time_of_day(shower_time)
+        fan_status = check_fan_during_test(shower_time, shower_off, shower_log)
+
+        # Create base condition key (without replicate number)
+        date_str = shower_time.strftime("%m%d")
+        condition_key = f"{date_str}_{water_temp}_{time_of_day}"
+        if fan_status:
+            condition_key += "_Fan"
+
+        # Get next replicate number for this condition
+        replicate_num = replicate_counters.get(condition_key, 0) + 1
+        replicate_counters[condition_key] = replicate_num
+
+        # Generate full test name
+        test_name = generate_test_name(
+            shower_time, water_temp, time_of_day, replicate_num, fan_status
+        )
+
+        # Add to event
+        event["test_name"] = test_name
+        event["water_temp"] = water_temp
+        event["time_of_day"] = time_of_day
+        event["fan_during_test"] = fan_status
+        event["replicate_num"] = replicate_num
+
+    return shower_events
+
+
+# =============================================================================
+# Event Logging System
+# =============================================================================
+
+def create_event_log(
+    shower_events: List[Dict],
+    co2_events: List[Dict],
+    matched_pairs: Dict[int, Optional[int]],
+    output_path: Path
+) -> pd.DataFrame:
+    """
+    Create a comprehensive event log CSV with all events and their status.
+
+    Includes:
+    - All shower events (with matched CO2 or missing)
+    - All CO2 events (with matched shower or missing)
+    - Exclusion flags and reasons
+    - Missing event flags and details
+    - Test condition names
+
+    Parameters:
+        shower_events: List of shower event dictionaries
+        co2_events: List of CO2 event dictionaries
+        matched_pairs: Dict mapping shower index to CO2 index
+        output_path: Path to save event_log.csv
+
+    Returns:
+        DataFrame with event log
+    """
+    log_entries = []
+
+    # Process shower events
+    for i, shower_event in enumerate(shower_events):
+        shower_time = shower_event["shower_on"]
+        shower_off = shower_event.get("shower_off")
+        co2_idx = matched_pairs.get(i)
+
+        # Check if excluded
+        is_excluded, exclusion_reason = is_event_excluded(shower_time)
+
+        # Get matched CO2 info
+        co2_time = None
+        co2_event_num = None
+        has_co2 = False
+        is_synthetic_co2 = False
+
+        if co2_idx is not None:
+            co2_event = co2_events[co2_idx]
+            co2_time = co2_event["injection_start"]
+            co2_event_num = co2_event["event_number"]
+            has_co2 = True
+            is_synthetic_co2 = co2_event.get("is_synthetic", False)
+
+        log_entries.append({
+            "event_type": "shower",
+            "event_number": shower_event.get("event_number", i + 1),
+            "test_name": shower_event.get("test_name", ""),
+            "datetime": shower_time,
+            "shower_on": shower_time,
+            "shower_off": shower_off,
+            "co2_injection": co2_time,
+            "co2_event_number": co2_event_num,
+            "has_matching_co2": has_co2,
+            "co2_is_synthetic": is_synthetic_co2,
+            "is_excluded": is_excluded,
+            "exclusion_reason": exclusion_reason if is_excluded else "",
+            "water_temp": shower_event.get("water_temp", ""),
+            "time_of_day": shower_event.get("time_of_day", ""),
+            "fan_during_test": shower_event.get("fan_during_test", False),
+        })
+
+    # Create DataFrame
+    df = pd.DataFrame(log_entries)
+
+    # Save to CSV
+    df.to_csv(output_path, index=False)
+    print(f"\nEvent log saved to: {output_path}")
+
+    # Print summary
+    n_total = len(df)
+    n_excluded = df["is_excluded"].sum()
+    n_missing_co2 = (~df["has_matching_co2"]).sum()
+    n_synthetic = df["co2_is_synthetic"].sum()
+
+    print(f"\nEvent Log Summary:")
+    print(f"  Total shower events: {n_total}")
+    print(f"  Excluded events: {n_excluded}")
+    print(f"  Missing CO2 events: {n_missing_co2}")
+    print(f"  Synthetic CO2 events: {n_synthetic}")
+
+    return df
+
+
+# =============================================================================
+# Main Processing Function
+# =============================================================================
+
+def process_events_with_management(
+    shower_events: List[Dict],
+    co2_events: List[Dict],
+    shower_log: pd.DataFrame,
+    co2_results_df: pd.DataFrame,
+    output_dir: Path,
+    create_synthetic: bool = True
+) -> Tuple[List[Dict], List[Dict], pd.DataFrame]:
+    """
+    Process all events with filtering, matching, naming, and logging.
+
+    This is the main entry point for the enhanced event management system.
+
+    Parameters:
+        shower_events: List of shower event dictionaries
+        co2_events: List of CO2 event dictionaries
+        shower_log: DataFrame with shower state changes
+        co2_results_df: DataFrame with CO2 analysis results
+        output_dir: Directory for output files
+        create_synthetic: Whether to create synthetic events for missing data
+
+    Returns:
+        Tuple of (processed_shower_events, processed_co2_events, event_log_df)
+    """
+    print("\n" + "=" * 70)
+    print("Event Management System")
+    print("=" * 70)
+
+    # Step 1: Filter by date
+    print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
+    shower_events = filter_events_by_date(shower_events)
+    co2_events = filter_events_by_date(co2_events)
+    print(f"  Shower events after filtering: {len(shower_events)}")
+    print(f"  CO2 events after filtering: {len(co2_events)}")
+
+    # Step 2: Assign test names
+    print("\nAssigning test condition names...")
+    shower_events = assign_test_names(shower_events, shower_log)
+
+    # Step 3: Detect missing events
+    print("\nDetecting missing events...")
+    showers_missing_co2, co2_missing_shower = detect_missing_events(
+        shower_events, co2_events
+    )
+
+    if showers_missing_co2:
+        print(f"  Found {len(showers_missing_co2)} shower events without CO2 data")
+
+        if create_synthetic:
+            print("  Creating synthetic CO2 events...")
+            next_co2_num = len(co2_events) + 1
+
+            for shower_idx in showers_missing_co2:
+                shower_event = shower_events[shower_idx]
+                synthetic_co2 = create_synthetic_co2_event(
+                    shower_event["shower_on"],
+                    next_co2_num
+                )
+                co2_events.append(synthetic_co2)
+                next_co2_num += 1
+
+    if co2_missing_shower:
+        print(f"  Found {len(co2_missing_shower)} CO2 events without shower data")
+        print("  (These will be logged but not processed further)")
+
+    # Step 4: Match events
+    print("\nMatching shower events to CO2 events...")
+    matched_pairs = {}
+
+    # Convert co2_events to DataFrame for matching if needed
+    if not isinstance(co2_results_df, pd.DataFrame) or co2_results_df.empty:
+        co2_results_df = pd.DataFrame(co2_events)
+
+    for i, shower_event in enumerate(shower_events):
+        shower_time = shower_event["shower_on"]
+
+        # Skip excluded events
+        is_excluded, _ = is_event_excluded(shower_time)
+        if is_excluded:
+            matched_pairs[i] = None
+            continue
+
+        # Find matching CO2 event
+        co2_idx = match_shower_to_co2_event(
+            shower_time,
+            co2_results_df,
+            time_tolerance_before=10.0,
+            time_tolerance_after=10.0,
+        )
+
+        matched_pairs[i] = co2_idx
+
+        # Add lambda value if available
+        if co2_idx is not None and "lambda_average_mean" in co2_results_df.columns:
+            lambda_val = co2_results_df.iloc[co2_idx]["lambda_average_mean"]
+            shower_event["lambda_ach"] = lambda_val
+            shower_event["co2_event_idx"] = co2_idx
+
+    print(f"  Matched: {sum(1 for v in matched_pairs.values() if v is not None)}/{len(shower_events)}")
+
+    # Step 5: Create event log
+    print("\nCreating event log...")
+    log_path = output_dir / "event_log.csv"
+    event_log_df = create_event_log(
+        shower_events, co2_events, matched_pairs, log_path
+    )
+
+    print("\n" + "=" * 70)
+    print("Event Management Complete")
+    print("=" * 70 + "\n")
+
+    return shower_events, co2_events, event_log_df
+
+
+if __name__ == "__main__":
+    print("Event Manager Module")
+    print("This module should be imported and used by other scripts.")
+    print("\nKey functions:")
+    print("  - process_events_with_management(): Main processing function")
+    print("  - filter_events_by_date(): Filter events by date")
+    print("  - assign_test_names(): Generate test condition names")
+    print("  - create_event_log(): Generate event log CSV")

@@ -7,13 +7,15 @@ Event Matching Utilities
 This module provides functions for matching CO2 injection events with shower events.
 
 The experimental protocol follows this sequence within each testing cycle:
-1. Shower ON at :00 (top of hour) or other scheduled time
-2. Shower OFF after 5-15 minutes
-3. CO2 injection at :40 (40 minutes into the hour)
-4. CO2 decay measurement starts at :50
+1. CO2 injection at :40 (40 minutes into the hour, e.g., 08:40, 14:40)
+2. CO2 injection ends at :44 (4-minute injection period)
+3. Mixing fan turns off at :45
+4. Shower ON at :00 (top of next hour, e.g., 09:00, 15:00)
+5. Shower OFF after 5-15 minutes
+6. CO2 decay measurement starts at :50 (10 minutes before top of hour after injection)
 
-This creates a timing offset where the CO2 injection occurs AFTER the shower ends,
-but both belong to the same testing cycle. The matching logic must account for this.
+This creates a timing offset where the CO2 injection occurs approximately 20 minutes
+BEFORE the shower starts. The matching logic must account for this timing relationship.
 
 Key Functions:
     - match_shower_to_co2_event: Find the CO2 event corresponding to a shower event
@@ -56,26 +58,27 @@ def get_testing_cycle_hour(event_time: datetime) -> datetime:
 def match_shower_to_co2_event(
     shower_time: datetime,
     co2_events_df: pd.DataFrame,
-    time_tolerance_before: float = 20.0,  # minutes before shower
-    time_tolerance_after: float = 40.0,  # minutes after shower
+    time_tolerance_before: float = 10.0,  # minutes before expected CO2 time
+    time_tolerance_after: float = 10.0,   # minutes after expected CO2 time
     injection_column: str = "injection_start",
 ) -> Optional[int]:
     """
     Find the CO2 event that corresponds to a shower event.
 
     The matching logic accounts for the experimental protocol where:
-    - Shower events occur at various times (often :00 or :50)
-    - CO2 injection occurs approximately 40 minutes after the shower starts
+    - CO2 injection occurs at :40 (e.g., 08:40, 14:40)
+    - Shower starts at :00 of the next hour (e.g., 09:00, 15:00)
+    - Expected timing: CO2 injection is ~20 minutes BEFORE shower start
 
     Matching criteria:
-    1. CO2 injection occurs within time_tolerance_before minutes before to time_tolerance_after minutes after the shower
-    2. Prefer the CO2 event closest in time to the expected injection time (shower_time + 40 minutes)
+    1. CO2 injection occurs within tolerance window around expected time (shower_time - 20 minutes)
+    2. Prefer the CO2 event closest in time to the expected injection time
 
     Parameters:
         shower_time: Datetime when shower started
         co2_events_df: DataFrame with CO2 event data (must have injection_column)
-        time_tolerance_before: Minutes before shower to consider for CO2 injection
-        time_tolerance_after: Minutes after shower to consider for CO2 injection
+        time_tolerance_before: Minutes before expected CO2 time to search (default 10)
+        time_tolerance_after: Minutes after expected CO2 time to search (default 10)
         injection_column: Column name for CO2 injection time
 
     Returns:
@@ -87,23 +90,25 @@ def match_shower_to_co2_event(
     # Ensure injection times are datetime
     injection_times = pd.to_datetime(co2_events_df[injection_column])
 
-    # Find CO2 events that occur within the tolerance window
-    min_time = shower_time - timedelta(minutes=time_tolerance_before)
-    max_time = shower_time + timedelta(minutes=time_tolerance_after)
+    # Expected CO2 injection time: 20 minutes BEFORE shower start
+    expected_co2_time = shower_time - timedelta(minutes=20)
+
+    # Find CO2 events that occur within the tolerance window around expected time
+    min_time = expected_co2_time - timedelta(minutes=time_tolerance_before)
+    max_time = expected_co2_time + timedelta(minutes=time_tolerance_after)
 
     # Find candidates within the time window
     candidates = []
     for idx, inj_time in enumerate(injection_times):
         if min_time <= inj_time <= max_time:
-            time_diff = (
-                inj_time - (shower_time + timedelta(minutes=40))
-            ).total_seconds() / 60.0
+            # Calculate time difference from expected CO2 injection time
+            time_diff = (inj_time - expected_co2_time).total_seconds() / 60.0
             candidates.append((idx, abs(time_diff)))
 
     if not candidates:
         return None
 
-    # Return the closest match (smallest absolute time difference from expected 40-minute delay)
+    # Return the closest match (smallest absolute time difference from expected time)
     candidates.sort(key=lambda x: x[1])
     return candidates[0][0]
 
@@ -111,7 +116,8 @@ def match_shower_to_co2_event(
 def build_event_mapping(
     shower_events: List[Dict],
     co2_events_df: pd.DataFrame,
-    time_tolerance_hours: float = 1.5,
+    time_tolerance_before: float = 10.0,
+    time_tolerance_after: float = 10.0,
 ) -> Dict[int, Optional[int]]:
     """
     Build a complete mapping from shower event indices to CO2 event indices.
@@ -119,7 +125,8 @@ def build_event_mapping(
     Parameters:
         shower_events: List of shower event dictionaries with 'shower_on' key
         co2_events_df: DataFrame with CO2 analysis results
-        time_tolerance_hours: Maximum hours between shower and CO2 injection
+        time_tolerance_before: Minutes before expected CO2 time to search (default 10)
+        time_tolerance_after: Minutes after expected CO2 time to search (default 10)
 
     Returns:
         Dictionary mapping shower event index (1-based) to CO2 event index (0-based)
@@ -138,7 +145,8 @@ def build_event_mapping(
         co2_idx = match_shower_to_co2_event(
             shower_time,
             co2_events_df,
-            time_tolerance_hours=time_tolerance_hours,
+            time_tolerance_before=time_tolerance_before,
+            time_tolerance_after=time_tolerance_after,
         )
 
         mapping[shower_num] = co2_idx
@@ -150,8 +158,8 @@ def get_lambda_for_shower(
     shower_time: datetime,
     co2_events_df: pd.DataFrame,
     lambda_column: str = "lambda_average_mean",
-    time_tolerance_before: float = 20.0,
-    time_tolerance_after: float = 40.0,
+    time_tolerance_before: float = 10.0,
+    time_tolerance_after: float = 10.0,
 ) -> Tuple[Optional[float], Optional[int]]:
     """
     Get the air change rate (λ) for a shower event from CO2 analysis results.
@@ -160,7 +168,8 @@ def get_lambda_for_shower(
         shower_time: Datetime when shower started
         co2_events_df: DataFrame with CO2 analysis results
         lambda_column: Column name for λ value
-        time_tolerance_hours: Maximum hours between shower and CO2 injection
+        time_tolerance_before: Minutes before expected CO2 time to search (default 10)
+        time_tolerance_after: Minutes after expected CO2 time to search (default 10)
 
     Returns:
         Tuple of (lambda_value, co2_event_index) or (None, None) if no match

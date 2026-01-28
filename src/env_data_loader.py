@@ -208,6 +208,7 @@ def identify_shower_events(
     events = []
     shower_log = shower_log.sort_values("datetime_EDT").reset_index(drop=True)
 
+    event_number = 0  # Will be 1-indexed
     i = 0
     while i < len(shower_log):
         row = shower_log.iloc[i]
@@ -226,17 +227,31 @@ def identify_shower_events(
                 i += 1
                 continue
 
+            event_number += 1  # Increment for each complete shower event
             pre_start = shower_on - timedelta(minutes=pre_shower_minutes)
             post_end = shower_off + timedelta(hours=post_shower_hours)
             duration_min = (shower_off - shower_on).total_seconds() / 60
 
+            # For particle analysis: penetration and deposition windows
+            penetration_start = shower_on - timedelta(hours=1)
+            penetration_end = shower_on
+            deposition_start = shower_off
+            deposition_end = shower_off + timedelta(hours=2)
+
             events.append(
                 {
+                    "event_number": event_number,
                     "shower_on": shower_on,
                     "shower_off": shower_off,
                     "duration_min": duration_min,
+                    "shower_duration_min": duration_min,  # Alias for consistency
                     "pre_start": pre_start,
                     "post_end": post_end,
+                    # Particle analysis specific windows
+                    "penetration_start": penetration_start,
+                    "penetration_end": penetration_end,
+                    "deposition_start": deposition_start,
+                    "deposition_end": deposition_end,
                 }
             )
 
