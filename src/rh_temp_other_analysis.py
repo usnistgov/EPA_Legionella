@@ -63,6 +63,11 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.event_manager import (  # noqa: E402
+    process_events_with_management,
+    filter_events_by_date,
+    is_event_excluded,
+)
 from scripts.plot_utils import (  # noqa: E402
     plot_environmental_time_series,
     plot_pre_post_comparison,
@@ -280,12 +285,17 @@ def create_event_details_dataframe(
         for sensor_name in sensors:
             if sensor_name in results:
                 stats = results[sensor_name]
+                duration_min = event.get("duration_min",
+                                        (event["shower_off"] - event["shower_on"]).total_seconds() / 60)
                 row = {
-                    "Event": i + 1,
+                    "Event": event.get("event_number", i + 1),
+                    "Test_Name": event.get("test_name", f"Event_{i+1}"),
                     "Date": event["shower_on"].strftime("%Y-%m-%d"),
                     "Shower_ON": event["shower_on"].strftime("%H:%M"),
                     "Shower_OFF": event["shower_off"].strftime("%H:%M"),
-                    "Duration_min": event["duration_min"],
+                    "Duration_min": duration_min,
+                    "Water_Temp": event.get("water_temp", ""),
+                    "Time_of_Day": event.get("time_of_day", ""),
                     "Sensor": sensor_name,
                     "Pre_Mean": stats["pre"]["mean"],
                     "Pre_Std": stats["pre"]["std"],
@@ -340,10 +350,15 @@ def save_results_to_excel(
         event_df = pd.DataFrame(
             [
                 {
-                    "Event": i + 1,
+                    "Event": e.get("event_number", i + 1),
+                    "Test_Name": e.get("test_name", f"Event_{i+1}"),
                     "Shower_ON": e["shower_on"],
                     "Shower_OFF": e["shower_off"],
-                    "Duration_min": e["duration_min"],
+                    "Duration_min": e.get("duration_min",
+                                         (e["shower_off"] - e["shower_on"]).total_seconds() / 60),
+                    "Water_Temp": e.get("water_temp", ""),
+                    "Time_of_Day": e.get("time_of_day", ""),
+                    "Fan_During_Test": e.get("fan_during_test", False),
                     "Pre_Start": e["pre_start"],
                     "Post_End": e["post_end"],
                 }
@@ -571,11 +586,35 @@ def run_rh_temp_analysis(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load shower log and identify events
+    # Load shower log and identify raw events
     print("\nLoading shower event log...")
     shower_log = load_shower_log()
-    events = identify_shower_events(shower_log, PRE_SHOWER_MINUTES, POST_SHOWER_HOURS)
-    print(f"Found {len(events)} shower events")
+    raw_events = identify_shower_events(shower_log, PRE_SHOWER_MINUTES, POST_SHOWER_HOURS)
+    print(f"Found {len(raw_events)} raw shower events")
+
+    # Process events using the enhanced event management system
+    # This handles:
+    # - Date filtering (>= 2026-01-14)
+    # - Missing event detection
+    # - Test condition naming (e.g., 0114_HW_Morning_R01)
+    # - Event exclusions (e.g., 2026-01-22 15:00 tour)
+    # - Comprehensive logging to event_log.csv
+    print("\nProcessing events with event management system...")
+
+    # Create empty CO2 results DataFrame (not needed for RH/temp analysis)
+    import pandas as pd
+    co2_results = pd.DataFrame()
+
+    events, co2_events_processed, event_log = process_events_with_management(
+        raw_events,
+        [],  # CO2 events (not needed for this analysis)
+        shower_log,
+        co2_results,
+        output_dir,
+        create_synthetic=False  # No synthetic events needed for RH/temp
+    )
+
+    print(f"Processed {len(events)} events for analysis")
 
     if not events:
         print("No shower events found. Exiting.")
@@ -586,10 +625,24 @@ def run_rh_temp_analysis(
     all_results = []
 
     for i, event in enumerate(events):
+        event_num = event.get("event_number", i + 1)
+        test_name = event.get("test_name", f"Event_{event_num}")
+        shower_time = event["shower_on"]
+
+        # Check if excluded
+        is_excluded_flag, exclusion_reason = is_event_excluded(shower_time)
+        if is_excluded_flag:
+            print(
+                f"\n  {test_name}: Skipped (excluded: {exclusion_reason})"
+            )
+            continue
+
+        duration_min = event.get("duration_min",
+                                 (event["shower_off"] - event["shower_on"]).total_seconds() / 60)
+
         print(
-            f"\n  Event {i + 1}/{len(events)}: "
-            f"{event['shower_on'].strftime('%Y-%m-%d %H:%M')} "
-            f"(duration: {event['duration_min']:.1f} min)"
+            f"\n  {test_name} ({shower_time.strftime('%Y-%m-%d %H:%M')}): "
+            f"duration: {duration_min:.1f} min"
         )
 
         start_date = event["pre_start"]

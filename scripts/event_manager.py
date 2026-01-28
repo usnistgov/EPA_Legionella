@@ -421,7 +421,7 @@ def assign_test_names(
 
 def create_event_log(
     shower_events: List[Dict],
-    co2_events: List[Dict],
+    co2_events_df: pd.DataFrame,
     matched_pairs: Dict[int, Optional[int]],
     output_path: Path
 ) -> pd.DataFrame:
@@ -437,8 +437,8 @@ def create_event_log(
 
     Parameters:
         shower_events: List of shower event dictionaries
-        co2_events: List of CO2 event dictionaries
-        matched_pairs: Dict mapping shower index to CO2 index
+        co2_events_df: DataFrame with CO2 event data
+        matched_pairs: Dict mapping shower index to CO2 DataFrame index
         output_path: Path to save event_log.csv
 
     Returns:
@@ -461,10 +461,10 @@ def create_event_log(
         has_co2 = False
         is_synthetic_co2 = False
 
-        if co2_idx is not None:
-            co2_event = co2_events[co2_idx]
-            co2_time = co2_event["injection_start"]
-            co2_event_num = co2_event["event_number"]
+        if co2_idx is not None and not co2_events_df.empty and co2_idx < len(co2_events_df):
+            co2_event = co2_events_df.iloc[co2_idx]
+            co2_time = co2_event.get("injection_start")
+            co2_event_num = co2_event.get("event_number")
             has_co2 = True
             is_synthetic_co2 = co2_event.get("is_synthetic", False)
 
@@ -616,7 +616,7 @@ def process_events_with_management(
     print("\nCreating event log...")
     log_path = output_dir / "event_log.csv"
     event_log_df = create_event_log(
-        shower_events, co2_events, matched_pairs, log_path
+        shower_events, co2_results_df, matched_pairs, log_path
     )
 
     print("\n" + "=" * 70)

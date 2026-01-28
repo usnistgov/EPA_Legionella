@@ -70,6 +70,10 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.event_manager import (  # noqa: E402
+    EXPERIMENT_START_DATE,
+    is_event_excluded,
+)
 from scripts.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
     plot_lambda_summary,
@@ -671,8 +675,13 @@ def run_co2_decay_analysis(
     # Load CO2 injection log and identify events
     print("\nLoading CO2 injection log...")
     co2_log = load_co2_injection_log()
-    events = identify_injection_events(co2_log)
-    print(f"Found {len(events)} injection events")
+    raw_events = identify_injection_events(co2_log)
+    print(f"Found {len(raw_events)} raw injection events")
+
+    # Filter events by experiment start date
+    print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
+    events = [e for e in raw_events if e["injection_start"] >= EXPERIMENT_START_DATE]
+    print(f"  {len(events)} events after date filtering")
 
     # Analyze each event
     print("\nAnalyzing injection events...")
@@ -680,7 +689,44 @@ def run_co2_decay_analysis(
     plot_dir = output_dir / "plots"
 
     for i, event in enumerate(events):
-        event_num = i + 1
+        event_num = event.get("event_number", i + 1)
+        injection_time = event["injection_start"]
+
+        # Check if corresponding shower event is excluded
+        # CO2 injection happens ~20 minutes before shower
+        expected_shower_time = injection_time + timedelta(minutes=20)
+        is_excluded_flag, exclusion_reason = is_event_excluded(expected_shower_time)
+
+        if is_excluded_flag:
+            print(
+                f"  Event {event_num}/{len(events)} "
+                f"({injection_time.strftime('%Y-%m-%d %H:%M')}): "
+                f"Skipped (excluded: {exclusion_reason})"
+            )
+            # Add to results as skipped
+            result = {
+                "event_number": event_num,
+                "injection_start": injection_time,
+                "decay_start": event["decay_start"],
+                "decay_end": event["decay_end"],
+                "decay_duration_hours": event.get("decay_duration_hours", DECAY_DURATION_HOURS),
+                "lambda_average_mean": np.nan,
+                "lambda_average_std": np.nan,
+                "lambda_average_r_squared": np.nan,
+                "lambda_average_n_points": 0,
+                "lambda_outside_mean": np.nan,
+                "lambda_outside_std": np.nan,
+                "lambda_outside_r_squared": np.nan,
+                "lambda_outside_n_points": 0,
+                "lambda_entry_mean": np.nan,
+                "lambda_entry_std": np.nan,
+                "lambda_entry_r_squared": np.nan,
+                "lambda_entry_n_points": 0,
+                "skip_reason": f"Excluded: {exclusion_reason}",
+            }
+            results.append(result)
+            continue
+
         decay_duration = event.get("decay_duration_hours", DECAY_DURATION_HOURS)
         duration_info = (
             f" [custom: {decay_duration}h]"
@@ -689,7 +735,7 @@ def run_co2_decay_analysis(
         )
         print(
             f"  Event {event_num}/{len(events)}: "
-            f"{event['injection_start'].strftime('%Y-%m-%d %H:%M')}"
+            f"{injection_time.strftime('%Y-%m-%d %H:%M')}"
             f"{duration_info}"
         )
 
@@ -706,13 +752,13 @@ def run_co2_decay_analysis(
 
             # Generate plot for this event if enabled
             if generate_plots:
-                plot_path = plot_dir / f"event_{i + 1:02d}_co2_decay.png"
+                plot_path = plot_dir / f"event_{event_num:02d}_co2_decay.png"
                 plot_co2_decay_event_analytical(
                     co2_data=co2_data,
                     event=event,
                     result=result,
                     output_path=plot_path,
-                    event_number=i + 1,
+                    event_number=event_num,
                     alpha=alpha,
                     beta=beta,
                 )
@@ -731,6 +777,16 @@ def run_co2_decay_analysis(
     print("\n" + "=" * 60)
     print("Overall Results")
     print("=" * 60)
+
+    # Count excluded and skipped events
+    n_total = len(results_df)
+    n_excluded = results_df["skip_reason"].str.contains("Excluded:", na=False).sum()
+    n_other_skipped = results_df["lambda_average_mean"].isna().sum() - n_excluded
+
+    print(f"\nEvent Summary:")
+    print(f"  Total events analyzed: {n_total}")
+    print(f"  Excluded events: {n_excluded}")
+    print(f"  Other skipped events: {n_other_skipped}")
 
     for mode in ["average", "outside", "entry"]:
         col = f"lambda_{mode}_mean"
