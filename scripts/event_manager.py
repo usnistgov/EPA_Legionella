@@ -62,6 +62,27 @@ try:
 except ImportError:
     from scripts.event_matching import match_shower_to_co2_event, get_lambda_for_shower
 
+# Import from unified event registry (for bidirectional synthetic events)
+try:
+    from event_registry import (
+        create_synthetic_shower_event,
+        create_synthetic_co2_event as create_synthetic_co2_event_v2,
+        match_events_bidirectional,
+        infer_duration_from_neighbors,
+    )
+    _HAS_REGISTRY = True
+except ImportError:
+    try:
+        from scripts.event_registry import (
+            create_synthetic_shower_event,
+            create_synthetic_co2_event as create_synthetic_co2_event_v2,
+            match_events_bidirectional,
+            infer_duration_from_neighbors,
+        )
+        _HAS_REGISTRY = True
+    except ImportError:
+        _HAS_REGISTRY = False
+
 
 # =============================================================================
 # Configuration Constants
@@ -475,6 +496,7 @@ def create_event_log(
             "datetime": shower_time,
             "shower_on": shower_time,
             "shower_off": shower_off,
+            "shower_is_synthetic": shower_event.get("is_synthetic", False),
             "co2_injection": co2_time,
             "co2_event_number": co2_event_num,
             "has_matching_co2": has_co2,
@@ -497,13 +519,15 @@ def create_event_log(
     n_total = len(df)
     n_excluded = df["is_excluded"].sum()
     n_missing_co2 = (~df["has_matching_co2"]).sum()
-    n_synthetic = df["co2_is_synthetic"].sum()
+    n_synthetic_co2 = df["co2_is_synthetic"].sum()
+    n_synthetic_shower = df["shower_is_synthetic"].sum() if "shower_is_synthetic" in df.columns else 0
 
     print(f"\nEvent Log Summary:")
     print(f"  Total shower events: {n_total}")
     print(f"  Excluded events: {n_excluded}")
     print(f"  Missing CO2 events: {n_missing_co2}")
-    print(f"  Synthetic CO2 events: {n_synthetic}")
+    print(f"  Synthetic CO2 events: {n_synthetic_co2}")
+    print(f"  Synthetic shower events: {n_synthetic_shower}")
 
     return df
 
@@ -518,12 +542,14 @@ def process_events_with_management(
     shower_log: pd.DataFrame,
     co2_results_df: pd.DataFrame,
     output_dir: Path,
-    create_synthetic: bool = True
+    create_synthetic: bool = True,
+    prompt_user: bool = False
 ) -> Tuple[List[Dict], List[Dict], pd.DataFrame]:
     """
     Process all events with filtering, matching, naming, and logging.
 
     This is the main entry point for the enhanced event management system.
+    Supports bidirectional synthetic event creation (shower<->CO2).
 
     Parameters:
         shower_events: List of shower event dictionaries
@@ -532,6 +558,7 @@ def process_events_with_management(
         co2_results_df: DataFrame with CO2 analysis results
         output_dir: Directory for output files
         create_synthetic: Whether to create synthetic events for missing data
+        prompt_user: Whether to prompt user for duration decisions (default False)
 
     Returns:
         Tuple of (processed_shower_events, processed_co2_events, event_log_df)
@@ -551,7 +578,7 @@ def process_events_with_management(
     print("\nAssigning test condition names...")
     shower_events = assign_test_names(shower_events, shower_log)
 
-    # Step 3: Detect missing events
+    # Step 3: Detect missing events (bidirectional)
     print("\nDetecting missing events...")
     showers_missing_co2, co2_missing_shower = detect_missing_events(
         shower_events, co2_events
@@ -566,16 +593,51 @@ def process_events_with_management(
 
             for shower_idx in showers_missing_co2:
                 shower_event = shower_events[shower_idx]
-                synthetic_co2 = create_synthetic_co2_event(
-                    shower_event["shower_on"],
-                    next_co2_num
-                )
+                # Use new registry function if available (with duration inference)
+                if _HAS_REGISTRY:
+                    synthetic_co2 = create_synthetic_co2_event_v2(
+                        shower_event["shower_on"],
+                        next_co2_num,
+                        co2_events,
+                        prompt_user
+                    )
+                else:
+                    synthetic_co2 = create_synthetic_co2_event(
+                        shower_event["shower_on"],
+                        next_co2_num
+                    )
                 co2_events.append(synthetic_co2)
                 next_co2_num += 1
 
     if co2_missing_shower:
         print(f"  Found {len(co2_missing_shower)} CO2 events without shower data")
-        print("  (These will be logged but not processed further)")
+
+        if create_synthetic and _HAS_REGISTRY:
+            print("  Creating synthetic shower events...")
+            next_shower_num = len(shower_events) + 1
+
+            for co2_idx in co2_missing_shower:
+                co2_event = co2_events[co2_idx]
+                synthetic_shower = create_synthetic_shower_event(
+                    co2_event["injection_start"],
+                    next_shower_num,
+                    shower_events,
+                    prompt_user
+                )
+                # Assign test name to synthetic shower
+                shower_time = synthetic_shower["shower_on"]
+                water_temp = get_water_temperature_code(shower_time)
+                time_of_day = get_time_of_day(shower_time)
+                date_str = shower_time.strftime("%m%d")
+                synthetic_shower["test_name"] = f"{date_str}_{water_temp}_{time_of_day}_R??"
+                synthetic_shower["water_temp"] = water_temp
+                synthetic_shower["time_of_day"] = time_of_day
+                synthetic_shower["fan_during_test"] = False
+
+                shower_events.append(synthetic_shower)
+                next_shower_num += 1
+        elif co2_missing_shower and not _HAS_REGISTRY:
+            print("  (Synthetic shower events require event_registry module)")
 
     # Step 4: Match events
     print("\nMatching shower events to CO2 events...")

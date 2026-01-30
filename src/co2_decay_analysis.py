@@ -776,13 +776,15 @@ def run_co2_decay_analysis(
         else:
             # Fallback: generate test name based on CO2 injection time
             # (shower would be ~20 minutes after injection)
+            # Note: Uses _R?? to indicate unmatched/fallback naming
             expected_shower_time = injection_time + timedelta(minutes=20)
             water_temp = get_water_temperature_code(expected_shower_time)
             time_of_day = get_time_of_day(expected_shower_time)
             date_str = expected_shower_time.strftime("%m%d")
-            event["test_name"] = f"{date_str}_{water_temp}_{time_of_day}"
+            event["test_name"] = f"{date_str}_{water_temp}_{time_of_day}_R??"
             event["water_temp"] = water_temp
             event["time_of_day"] = time_of_day
+            event["is_unmatched"] = True  # Flag for reports (not plots)
 
     # Analyze each event
     print("\nAnalyzing injection events...")

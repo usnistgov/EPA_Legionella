@@ -493,7 +493,13 @@ def plot_lambda_summary(
     """
     fig, ax = create_figure(figsize=(10, 5))
 
-    events = range(1, len(results_df) + 1)
+    # Use actual event numbers from the DataFrame (not sequential indices)
+    if "event_number" in results_df.columns:
+        event_numbers = results_df["event_number"].values
+    else:
+        # Fallback to sequential if column doesn't exist
+        event_numbers = np.arange(1, len(results_df) + 1)
+
     lambda_avg: npt.NDArray[np.float64] = np.asarray(
         results_df["lambda_average_mean"].values, dtype=np.float64
     )
@@ -502,7 +508,7 @@ def plot_lambda_summary(
     )
 
     valid_mask = ~np.isnan(lambda_avg)
-    x_valid = [e for e, v in zip(events, valid_mask) if v]
+    x_valid = [int(e) for e, v in zip(event_numbers, valid_mask) if v]
     y_valid = lambda_avg[valid_mask]
     yerr_valid = lambda_std[valid_mask]
 
@@ -516,7 +522,7 @@ def plot_lambda_summary(
         label="λ (average method)",
     )
 
-    x_skipped = [e for e, v in zip(events, valid_mask) if not v]
+    x_skipped = [int(e) for e, v in zip(event_numbers, valid_mask) if not v]
     if x_skipped:
         ax.scatter(
             x_skipped,
@@ -543,7 +549,7 @@ def plot_lambda_summary(
     ax.set_title(
         "Air-Change Rate Summary Across All Events", fontweight=TITLE_FONTWEIGHT
     )
-    ax.set_xticks(list(events))
+    ax.set_xticks([int(e) for e in event_numbers])
     ax.legend(loc="upper right")
     ax.set_ylim(bottom=0)
 

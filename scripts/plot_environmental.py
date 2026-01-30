@@ -47,6 +47,31 @@ from scripts.plot_style import (
 )
 
 
+# Suffixes to remove from sensor names (since figure title contains this info)
+_SENSOR_NAME_SUFFIXES = [" RH", " Temp", " Speed", " Direction"]
+
+
+def simplify_sensor_name(sensor_name: str) -> str:
+    """
+    Simplify sensor name by removing variable type suffix.
+
+    The figure title already indicates the variable type, so we remove
+    redundant suffixes like "RH", "Temp", "Speed", "Direction".
+
+    Parameters:
+        sensor_name: Full sensor name (e.g., "Vaisala MBa RH")
+
+    Returns:
+        Simplified name (e.g., "Vaisala MBa")
+    """
+    result = sensor_name
+    for suffix in _SENSOR_NAME_SUFFIXES:
+        if result.endswith(suffix):
+            result = result[: -len(suffix)]
+            break
+    return result
+
+
 def add_shower_markers(
     ax,
     shower_on: datetime,
@@ -409,7 +434,9 @@ def plot_pre_post_comparison(
             patch.set_alpha(0.7)
 
     ax.set_xticks((positions_pre + 0.35).tolist())
-    ax.set_xticklabels(sensors, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
+    # Simplify sensor names by removing variable type suffix (title has this info)
+    simplified_names = [simplify_sensor_name(s) for s in sensors]
+    ax.set_xticklabels(simplified_names, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
     ax.set_ylabel(settings["ylabel"])
     ax.set_title(
         f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}"
@@ -469,8 +496,10 @@ def plot_sensor_summary_bars(
     ax.bar(x, values, yerr=errors, capsize=3, color=colors, alpha=0.8)
 
     ax.set_xticks(x)
+    # Simplify sensor names by removing variable type suffix (title has this info)
+    simplified_names = [simplify_sensor_name(s) for s in summary_data.index]
     ax.set_xticklabels(
-        summary_data.index, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1
+        simplified_names, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1
     )
     ax.set_ylabel(settings["ylabel"])
 
