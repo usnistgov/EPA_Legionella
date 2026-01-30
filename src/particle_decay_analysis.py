@@ -479,6 +479,94 @@ def calculate_penetration_factor(
     }
 
 
+def _calculate_linearized_fit(
+    c_inside: np.ndarray,
+    c_outside: np.ndarray,
+    datetimes: np.ndarray,
+    p: float,
+    lambda_ach: float,
+    beta_numerical: float,
+) -> Dict:
+    """
+    Calculate linearized regression fit for particle decay.
+
+    Uses the linearized form: y = -ln[(C(t) - C_ss) / (C_0 - C_ss)] = (λ + β) * t
+    where C_ss = pλC_out_avg / (λ + β) is the steady-state concentration.
+
+    Parameters:
+        c_inside: Inside concentration array
+        c_outside: Outside concentration array
+        datetimes: Datetime array
+        p: Penetration factor
+        lambda_ach: Air change rate (h⁻¹)
+        beta_numerical: Numerically calculated β (h⁻¹)
+
+    Returns:
+        Dict with fit parameters: beta_fit, r_squared, _t_values, _y_values, c_steady_state
+    """
+    from scipy import stats
+
+    # Calculate steady-state concentration using numerical β
+    c_outside_mean = float(np.nanmean(c_outside))
+    total_loss_rate = lambda_ach + beta_numerical
+
+    if total_loss_rate <= 0:
+        return {"beta_fit": np.nan, "r_squared": np.nan, "_t_values": [], "_y_values": [], "c_steady_state": np.nan}
+
+    c_steady_state = (p * lambda_ach * c_outside_mean) / total_loss_rate
+
+    # Get initial concentration
+    c_0 = c_inside[0]
+    delta_c_0 = c_0 - c_steady_state
+
+    if delta_c_0 <= 0:
+        return {"beta_fit": np.nan, "r_squared": np.nan, "_t_values": [], "_y_values": [], "c_steady_state": c_steady_state}
+
+    # Calculate time in hours from start
+    t0 = datetimes[0]
+    t_hours = np.array([(dt - t0).total_seconds() / 3600.0 for dt in datetimes])
+
+    # Calculate linearized y values: y = -ln[(C(t) - C_ss) / (C_0 - C_ss)]
+    t_values = []
+    y_values = []
+
+    for i in range(len(c_inside)):
+        c_t = c_inside[i]
+        if np.isnan(c_t) or c_t <= c_steady_state:
+            continue
+
+        delta_c_t = c_t - c_steady_state
+        ratio = delta_c_t / delta_c_0
+
+        if ratio > 0 and ratio <= 1:
+            y = -np.log(ratio)
+            t_values.append(t_hours[i])
+            y_values.append(y)
+
+    if len(t_values) < 5:
+        return {"beta_fit": np.nan, "r_squared": np.nan, "_t_values": [], "_y_values": [], "c_steady_state": c_steady_state}
+
+    # Linear regression: y = slope * t (forced through origin would be ideal, but we allow intercept)
+    t_arr = np.array(t_values)
+    y_arr = np.array(y_values)
+
+    slope, intercept, r_value, p_value, std_err = stats.linregress(t_arr, y_arr)
+    r_squared = r_value ** 2
+
+    # slope = λ + β, so β_fit = slope - λ
+    beta_fit = slope - lambda_ach
+
+    return {
+        "beta_fit": float(beta_fit) if beta_fit >= 0 else np.nan,
+        "r_squared": float(r_squared),
+        "_t_values": t_values,
+        "_y_values": y_values,
+        "c_steady_state": float(c_steady_state),
+        "_slope": float(slope),
+        "_intercept": float(intercept),
+    }
+
+
 def calculate_deposition_rate(
     particle_data: pd.DataFrame,
     window_start: datetime,
@@ -488,9 +576,12 @@ def calculate_deposition_rate(
     lambda_ach: float,
 ) -> Dict:
     """
-    Calculate deposition rate (β_deposition) using numerical approach.
+    Calculate deposition rate (β_deposition) using numerical approach and linearized fit.
 
-    Solves: β_deposition = 1/Δt - λ - C_t(i+1)/(C_t Δt) + (pλC_out,t)/C_t
+    Numerical method solves: β_deposition = 1/Δt - λ - C_t(i+1)/(C_t Δt) + (pλC_out,t)/C_t
+
+    Also performs linearized regression fit for plotting:
+    y = -ln[(C(t) - C_ss) / (C_0 - C_ss)] = (λ + β) * t
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -501,7 +592,7 @@ def calculate_deposition_rate(
         lambda_ach (float): Air change rate (h⁻¹)
 
     Returns:
-        Dict: Dictionary with β statistics
+        Dict: Dictionary with β statistics, R², and fit data for plotting
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -518,12 +609,17 @@ def calculate_deposition_rate(
             "beta_mean": np.nan,
             "beta_std": np.nan,
             "beta_median": np.nan,
+            "beta_r_squared": np.nan,
             "n_points": len(window_data),
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": np.nan,
             "skip_reason": f"Insufficient data: {len(window_data)} points (minimum {MIN_POINTS_DEPOSITION} required)",
         }
 
     c_inside = np.asarray(window_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(window_data[col_outside].values, dtype=np.float64)
+    datetimes = window_data["datetime"].values
 
     # Check for sufficient concentration difference
     c_outside_mean = np.mean(c_outside)
@@ -533,7 +629,11 @@ def calculate_deposition_rate(
             "beta_mean": np.nan,
             "beta_std": np.nan,
             "beta_median": np.nan,
+            "beta_r_squared": np.nan,
             "n_points": 0,
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": np.nan,
             "skip_reason": (
                 f"Insufficient concentration ratio: {c_ratio:.3f} "
                 f"(minimum {MIN_CONCENTRATION_RATIO}). "
@@ -541,7 +641,7 @@ def calculate_deposition_rate(
             ),
         }
 
-    # Calculate β for each time step
+    # Calculate β for each time step (numerical method)
     dt_hours = TIME_STEP_MINUTES / 60.0  # Convert to hours
     beta_values = []
 
@@ -572,18 +672,33 @@ def calculate_deposition_rate(
             "beta_mean": np.nan,
             "beta_std": np.nan,
             "beta_median": np.nan,
+            "beta_r_squared": np.nan,
             "n_points": len(beta_values),
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": np.nan,
             "skip_reason": (
                 f"Insufficient valid β values: {len(beta_values)} "
                 f"(minimum {MIN_VALID_BETA} required)"
             ),
         }
 
+    beta_mean = float(np.mean(beta_values))
+
+    # Calculate linearized fit for plotting and R²
+    fit_result = _calculate_linearized_fit(
+        c_inside, c_outside, datetimes, p, lambda_ach, beta_mean
+    )
+
     return {
-        "beta_mean": float(np.mean(beta_values)),
+        "beta_mean": beta_mean,
         "beta_std": float(np.std(beta_values)),
         "beta_median": float(np.median(beta_values)),
+        "beta_r_squared": fit_result.get("r_squared", np.nan),
         "n_points": len(beta_values),
+        "_t_values": fit_result.get("_t_values", []),
+        "_y_values": fit_result.get("_y_values", []),
+        "c_steady_state": fit_result.get("c_steady_state", np.nan),
     }
 
 
@@ -739,12 +854,17 @@ def analyze_event_all_bins(
         if np.isnan(p_result.get("p_mean", np.nan)):
             results[f"bin{bin_num}_beta_mean"] = np.nan
             results[f"bin{bin_num}_beta_std"] = np.nan
+            results[f"bin{bin_num}_beta_r_squared"] = np.nan
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
             results[f"bin{bin_num}_skip_reason"] = p_result.get(
                 "skip_reason", "Unknown"
             )
+            # Store empty fit data for plotting
+            results[f"bin{bin_num}_fit_t_values"] = []
+            results[f"bin{bin_num}_fit_y_values"] = []
+            results[f"bin{bin_num}_c_steady_state"] = np.nan
             continue
 
         p_mean = p_result["p_mean"]
@@ -761,6 +881,12 @@ def analyze_event_all_bins(
 
         results[f"bin{bin_num}_beta_mean"] = beta_result.get("beta_mean", np.nan)
         results[f"bin{bin_num}_beta_std"] = beta_result.get("beta_std", np.nan)
+        results[f"bin{bin_num}_beta_r_squared"] = beta_result.get("beta_r_squared", np.nan)
+
+        # Store fit data for plotting (even if beta is valid, we want the data)
+        results[f"bin{bin_num}_fit_t_values"] = beta_result.get("_t_values", [])
+        results[f"bin{bin_num}_fit_y_values"] = beta_result.get("_y_values", [])
+        results[f"bin{bin_num}_c_steady_state"] = beta_result.get("c_steady_state", np.nan)
 
         # Skip emission calculation if beta is invalid
         if np.isnan(beta_result.get("beta_mean", np.nan)):
@@ -1029,6 +1155,9 @@ def run_particle_analysis(
         beta_cols = ["event_number", "shower_on"] + [
             f"bin{i}_beta_mean" for i in PARTICLE_BINS.keys()
         ]
+        beta_r2_cols = ["event_number", "shower_on"] + [
+            f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
+        ]
         E_cols = ["event_number", "shower_on"] + [
             f"bin{i}_E_mean" for i in PARTICLE_BINS.keys()
         ]
@@ -1036,6 +1165,10 @@ def run_particle_analysis(
         results_df[p_cols].to_excel(writer, sheet_name="p_penetration", index=False)
         results_df[beta_cols].to_excel(
             writer, sheet_name="beta_deposition", index=False
+        )
+        # Add R² sheet for deposition fits
+        results_df[beta_r2_cols].to_excel(
+            writer, sheet_name="beta_r_squared", index=False
         )
         results_df[E_cols].to_excel(writer, sheet_name="E_emission", index=False)
 
