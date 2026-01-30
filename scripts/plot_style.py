@@ -265,7 +265,9 @@ def format_test_name_for_filename(test_name: str) -> str:
     Format test name for use in filenames.
 
     Removes replicate number and converts to lowercase with underscores.
+    Also sanitizes invalid filename characters.
     Example: "0114_HW_Morning_R01" -> "0114_hw_morning"
+    Example: "0114_HW_Night_R??" -> "0114_hw_night"
 
     Parameters:
         test_name: Original test name (e.g., "0114_HW_Morning_R01")
@@ -273,9 +275,11 @@ def format_test_name_for_filename(test_name: str) -> str:
     Returns:
         Formatted filename string (lowercase, underscores, no replicate)
     """
-    # Remove replicate number (_R01, _R02, etc.)
     import re
-    name = re.sub(r'_R\d+$', '', test_name)
+    # Remove replicate number (_R01, _R02, _R??, etc.)
+    name = re.sub(r'_R[\d?]+$', '', test_name)
+    # Remove invalid Windows filename characters: < > : " / \ | ? *
+    name = re.sub(r'[<>:"/\\|?*]', '', name)
     # Convert to lowercase
     return name.lower()
 
