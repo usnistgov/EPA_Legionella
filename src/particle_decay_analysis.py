@@ -93,13 +93,8 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.event_matching import (  # noqa: E402
-    get_lambda_for_shower,
-    print_event_matching_summary,
-)
 from scripts.event_manager import (  # noqa: E402
     process_events_with_management,
-    filter_events_by_date,
     is_event_excluded,
 )
 from src.data_paths import (  # noqa: E402
