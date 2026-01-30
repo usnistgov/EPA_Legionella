@@ -65,6 +65,9 @@ def _calculate_exponential_fit_curve(
     Uses: C(t) = C_ss + (C_0 - C_ss) * exp(-(λ + β)*t)
     where C_ss is the steady-state concentration.
 
+    The decay starts from the peak concentration time (not shower_off),
+    as determined independently for each bin during analysis.
+
     Parameters:
         particle_data: DataFrame with particle concentrations
         event: Event timing dictionary
@@ -78,14 +81,19 @@ def _calculate_exponential_fit_curve(
     """
     beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
     c_steady_state = result.get(f"bin{bin_num}_c_steady_state", np.nan)
+    peak_time = result.get(f"bin{bin_num}_peak_time", None)
 
     if np.isnan(beta_mean) or np.isnan(c_steady_state):
         return None
 
     col_inside = f"{bin_info['column']}_inside"
 
-    # Get deposition window data
-    decay_start = event["shower_off"]
+    # Use peak_time as decay start if available, otherwise fall back to shower_off
+    if peak_time is not None:
+        decay_start = peak_time
+    else:
+        decay_start = event["shower_off"]
+
     decay_end = event["deposition_end"]
 
     mask = (particle_data["datetime"] >= decay_start) & (
@@ -100,7 +108,7 @@ def _calculate_exponential_fit_curve(
     if np.isnan(c_0) or c_0 <= c_steady_state:
         return None
 
-    # Calculate time in hours from decay start
+    # Calculate time in hours from decay start (peak time)
     t0 = decay_data["datetime"].iloc[0]
     t_hours = (decay_data["datetime"] - t0).dt.total_seconds() / 3600.0
 

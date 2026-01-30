@@ -580,6 +580,9 @@ def calculate_deposition_rate(
     """
     Calculate deposition rate (β_deposition) using numerical approach and linearized fit.
 
+    The decay calculation starts from the peak concentration within the deposition
+    window (not from window_start), as the peak may occur after shower_off.
+
     Numerical method solves: β_deposition = 1/Δt - λ - C_t(i+1)/(C_t Δt) + (pλC_out,t)/C_t
 
     Also performs linearized regression fit for plotting:
@@ -587,20 +590,20 @@ def calculate_deposition_rate(
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
-        window_start (datetime): Start of decay window
-        window_end (datetime): End of decay window
+        window_start (datetime): Start of deposition window (shower_off)
+        window_end (datetime): End of deposition window
         bin_num (int): Particle bin number (0-6)
         p (float): Penetration factor
         lambda_ach (float): Air change rate (h⁻¹)
 
     Returns:
-        Dict: Dictionary with β statistics, R², and fit data for plotting
+        Dict: Dictionary with β statistics, R², fit data for plotting, and peak_time
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
     col_outside = f"{bin_info['column']}_outside"
 
-    # Filter to window
+    # Filter to full deposition window first
     mask = (particle_data["datetime"] >= window_start) & (
         particle_data["datetime"] <= window_end
     )
@@ -616,14 +619,55 @@ def calculate_deposition_rate(
             "_t_values": [],
             "_y_values": [],
             "c_steady_state": np.nan,
+            "peak_time": None,
             "skip_reason": f"Insufficient data: {len(window_data)} points (minimum {MIN_POINTS_DEPOSITION} required)",
         }
 
-    c_inside = np.asarray(window_data[col_inside].values, dtype=np.float64)
-    c_outside = np.asarray(window_data[col_outside].values, dtype=np.float64)
-    datetimes = window_data["datetime"].values
+    # Find peak concentration within the deposition window for this bin
+    c_inside_full = np.asarray(window_data[col_inside].values, dtype=np.float64)
 
-    # Check for sufficient concentration difference
+    # Find index of maximum concentration (ignoring NaN values)
+    valid_mask = ~np.isnan(c_inside_full)
+    if not np.any(valid_mask):
+        return {
+            "beta_mean": np.nan,
+            "beta_std": np.nan,
+            "beta_median": np.nan,
+            "beta_r_squared": np.nan,
+            "n_points": 0,
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": np.nan,
+            "peak_time": None,
+            "skip_reason": "No valid concentration data in window",
+        }
+
+    # Get peak index within the full window
+    peak_idx = np.nanargmax(c_inside_full)
+    peak_time = pd.Timestamp(window_data["datetime"].iloc[peak_idx])
+
+    # Now filter data from peak to end of window for decay calculation
+    decay_data = window_data.iloc[peak_idx:].copy()
+
+    if len(decay_data) < MIN_POINTS_DEPOSITION:
+        return {
+            "beta_mean": np.nan,
+            "beta_std": np.nan,
+            "beta_median": np.nan,
+            "beta_r_squared": np.nan,
+            "n_points": len(decay_data),
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": np.nan,
+            "peak_time": peak_time,
+            "skip_reason": f"Insufficient data after peak: {len(decay_data)} points (minimum {MIN_POINTS_DEPOSITION} required)",
+        }
+
+    c_inside = np.asarray(decay_data[col_inside].values, dtype=np.float64)
+    c_outside = np.asarray(decay_data[col_outside].values, dtype=np.float64)
+    datetimes = decay_data["datetime"].values
+
+    # Check for sufficient concentration difference (now using peak concentration)
     c_outside_mean = np.mean(c_outside)
     c_ratio = c_inside[0] / c_outside_mean if c_outside_mean > 0 else 0
     if c_ratio < MIN_CONCENTRATION_RATIO:
@@ -636,14 +680,15 @@ def calculate_deposition_rate(
             "_t_values": [],
             "_y_values": [],
             "c_steady_state": np.nan,
+            "peak_time": peak_time,
             "skip_reason": (
-                f"Insufficient concentration ratio: {c_ratio:.3f} "
+                f"Insufficient concentration ratio at peak: {c_ratio:.3f} "
                 f"(minimum {MIN_CONCENTRATION_RATIO}). "
-                f"C_inside[0]={c_inside[0]:.1f}, C_outside_mean={c_outside_mean:.1f}"
+                f"C_peak={c_inside[0]:.1f}, C_outside_mean={c_outside_mean:.1f}"
             ),
         }
 
-    # Calculate β for each time step (numerical method)
+    # Calculate β for each time step (numerical method) starting from peak
     dt_hours = TIME_STEP_MINUTES / 60.0  # Convert to hours
     beta_values = []
 
@@ -679,6 +724,7 @@ def calculate_deposition_rate(
             "_t_values": [],
             "_y_values": [],
             "c_steady_state": np.nan,
+            "peak_time": peak_time,
             "skip_reason": (
                 f"Insufficient valid β values: {len(beta_values)} "
                 f"(minimum {MIN_VALID_BETA} required)"
@@ -687,7 +733,7 @@ def calculate_deposition_rate(
 
     beta_mean = float(np.mean(beta_values))
 
-    # Calculate linearized fit for plotting and R²
+    # Calculate linearized fit for plotting and R² (using data from peak onward)
     fit_result = _calculate_linearized_fit(
         c_inside, c_outside, datetimes, p, lambda_ach, beta_mean
     )
@@ -701,6 +747,7 @@ def calculate_deposition_rate(
         "_t_values": fit_result.get("_t_values", []),
         "_y_values": fit_result.get("_y_values", []),
         "c_steady_state": fit_result.get("c_steady_state", np.nan),
+        "peak_time": peak_time,
     }
 
 
@@ -867,6 +914,7 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_fit_t_values"] = []
             results[f"bin{bin_num}_fit_y_values"] = []
             results[f"bin{bin_num}_c_steady_state"] = np.nan
+            results[f"bin{bin_num}_peak_time"] = None
             continue
 
         p_mean = p_result["p_mean"]
@@ -889,6 +937,7 @@ def analyze_event_all_bins(
         results[f"bin{bin_num}_fit_t_values"] = beta_result.get("_t_values", [])
         results[f"bin{bin_num}_fit_y_values"] = beta_result.get("_y_values", [])
         results[f"bin{bin_num}_c_steady_state"] = beta_result.get("c_steady_state", np.nan)
+        results[f"bin{bin_num}_peak_time"] = beta_result.get("peak_time", None)
 
         # Skip emission calculation if beta is invalid
         if np.isnan(beta_result.get("beta_mean", np.nan)):
