@@ -68,23 +68,29 @@ def _calculate_exponential_fit_curve(
     The decay starts from the peak concentration time (not shower_off),
     as determined independently for each bin during analysis.
 
+    Uses beta_fit (from linearized regression) if available, otherwise beta_mean.
+
     Parameters:
         particle_data: DataFrame with particle concentrations
         event: Event timing dictionary
         bin_num: Particle bin number
         bin_info: Bin information dictionary
         result: Analysis results for this event
-        lambda_ach: Air change rate (h⁻¹)
+        lambda_ach: Air change rate (h^-1)
 
     Returns:
         DataFrame with datetime and C_fit columns, or None if insufficient data
     """
     beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
+    beta_fit = result.get(f"bin{bin_num}_beta_fit", np.nan)  # From linearized regression
     c_steady_state = result.get(f"bin{bin_num}_c_steady_state", np.nan)
     peak_time = result.get(f"bin{bin_num}_peak_time", None)
 
-    if np.isnan(beta_mean) or np.isnan(c_steady_state):
+    if np.isnan(beta_mean):
         return None
+
+    # Use beta_fit (from linearized regression) if available, else beta_mean
+    beta_for_fit = beta_fit if not np.isnan(beta_fit) else beta_mean
 
     col_inside = f"{bin_info['column']}_inside"
 
@@ -104,16 +110,29 @@ def _calculate_exponential_fit_curve(
     if len(decay_data) < 2 or col_inside not in decay_data.columns:
         return None
 
-    c_0 = float(decay_data[col_inside].iloc[0])
-    if np.isnan(c_0) or c_0 <= c_steady_state:
+    # Use the actual peak concentration in the decay window (first value should be peak,
+    # but verify by taking max in case of slight timing misalignment)
+    c_values = decay_data[col_inside].values
+    c_0 = float(np.nanmax(c_values[:min(5, len(c_values))]))  # Peak should be in first few points
+
+    if np.isnan(c_0):
         return None
+
+    # Ensure c_steady_state is reasonable (positive and less than c_0)
+    if np.isnan(c_steady_state) or c_steady_state < 0:
+        c_steady_state = 0.0
+    if c_steady_state >= c_0:
+        # Use minimum concentration at end of window as approximation
+        c_steady_state = float(np.nanmin(c_values[-10:]) * 0.9) if len(c_values) >= 10 else 0.0
+        if c_steady_state >= c_0:
+            c_steady_state = 0.0
 
     # Calculate time in hours from decay start (peak time)
     t0 = decay_data["datetime"].iloc[0]
     t_hours = (decay_data["datetime"] - t0).dt.total_seconds() / 3600.0
 
-    # Calculate fitted concentration: C(t) = C_ss + (C_0 - C_ss) * exp(-(λ + β)*t)
-    total_loss_rate = lambda_ach + beta_mean
+    # Calculate fitted concentration: C(t) = C_ss + (C_0 - C_ss) * exp(-(lambda + beta)*t)
+    total_loss_rate = lambda_ach + beta_for_fit
     c_fit = c_steady_state + (c_0 - c_steady_state) * np.exp(-total_loss_rate * t_hours)
 
     return pd.DataFrame({
@@ -178,10 +197,9 @@ def plot_particle_decay_event(
         color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
 
         if col_inside in plot_data.columns:
-            # Check if this bin has valid results
-            E_mean = result.get(f"bin{bin_num}_E_mean", np.nan)
+            # Check if this bin has valid decay results (use beta_mean for consistency with bottom panel)
             beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
-            is_valid = not np.isnan(E_mean)
+            is_valid = not np.isnan(beta_mean)
             linestyle = "-" if is_valid else "--"
             alpha = 0.9 if is_valid else 0.4
 
@@ -196,8 +214,8 @@ def plot_particle_decay_event(
                 alpha=alpha,
             )
 
-            # Add exponential fit curve if valid
-            if is_valid and not np.isnan(beta_mean):
+            # Add exponential fit curve if valid beta
+            if is_valid:
                 fit_curve = _calculate_exponential_fit_curve(
                     particle_data, event, bin_num, bin_info, result, lambda_ach
                 )
@@ -251,16 +269,15 @@ def plot_particle_decay_event(
     # Add results text box with summary
     textstr = f"λ = {lambda_ach:.4f} h⁻¹\n\n"
 
-    # Count valid bins and build beta summary
+    # Count valid bins and build beta summary (use beta_mean for consistency)
     valid_bins = 0
     beta_values = []
     for bin_num in particle_bins.keys():
-        if not np.isnan(result.get(f"bin{bin_num}_E_mean", np.nan)):
+        beta_val = result.get(f"bin{bin_num}_beta_mean", np.nan)
+        if not np.isnan(beta_val):
             valid_bins += 1
-            beta_val = result.get(f"bin{bin_num}_beta_mean", np.nan)
             r2_val = result.get(f"bin{bin_num}_beta_r_squared", np.nan)
-            if not np.isnan(beta_val):
-                beta_values.append((bin_num, beta_val, r2_val))
+            beta_values.append((bin_num, beta_val, r2_val))
 
     textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
     textstr += "(Solid=data, Dotted=fit)"
@@ -282,7 +299,10 @@ def plot_particle_decay_event(
         framealpha=0.9,
         ncol=2,
     )
-    ax1.grid(True, alpha=0.3)
+    ax1.set_yscale("log")
+    # Set reasonable y-axis limits for log scale
+    ax1.set_ylim(bottom=0.1)  # Minimum value for log scale
+    ax1.grid(True, alpha=0.3, which="both")
     ax1.tick_params(labelsize=FONT_SIZE_TICK)
     format_datetime_axis(ax1)
 
@@ -298,6 +318,9 @@ def plot_particle_decay_event(
         t_values = result.get(f"bin{bin_num}_fit_t_values", [])
         y_values = result.get(f"bin{bin_num}_fit_y_values", [])
         beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
+        beta_fit = result.get(f"bin{bin_num}_beta_fit", np.nan)  # β from linearized fit
+        fit_slope = result.get(f"bin{bin_num}_fit_slope", np.nan)  # Actual regression slope
+        fit_intercept = result.get(f"bin{bin_num}_fit_intercept", 0.0)  # Regression intercept
         r_squared = result.get(f"bin{bin_num}_beta_r_squared", np.nan)
 
         if t_values and y_values and not np.isnan(beta_mean):
@@ -314,16 +337,17 @@ def plot_particle_decay_event(
                 s=8,
             )
 
-            # Plot regression line
-            if len(t_arr) > 0:
+            # Plot regression line using actual fit slope and intercept
+            if len(t_arr) > 0 and not np.isnan(fit_slope):
                 t_line = np.array([0, t_arr.max()])
-                # slope = λ + β
-                slope = lambda_ach + beta_mean
-                y_line = slope * t_line
+                # Use actual regression: y = slope * t + intercept
+                y_line = fit_slope * t_line + fit_intercept
 
-                label = f"Bin {bin_num}: β={beta_mean:.2f} h⁻¹"
+                # Use beta_fit (from regression) for label if available, else beta_mean
+                beta_display = beta_fit if not np.isnan(beta_fit) else beta_mean
+                label = f"Bin {bin_num}: beta={beta_display:.2f} h^-1"
                 if not np.isnan(r_squared):
-                    label += f" (R²={r_squared:.3f})"
+                    label += f" (R2={r_squared:.3f})"
 
                 ax2.plot(
                     t_line,

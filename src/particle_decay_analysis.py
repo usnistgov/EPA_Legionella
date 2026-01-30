@@ -292,16 +292,16 @@ def load_co2_lambda_results() -> pd.DataFrame:
         print("\n" + "="*80)
         print("DEPENDENCY REQUIRED")
         print("="*80)
-        print(f"\n❌ CO2 lambda results not found: {co2_results_path}")
-        print("\n📋 Required Dependency:")
-        print("   The particle analysis requires air change rates (λ) from CO2 analysis.")
-        print("\n▶  Action Required:")
+        print(f"\n[ERROR] CO2 lambda results not found: {co2_results_path}")
+        print("\nRequired Dependency:")
+        print("   The particle analysis requires air change rates (lambda) from CO2 analysis.")
+        print("\nAction Required:")
         print("   Run the CO2 decay analysis first:")
         print("   python src/co2_decay_analysis.py")
-        print("\n📌 Analysis Order:")
-        print("   1. co2_decay_analysis.py     (provides λ values)")
+        print("\nAnalysis Order:")
+        print("   1. co2_decay_analysis.py     (provides lambda values)")
         print("   2. rh_temp_other_analysis.py  (optional)")
-        print("   3. particle_decay_analysis.py (requires λ from step 1)")
+        print("   3. particle_decay_analysis.py (requires lambda from step 1)")
         print("\n" + "="*80 + "\n")
         raise FileNotFoundError(
             f"CO2 lambda results not found. Please run co2_decay_analysis.py first."
@@ -311,7 +311,7 @@ def load_co2_lambda_results() -> pd.DataFrame:
     df["decay_start"] = pd.to_datetime(df["decay_start"])
     df["injection_start"] = pd.to_datetime(df["injection_start"])
 
-    print(f"\n✓ Loaded CO2 λ results: {len(df)} events")
+    print(f"\nLoaded CO2 lambda results: {len(df)} events")
 
     return df
 
@@ -743,6 +743,9 @@ def calculate_deposition_rate(
         "beta_std": float(np.std(beta_values)),
         "beta_median": float(np.median(beta_values)),
         "beta_r_squared": fit_result.get("r_squared", np.nan),
+        "beta_fit": fit_result.get("beta_fit", np.nan),  # β from linearized regression
+        "_fit_slope": fit_result.get("_slope", np.nan),  # Actual slope from regression
+        "_fit_intercept": fit_result.get("_intercept", 0.0),  # Intercept from regression
         "n_points": len(beta_values),
         "_t_values": fit_result.get("_t_values", []),
         "_y_values": fit_result.get("_y_values", []),
@@ -904,6 +907,7 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_beta_mean"] = np.nan
             results[f"bin{bin_num}_beta_std"] = np.nan
             results[f"bin{bin_num}_beta_r_squared"] = np.nan
+            results[f"bin{bin_num}_beta_fit"] = np.nan
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
@@ -913,6 +917,8 @@ def analyze_event_all_bins(
             # Store empty fit data for plotting
             results[f"bin{bin_num}_fit_t_values"] = []
             results[f"bin{bin_num}_fit_y_values"] = []
+            results[f"bin{bin_num}_fit_slope"] = np.nan
+            results[f"bin{bin_num}_fit_intercept"] = 0.0
             results[f"bin{bin_num}_c_steady_state"] = np.nan
             results[f"bin{bin_num}_peak_time"] = None
             continue
@@ -932,10 +938,13 @@ def analyze_event_all_bins(
         results[f"bin{bin_num}_beta_mean"] = beta_result.get("beta_mean", np.nan)
         results[f"bin{bin_num}_beta_std"] = beta_result.get("beta_std", np.nan)
         results[f"bin{bin_num}_beta_r_squared"] = beta_result.get("beta_r_squared", np.nan)
+        results[f"bin{bin_num}_beta_fit"] = beta_result.get("beta_fit", np.nan)  # From linearized regression
 
         # Store fit data for plotting (even if beta is valid, we want the data)
         results[f"bin{bin_num}_fit_t_values"] = beta_result.get("_t_values", [])
         results[f"bin{bin_num}_fit_y_values"] = beta_result.get("_y_values", [])
+        results[f"bin{bin_num}_fit_slope"] = beta_result.get("_fit_slope", np.nan)  # Actual regression slope
+        results[f"bin{bin_num}_fit_intercept"] = beta_result.get("_fit_intercept", 0.0)  # Regression intercept
         results[f"bin{bin_num}_c_steady_state"] = beta_result.get("c_steady_state", np.nan)
         results[f"bin{bin_num}_peak_time"] = beta_result.get("peak_time", None)
 
@@ -993,15 +1002,15 @@ def run_particle_analysis(
     print("Particle Decay & Emission Analysis")
     print("Numerical Approach - Seven Particle Size Bins")
     print("=" * 80)
-    print(f"Bedroom volume: {BEDROOM_VOLUME_M3} m³")
+    print(f"Bedroom volume: {BEDROOM_VOLUME_M3} m^3")
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
     print(f"Penetration window: {PENETRATION_WINDOW_HOURS} hour(s) before shower")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
     print("\nValidation thresholds:")
     print(f"  Penetration factor (p): {MIN_PENETRATION} - {MAX_PENETRATION}")
-    print(f"  Max deposition rate (β): {MAX_DEPOSITION_RATE} h⁻¹")
+    print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
     print(f"  Min concentration ratio: {MIN_CONCENTRATION_RATIO}")
-    print(f"  Min data points: p={MIN_POINTS_PENETRATION}, β={MIN_POINTS_DEPOSITION}, E={MIN_POINTS_EMISSION}")
+    print(f"  Min data points: p={MIN_POINTS_PENETRATION}, beta={MIN_POINTS_DEPOSITION}, E={MIN_POINTS_EMISSION}")
 
     # Set output directory
     if output_dir is None:
@@ -1069,19 +1078,19 @@ def run_particle_analysis(
                 print(
                     f"  {event.get('test_name', 'Event ' + str(event.get('event_number', '?')))} "
                     f"({shower_time.strftime('%m/%d %H:%M')}) "
-                    f"→ CO2 {co2_idx + 1} ({co2_time.strftime('%H:%M')}), "
-                    f"λ={lambda_val:.4f} h⁻¹"
+                    f"-> CO2 {co2_idx + 1} ({co2_time.strftime('%H:%M')}), "
+                    f"lambda={lambda_val:.4f} h^-1"
                 )
         else:
             missing_lambda_count += 1
             print(
                 f"  {event.get('test_name', 'Event ' + str(event.get('event_number', '?')))} "
                 f"({shower_time.strftime('%m/%d %H:%M')}): "
-                f"No λ value available"
+                f"No lambda value available"
             )
 
     print(f"\nTotal: {len(events)} events | Matched: {matched_count} | "
-          f"Excluded: {excluded_count} | Missing λ: {missing_lambda_count}")
+          f"Excluded: {excluded_count} | Missing lambda: {missing_lambda_count}")
 
     # Analyze each event
     print("\nAnalyzing shower events...")
@@ -1106,12 +1115,12 @@ def run_particle_analysis(
 
         # Skip events without lambda
         if np.isnan(lambda_ach):
-            print(f"  {test_name}: Skipped (no λ from CO2 analysis)")
+            print(f"  {test_name}: Skipped (no lambda from CO2 analysis)")
             continue
 
         print(
             f"  {test_name} ({shower_time.strftime('%m/%d %H:%M')}): "
-            f"λ={lambda_ach:.4f} h⁻¹"
+            f"lambda={lambda_ach:.4f} h^-1"
         )
 
         result = analyze_event_all_bins(particle_data, event, lambda_ach)
@@ -1181,14 +1190,14 @@ def run_particle_analysis(
 
         print(f"\nBin {bin_num} ({bin_name} µm):")
         if len(valid_p) > 0:
-            print(f"  p (penetration):     {valid_p.mean():.3f} ± {valid_p.std():.3f}")
+            print(f"  p (penetration):     {valid_p.mean():.3f} +/- {valid_p.std():.3f}")
         if len(valid_beta) > 0:
             print(
-                f"  β (deposition):      {valid_beta.mean():.3f} ± {valid_beta.std():.3f} h⁻¹"
+                f"  beta (deposition):   {valid_beta.mean():.3f} +/- {valid_beta.std():.3f} h^-1"
             )
         if len(valid_E) > 0:
             print(
-                f"  E (emission):        {valid_E.mean():.2e} ± {valid_E.std():.2e} #/min"
+                f"  E (emission):        {valid_E.mean():.2e} +/- {valid_E.std():.2e} #/min"
             )
         print(f"  Valid events:        {len(valid_E)}/{len(results)}")
 
@@ -1234,6 +1243,7 @@ def run_particle_analysis(
         # Import plot_particle functions
         try:
             from scripts.plot_particle import (
+                plot_deposition_summary,
                 plot_emission_summary,
                 plot_penetration_summary,
             )
@@ -1241,6 +1251,9 @@ def run_particle_analysis(
             # Generate summary plots
             plot_penetration_summary(
                 results_df, PARTICLE_BINS, plot_dir / "penetration_summary.png"
+            )
+            plot_deposition_summary(
+                results_df, PARTICLE_BINS, plot_dir / "deposition_summary.png"
             )
             plot_emission_summary(
                 results_df, PARTICLE_BINS, plot_dir / "emission_summary.png"
