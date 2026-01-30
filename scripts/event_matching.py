@@ -113,6 +113,51 @@ def match_shower_to_co2_event(
     return candidates[0][0]
 
 
+def match_co2_to_shower_event(
+    co2_injection_time: datetime,
+    shower_events: List[Dict],
+    time_tolerance_minutes: float = 10.0,
+) -> Optional[int]:
+    """
+    Find the shower event that corresponds to a CO2 injection event.
+
+    This is the reverse of match_shower_to_co2_event. The matching logic accounts
+    for the experimental protocol where CO2 injection occurs ~20 minutes BEFORE
+    the shower starts.
+
+    Parameters:
+        co2_injection_time: Datetime when CO2 injection started
+        shower_events: List of shower event dictionaries with 'shower_on' key
+        time_tolerance_minutes: Tolerance window around expected shower time
+
+    Returns:
+        Index (0-based) of matching shower event, or None if no match found
+    """
+    if not shower_events:
+        return None
+
+    # Expected shower time: 20 minutes AFTER CO2 injection
+    expected_shower_time = co2_injection_time + timedelta(minutes=20)
+
+    # Find shower events within the tolerance window
+    candidates = []
+    for idx, event in enumerate(shower_events):
+        shower_time = event.get("shower_on")
+        if shower_time is None:
+            continue
+
+        time_diff = abs((shower_time - expected_shower_time).total_seconds() / 60.0)
+        if time_diff <= time_tolerance_minutes:
+            candidates.append((idx, time_diff))
+
+    if not candidates:
+        return None
+
+    # Return the closest match
+    candidates.sort(key=lambda x: x[1])
+    return candidates[0][0]
+
+
 def build_event_mapping(
     shower_events: List[Dict],
     co2_events_df: pd.DataFrame,

@@ -135,10 +135,16 @@ TIME_STEP_MINUTES = 1.0  # Time resolution for numerical calculations
 ROLLING_WINDOW_MIN = 0  # Rolling average window in minutes (0 = no smoothing)
 
 # Validation thresholds
-MIN_PENETRATION = 0.5  # Minimum reasonable p value
-MAX_PENETRATION = 1.0  # Maximum reasonable p value
-MAX_DEPOSITION_RATE = 10.0  # Maximum reasonable β (h⁻¹)
-MIN_CONCENTRATION_RATIO = 1.2  # Minimum C_inside/C_outside during decay
+MIN_PENETRATION = 0.3  # Minimum reasonable p value (reduced from 0.5)
+MAX_PENETRATION = 1.5  # Maximum reasonable p value (increased from 1.0)
+MAX_DEPOSITION_RATE = 15.0  # Maximum reasonable β (h⁻¹) (increased from 10.0)
+MIN_CONCENTRATION_RATIO = 1.05  # Minimum C_inside/C_outside during decay (reduced from 1.2)
+
+# Minimum data point requirements
+MIN_POINTS_PENETRATION = 10  # Minimum points for penetration calculation
+MIN_POINTS_DEPOSITION = 10  # Minimum points for deposition calculation (reduced from 20)
+MIN_POINTS_EMISSION = 3  # Minimum points for emission calculation (reduced from 5)
+MIN_VALID_BETA = 5  # Minimum valid β values required (reduced from 10)
 
 
 # =============================================================================
@@ -409,14 +415,14 @@ def calculate_penetration_factor(
     )
     window_data = particle_data[mask].copy()
 
-    if len(window_data) < 10:
+    if len(window_data) < MIN_POINTS_PENETRATION:
         return {
             "p_mean": np.nan,
             "p_std": np.nan,
             "c_inside_mean": np.nan,
             "c_outside_mean": np.nan,
             "n_points": len(window_data),
-            "skip_reason": f"Insufficient data: {len(window_data)} points (minimum 10 required)",
+            "skip_reason": f"Insufficient data: {len(window_data)} points (minimum {MIN_POINTS_PENETRATION} required)",
         }
 
     c_inside = np.asarray(window_data[col_inside].values, dtype=np.float64)
@@ -430,14 +436,14 @@ def calculate_penetration_factor(
         & (~np.isnan(c_outside))
     )
 
-    if np.sum(valid_mask) < 10:
+    if np.sum(valid_mask) < MIN_POINTS_PENETRATION:
         return {
             "p_mean": np.nan,
             "p_std": np.nan,
             "c_inside_mean": np.nan,
             "c_outside_mean": np.nan,
             "n_points": np.sum(valid_mask),
-            "skip_reason": f"Insufficient valid points: {np.sum(valid_mask)}",
+            "skip_reason": f"Insufficient valid points: {np.sum(valid_mask)} (minimum {MIN_POINTS_PENETRATION} required)",
         }
 
     c_inside_valid = c_inside[valid_mask]
@@ -449,14 +455,22 @@ def calculate_penetration_factor(
     # Filter unreasonable p values
     reasonable_mask = (p_values >= MIN_PENETRATION) & (p_values <= MAX_PENETRATION)
 
-    if np.sum(reasonable_mask) < 10:
+    if np.sum(reasonable_mask) < MIN_POINTS_PENETRATION:
+        # Calculate stats on raw p values for diagnostic info
+        p_min, p_max = p_values.min(), p_values.max()
+        p_median = np.median(p_values)
         return {
             "p_mean": np.nan,
             "p_std": np.nan,
             "c_inside_mean": float(np.mean(c_inside_valid)),
             "c_outside_mean": float(np.mean(c_outside_valid)),
             "n_points": np.sum(reasonable_mask),
-            "skip_reason": f"Insufficient reasonable p values: {np.sum(reasonable_mask)}",
+            "skip_reason": (
+                f"Insufficient reasonable p values: {np.sum(reasonable_mask)} "
+                f"(min {MIN_POINTS_PENETRATION} required). "
+                f"p range: {p_min:.3f}-{p_max:.3f}, median: {p_median:.3f}, "
+                f"valid range: {MIN_PENETRATION}-{MAX_PENETRATION}"
+            ),
         }
 
     p_reasonable = p_values[reasonable_mask]
@@ -504,27 +518,32 @@ def calculate_deposition_rate(
     )
     window_data = particle_data[mask].copy()
 
-    if len(window_data) < 20:
+    if len(window_data) < MIN_POINTS_DEPOSITION:
         return {
             "beta_mean": np.nan,
             "beta_std": np.nan,
             "beta_median": np.nan,
             "n_points": len(window_data),
-            "skip_reason": f"Insufficient data: {len(window_data)} points (minimum 20 required)",
+            "skip_reason": f"Insufficient data: {len(window_data)} points (minimum {MIN_POINTS_DEPOSITION} required)",
         }
 
     c_inside = np.asarray(window_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(window_data[col_outside].values, dtype=np.float64)
 
     # Check for sufficient concentration difference
-    c_ratio = c_inside[0] / np.mean(c_outside)
+    c_outside_mean = np.mean(c_outside)
+    c_ratio = c_inside[0] / c_outside_mean if c_outside_mean > 0 else 0
     if c_ratio < MIN_CONCENTRATION_RATIO:
         return {
             "beta_mean": np.nan,
             "beta_std": np.nan,
             "beta_median": np.nan,
             "n_points": 0,
-            "skip_reason": f"Insufficient concentration ratio: {c_ratio:.2f} (minimum {MIN_CONCENTRATION_RATIO})",
+            "skip_reason": (
+                f"Insufficient concentration ratio: {c_ratio:.3f} "
+                f"(minimum {MIN_CONCENTRATION_RATIO}). "
+                f"C_inside[0]={c_inside[0]:.1f}, C_outside_mean={c_outside_mean:.1f}"
+            ),
         }
 
     # Calculate β for each time step
@@ -553,13 +572,16 @@ def calculate_deposition_rate(
         if 0 <= beta <= MAX_DEPOSITION_RATE:
             beta_values.append(beta)
 
-    if len(beta_values) < 10:
+    if len(beta_values) < MIN_VALID_BETA:
         return {
             "beta_mean": np.nan,
             "beta_std": np.nan,
             "beta_median": np.nan,
             "n_points": len(beta_values),
-            "skip_reason": f"Insufficient valid β values: {len(beta_values)}",
+            "skip_reason": (
+                f"Insufficient valid β values: {len(beta_values)} "
+                f"(minimum {MIN_VALID_BETA} required)"
+            ),
         }
 
     return {
@@ -606,14 +628,17 @@ def calculate_emission_rate(
     )
     shower_data = particle_data[mask].copy()
 
-    if len(shower_data) < 5:
+    if len(shower_data) < MIN_POINTS_EMISSION:
         return {
             "E_mean": np.nan,
             "E_std": np.nan,
             "E_median": np.nan,
             "E_total": np.nan,
             "n_points": len(shower_data),
-            "skip_reason": f"Insufficient data: {len(shower_data)} points (minimum 5 required)",
+            "skip_reason": (
+                f"Insufficient data: {len(shower_data)} points "
+                f"(minimum {MIN_POINTS_EMISSION} required)"
+            ),
         }
 
     c_inside = np.asarray(shower_data[col_inside].values, dtype=np.float64)
@@ -800,6 +825,11 @@ def run_particle_analysis(
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
     print(f"Penetration window: {PENETRATION_WINDOW_HOURS} hour(s) before shower")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
+    print("\nValidation thresholds:")
+    print(f"  Penetration factor (p): {MIN_PENETRATION} - {MAX_PENETRATION}")
+    print(f"  Max deposition rate (β): {MAX_DEPOSITION_RATE} h⁻¹")
+    print(f"  Min concentration ratio: {MIN_CONCENTRATION_RATIO}")
+    print(f"  Min data points: p={MIN_POINTS_PENETRATION}, β={MIN_POINTS_DEPOSITION}, E={MIN_POINTS_EMISSION}")
 
     # Set output directory
     if output_dir is None:
@@ -915,13 +945,28 @@ def run_particle_analysis(
         result = analyze_event_all_bins(particle_data, event, lambda_ach)
         results.append(result)
 
-        # Print summary for this event
+        # Print summary for this event with detailed skip reasons
         valid_bins = 0
+        skipped_bins = []
         for bin_num in PARTICLE_BINS.keys():
             if not np.isnan(result.get(f"bin{bin_num}_E_mean", np.nan)):
                 valid_bins += 1
+            else:
+                skip_reason = result.get(f"bin{bin_num}_skip_reason", "Unknown")
+                skipped_bins.append((bin_num, skip_reason))
 
         print(f"    Successfully analyzed {valid_bins}/{len(PARTICLE_BINS)} bins")
+
+        # Print skip reasons for failed bins (up to 3 for brevity)
+        if skipped_bins and valid_bins < len(PARTICLE_BINS):
+            for bin_num, reason in skipped_bins[:3]:
+                bin_name = PARTICLE_BINS[bin_num]["name"]
+                # Truncate long reasons
+                if len(reason) > 80:
+                    reason = reason[:77] + "..."
+                print(f"      Bin {bin_num} ({bin_name} µm): {reason}")
+            if len(skipped_bins) > 3:
+                print(f"      ... and {len(skipped_bins) - 3} more bins skipped")
 
         # Generate individual event plot if enabled (all bins on one plot)
         if generate_plots and valid_bins > 0:

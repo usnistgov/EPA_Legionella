@@ -73,7 +73,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.event_manager import (  # noqa: E402
     EXPERIMENT_START_DATE,
     is_event_excluded,
+    filter_events_by_date,
+    assign_test_names,
+    get_water_temperature_code,
+    get_time_of_day,
 )
+from scripts.event_matching import match_co2_to_shower_event  # noqa: E402
 from scripts.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
     plot_lambda_summary,
@@ -286,6 +291,73 @@ def load_co2_injection_log() -> pd.DataFrame:
     df["datetime_EDT"] = pd.to_datetime(df["datetime_EDT"])
 
     return df
+
+
+def load_shower_log() -> pd.DataFrame:
+    """
+    Load the shower state-change log.
+
+    Returns:
+        pd.DataFrame: DataFrame with shower events
+    """
+    log_path = get_common_file("shower_log_file")
+
+    if not log_path.exists():
+        raise FileNotFoundError(
+            f"Shower log file not found: {log_path}\n"
+            "Run scripts/process_shower_log.py first to generate this file."
+        )
+
+    df = pd.read_csv(log_path)
+    df["datetime_EDT"] = pd.to_datetime(df["datetime_EDT"])
+
+    return df
+
+
+def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
+    """
+    Identify shower events from the log file.
+
+    Parameters:
+        shower_log (pd.DataFrame): DataFrame with shower log
+
+    Returns:
+        List[Dict]: List of dicts with shower event details
+    """
+    events = []
+    shower_log = shower_log.sort_values("datetime_EDT").reset_index(drop=True)
+
+    event_number = 0
+
+    for i in range(len(shower_log) - 1):
+        current_row = shower_log.iloc[i]
+        next_row = shower_log.iloc[i + 1]
+
+        # Check for shower turning ON
+        if current_row["shower"] == 0 and next_row["shower"] > 0:
+            event_number += 1
+            shower_on = next_row["datetime_EDT"]
+
+            # Find when shower turns OFF
+            shower_off = None
+            for j in range(i + 2, min(i + 30, len(shower_log))):
+                row = shower_log.iloc[j]
+                if row["shower"] == 0:
+                    shower_off = row["datetime_EDT"]
+                    break
+
+            if shower_off is None:
+                shower_off = shower_on + timedelta(minutes=10)
+
+            events.append(
+                {
+                    "event_number": event_number,
+                    "shower_on": shower_on,
+                    "shower_off": shower_off,
+                }
+            )
+
+    return events
 
 
 def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
@@ -682,6 +754,35 @@ def run_co2_decay_analysis(
     print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
     events = [e for e in raw_events if e["injection_start"] >= EXPERIMENT_START_DATE]
     print(f"  {len(events)} events after date filtering")
+
+    # Load shower events and assign test names for consistent naming
+    print("\nLoading shower events for test name assignment...")
+    shower_log = load_shower_log()
+    shower_events = identify_shower_events(shower_log)
+    shower_events = filter_events_by_date(shower_events)
+    shower_events = assign_test_names(shower_events, shower_log)
+    print(f"  Found {len(shower_events)} shower events")
+
+    # Match each CO2 event to its corresponding shower event to get test name
+    for event in events:
+        injection_time = event["injection_start"]
+        shower_idx = match_co2_to_shower_event(injection_time, shower_events)
+
+        if shower_idx is not None:
+            shower_event = shower_events[shower_idx]
+            event["test_name"] = shower_event.get("test_name")
+            event["water_temp"] = shower_event.get("water_temp")
+            event["time_of_day"] = shower_event.get("time_of_day")
+        else:
+            # Fallback: generate test name based on CO2 injection time
+            # (shower would be ~20 minutes after injection)
+            expected_shower_time = injection_time + timedelta(minutes=20)
+            water_temp = get_water_temperature_code(expected_shower_time)
+            time_of_day = get_time_of_day(expected_shower_time)
+            date_str = expected_shower_time.strftime("%m%d")
+            event["test_name"] = f"{date_str}_{water_temp}_{time_of_day}"
+            event["water_temp"] = water_temp
+            event["time_of_day"] = time_of_day
 
     # Analyze each event
     print("\nAnalyzing injection events...")
