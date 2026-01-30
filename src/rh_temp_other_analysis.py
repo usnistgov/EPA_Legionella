@@ -89,6 +89,9 @@ from src.env_data_loader import (  # noqa: E402
 PRE_SHOWER_MINUTES = 30  # Minutes before shower ON for baseline
 POST_SHOWER_HOURS = 2  # Hours after shower OFF for analysis
 
+# Global cache for pre-loaded sensor data (populated once at start)
+_SENSOR_DATA_CACHE: Dict[str, pd.DataFrame] = {}
+
 # Custom display order for RH and Temperature sensors (indoor to outdoor)
 # This order is used for bar charts and boxplots
 SENSOR_DISPLAY_ORDER = [
@@ -117,6 +120,78 @@ def get_sensor_sort_key(sensor_name: str) -> int:
         if sensor_name.startswith(prefix):
             return i
     return len(SENSOR_DISPLAY_ORDER)  # Unknown sensors go last
+
+
+def preload_all_sensor_data(events: List[Dict]) -> Dict[str, pd.DataFrame]:
+    """
+    Pre-load all sensor data for the entire date range of events.
+
+    This dramatically improves performance by loading data once instead of
+    repeatedly for each event. The data is cached globally for reuse.
+
+    Args:
+        events: List of shower event dicts with timing information
+
+    Returns:
+        Dict mapping sensor names to their full DataFrames
+    """
+    global _SENSOR_DATA_CACHE
+
+    if _SENSOR_DATA_CACHE:
+        return _SENSOR_DATA_CACHE
+
+    if not events:
+        return {}
+
+    # Find the overall date range needed (with padding for analysis windows)
+    all_starts = [e["pre_start"] for e in events]
+    all_ends = [e["post_end"] for e in events]
+    global_start = min(all_starts) - timedelta(hours=2)
+    global_end = max(all_ends) + timedelta(hours=2)
+
+    print(f"\nPre-loading sensor data for {global_start.date()} to {global_end.date()}...")
+
+    for sensor_name, cfg in SENSOR_CONFIG.items():
+        data = load_sensor_data(sensor_name, cfg, global_start, global_end)
+        if data is not None and not data.empty:
+            _SENSOR_DATA_CACHE[sensor_name] = data
+
+    print(f"  Loaded {len(_SENSOR_DATA_CACHE)} sensors into cache")
+    return _SENSOR_DATA_CACHE
+
+
+def get_cached_sensor_data(
+    sensor_name: str,
+    start_date: datetime,
+    end_date: datetime
+) -> Optional[pd.DataFrame]:
+    """
+    Get sensor data from cache, filtered to the requested date range.
+
+    Args:
+        sensor_name: Name of the sensor
+        start_date: Start of analysis window
+        end_date: End of analysis window
+
+    Returns:
+        DataFrame filtered to the date range, or None if not in cache
+    """
+    if sensor_name not in _SENSOR_DATA_CACHE:
+        return None
+
+    data = _SENSOR_DATA_CACHE[sensor_name]
+    mask = (data["datetime"] >= start_date) & (data["datetime"] <= end_date)
+    filtered = data.loc[mask].copy()
+
+    if filtered.empty:
+        return None
+    return filtered
+
+
+def clear_sensor_cache():
+    """Clear the global sensor data cache."""
+    global _SENSOR_DATA_CACHE
+    _SENSOR_DATA_CACHE = {}
 
 
 # =============================================================================
@@ -428,10 +503,11 @@ def generate_time_series_plots(
                 if cfg["variable_type"].startswith(var_type)
             }
 
+            # Use cached data instead of reloading for each plot
             data_dict = {}
             for sensor_name, cfg in sensors.items():
-                data = load_sensor_data(sensor_name, cfg, start_date, end_date)
-                if data is not None and not data.empty:
+                data = get_cached_sensor_data(sensor_name, start_date, end_date)
+                if data is not None:
                     data = data.rename(columns={"value": cfg["column"]})
                     data_dict[sensor_name] = data
 
@@ -625,6 +701,9 @@ def run_rh_temp_analysis(
         print("No shower events found. Exiting.")
         return [], []
 
+    # Pre-load all sensor data once (major performance optimization)
+    preload_all_sensor_data(events)
+
     # Analyze each event
     print(f"\nAnalyzing {len(events)} shower events...")
     all_results = []
@@ -653,10 +732,11 @@ def run_rh_temp_analysis(
         start_date = event["pre_start"]
         end_date = event["post_end"]
 
+        # Use cached data (filtered to event window) instead of reloading
         sensor_data = {}
-        for sensor_name, cfg in SENSOR_CONFIG.items():
-            data = load_sensor_data(sensor_name, cfg, start_date, end_date)
-            if data is not None and not data.empty:
+        for sensor_name in SENSOR_CONFIG.keys():
+            data = get_cached_sensor_data(sensor_name, start_date, end_date)
+            if data is not None:
                 sensor_data[sensor_name] = data
 
         if not sensor_data:
@@ -664,7 +744,7 @@ def run_rh_temp_analysis(
             all_results.append({})
             continue
 
-        print(f"    Loaded data from {len(sensor_data)} sensors")
+        print(f"    Using data from {len(sensor_data)} sensors")
         event_results = analyze_shower_event(event, sensor_data)
         all_results.append(event_results)
 
