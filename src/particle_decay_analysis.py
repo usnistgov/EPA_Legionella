@@ -523,8 +523,10 @@ def _calculate_linearized_fit(
         return {"beta_fit": np.nan, "r_squared": np.nan, "_t_values": [], "_y_values": [], "c_steady_state": c_steady_state}
 
     # Calculate time in hours from start
+    # Convert numpy datetime64 to hours since start
     t0 = datetimes[0]
-    t_hours = np.array([(dt - t0).total_seconds() / 3600.0 for dt in datetimes])
+    # numpy timedelta64 division gives hours directly
+    t_hours = (datetimes - t0).astype('timedelta64[s]').astype(float) / 3600.0
 
     # Calculate linearized y values: y = -ln[(C(t) - C_ss) / (C_0 - C_ss)]
     t_values = []
