@@ -185,23 +185,145 @@ def get_time_of_day(dt: datetime) -> str:
         return "Night"
 
 
+def _get_config_value_at_time(
+    dt: datetime, transitions: List[Tuple[datetime, str]]
+) -> str:
+    """
+    Get configuration value at a given time based on transition list.
+
+    Parameters:
+        dt: Datetime to check
+        transitions: List of (datetime, value) tuples, sorted by datetime
+
+    Returns:
+        Configuration value active at the given time
+    """
+    # Find the most recent transition before or at dt
+    active_value = transitions[0][1]  # Default to first value
+    for transition_time, value in transitions:
+        if dt >= transition_time:
+            active_value = value
+        else:
+            break
+    return active_value
+
+
 def get_water_temperature_code(dt: datetime) -> str:
     """
     Determine water temperature code based on datetime.
 
-    Hot water was used before 2026-01-22 14:00.
-    Cold water is used after 2026-01-22 14:00.
+    Uses WATER_TEMP_TRANSITIONS to determine the water temperature.
+    Supports: "HW" (Hot Water), "CW" (Cold Water), "MW" (Mixed Water)
 
     Parameters:
         dt: Datetime of the event
 
     Returns:
-        String: "HW" (hot water) or "CW" (cold water)
+        String: Water temperature code (e.g., "HW", "CW", "MW")
     """
-    if dt < HOT_WATER_END_TIME:
-        return "HW"
-    else:
-        return "CW"
+    return _get_config_value_at_time(dt, WATER_TEMP_TRANSITIONS)
+
+
+def get_door_position(dt: datetime) -> str:
+    """
+    Determine door position based on datetime.
+
+    Uses DOOR_POSITION_TRANSITIONS to determine the door status.
+    Supports: "Open", "Closed", "Partial"
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        String: Door position (e.g., "Open", "Closed", "Partial")
+    """
+    return _get_config_value_at_time(dt, DOOR_POSITION_TRANSITIONS)
+
+
+def get_planned_fan_status(dt: datetime) -> str:
+    """
+    Determine planned fan status based on datetime.
+
+    Uses FAN_STATUS_TRANSITIONS to determine the planned fan operation.
+    Note: Actual fan status during tests is detected from shower log.
+    Supports: "On", "Off"
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        String: Planned fan status (e.g., "On", "Off")
+    """
+    return _get_config_value_at_time(dt, FAN_STATUS_TRANSITIONS)
+
+
+def get_test_configuration(dt: datetime) -> Dict[str, str]:
+    """
+    Get complete test configuration for a given datetime.
+
+    Returns a dictionary with all configuration parameters that can be used
+    for grouping, filtering, and labeling results.
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        Dictionary with configuration keys:
+            - water_temp: "HW", "CW", or "MW"
+            - door_position: "Open", "Closed", or "Partial"
+            - planned_fan: "On" or "Off"
+            - config_key: Combined key for grouping (e.g., "HW_DoorClosed_FanOff")
+    """
+    water_temp = get_water_temperature_code(dt)
+    door_pos = get_door_position(dt)
+    fan_status = get_planned_fan_status(dt)
+
+    # Create combined configuration key for grouping
+    fan_label = "FanOn" if fan_status == "On" else "FanOff"
+    door_label = f"Door{door_pos}"
+    config_key = f"{water_temp}_{door_label}_{fan_label}"
+
+    return {
+        "water_temp": water_temp,
+        "door_position": door_pos,
+        "planned_fan": fan_status,
+        "config_key": config_key,
+    }
+
+
+def get_unique_configurations() -> List[Dict[str, str]]:
+    """
+    Get list of all unique configurations based on transition dates.
+
+    This is useful for generating summary statistics by configuration.
+
+    Returns:
+        List of configuration dictionaries, one per unique configuration
+    """
+    # Collect all unique transition points
+    all_transitions = set()
+    for dt, _ in WATER_TEMP_TRANSITIONS:
+        all_transitions.add(dt)
+    for dt, _ in DOOR_POSITION_TRANSITIONS:
+        all_transitions.add(dt)
+    for dt, _ in FAN_STATUS_TRANSITIONS:
+        all_transitions.add(dt)
+
+    # Sort transitions
+    sorted_transitions = sorted(all_transitions)
+
+    # Get configuration at each transition point
+    seen_configs = set()
+    unique_configs = []
+
+    for dt in sorted_transitions:
+        config = get_test_configuration(dt)
+        if config["config_key"] not in seen_configs:
+            seen_configs.add(config["config_key"])
+            config["start_time"] = dt
+            unique_configs.append(config)
+
+    return unique_configs
 
 
 def check_fan_during_test(
@@ -243,27 +365,29 @@ def generate_test_name(
     time_of_day: str,
     replicate_num: int,
     fan_status: bool = False,
+    door_position: str = "Closed",
 ) -> str:
     """
     Generate a test condition name following the naming convention.
 
-    Format: MMDD_TempCode_TimeOfDay[_Fan]_RNN
+    Format: MMDD_TempCode_DoorPos_TimeOfDay[_Fan]_RNN
 
     Parameters:
         shower_time: Datetime of shower start
-        water_temp: "HW" or "CW"
+        water_temp: "HW", "CW", or "MW"
         time_of_day: "Morning", "Afternoon", "Evening", or "Night"
         replicate_num: Replicate number (1-indexed)
         fan_status: Whether bath fan ran during test (default False)
+        door_position: "Open", "Closed", or "Partial" (default "Closed")
 
     Returns:
-        String: Test name (e.g., "0114_HW_Morning_R01")
+        String: Test name (e.g., "0114_HW_Closed_Morning_R01")
     """
     # Format date as MMDD
     date_str = shower_time.strftime("%m%d")
 
     # Build name components
-    components = [date_str, water_temp, time_of_day]
+    components = [date_str, water_temp, door_position, time_of_day]
 
     # Add fan status if applicable
     if fan_status:
