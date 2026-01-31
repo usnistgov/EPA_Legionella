@@ -50,26 +50,40 @@ from scripts.plot_style import (
 # Suffixes to remove from sensor names (since figure title contains this info)
 _SENSOR_NAME_SUFFIXES = [" RH", " Temp", " Speed", " Direction"]
 
+# Mapping from internal sensor names to display names for plots
+SENSOR_DISPLAY_NAMES = {
+    "Vaisala MBa": "Vaisala Bathroom",
+    "Vaisala Bed1": "Vaisala Bedroom",
+    "QuantAQ Inside": "QuantAQ Bedroom",
+    "Vaisala Liv": "Vaisala Livingroom",
+    "Aranet4 Entry": "Aranet4 Livingroom",
+    "Aranet4 Outside": "Aranet4 OutsideN",
+    "QuantAQ Outside": "QuantAQ OutsideS",
+    # Aranet4 Bedroom stays the same (no mapping needed)
+}
+
 
 def simplify_sensor_name(sensor_name: str) -> str:
     """
-    Simplify sensor name by removing variable type suffix.
+    Simplify sensor name by removing variable type suffix and applying display mapping.
 
     The figure title already indicates the variable type, so we remove
     redundant suffixes like "RH", "Temp", "Speed", "Direction".
+    Then applies the display name mapping for more descriptive plot labels.
 
     Parameters:
         sensor_name: Full sensor name (e.g., "Vaisala MBa RH")
 
     Returns:
-        Simplified name (e.g., "Vaisala MBa")
+        Display name (e.g., "Vaisala Bathroom")
     """
     result = sensor_name
     for suffix in _SENSOR_NAME_SUFFIXES:
         if result.endswith(suffix):
             result = result[: -len(suffix)]
             break
-    return result
+    # Apply display name mapping if available
+    return SENSOR_DISPLAY_NAMES.get(result, result)
 
 
 def add_shower_markers(
@@ -207,7 +221,7 @@ def _plot_wind_data(
                 plot_data[value_col],
                 color=COLORS["wind_direction"],
                 linewidth=LINE_WIDTH_DATA,
-                label=sensor_name,
+                label=simplify_sensor_name(sensor_name),
                 alpha=0.8,
                 linestyle="--",
             )
@@ -218,7 +232,7 @@ def _plot_wind_data(
                 plot_data[value_col],
                 color=COLORS["wind_speed"],
                 linewidth=LINE_WIDTH_DATA,
-                label=sensor_name,
+                label=simplify_sensor_name(sensor_name),
                 alpha=0.8,
             )
             speed_plotted = True
@@ -273,7 +287,7 @@ def _plot_standard_data(
             plot_data[value_col],
             color=color,
             linewidth=LINE_WIDTH_DATA,
-            label=sensor_name,
+            label=simplify_sensor_name(sensor_name),
             alpha=0.8,
         )
         plotted_any = True
