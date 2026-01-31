@@ -349,7 +349,7 @@ def plot_penetration_summary(
 
     ax.set_xticks(x)
     ax.set_xticklabels(bin_labels, rotation=45, ha="right")
-    ax.set_ylim(0, 1.1)
+    ax.set_ylim(0, 1.4)
     ax.axhline(
         y=0.7,
         color="gray",
