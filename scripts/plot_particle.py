@@ -51,104 +51,6 @@ from scripts.plot_style import (
 )
 
 
-def _calculate_exponential_fit_curve(
-    particle_data: pd.DataFrame,
-    event: Dict,
-    bin_num: int,
-    bin_info: Dict,
-    result: Dict,
-    lambda_ach: float,
-) -> Optional[pd.DataFrame]:
-    """
-    Calculate fitted exponential decay curve for a particle bin.
-
-    Uses: C(t) = C_ss + (C_0 - C_ss) * exp(-(λ + β)*t)
-    where C_ss is the steady-state concentration.
-
-    The decay starts from the peak concentration time (not shower_off),
-    as determined independently for each bin during analysis.
-
-    Uses beta_fit (from linearized regression) if available, otherwise beta_mean.
-
-    Parameters:
-        particle_data: DataFrame with particle concentrations
-        event: Event timing dictionary
-        bin_num: Particle bin number
-        bin_info: Bin information dictionary
-        result: Analysis results for this event
-        lambda_ach: Air change rate (h^-1)
-
-    Returns:
-        DataFrame with datetime and C_fit columns, or None if insufficient data
-    """
-    beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
-    beta_fit = result.get(
-        f"bin{bin_num}_beta_fit", np.nan
-    )  # From linearized regression
-    c_steady_state = result.get(f"bin{bin_num}_c_steady_state", np.nan)
-    peak_time = result.get(f"bin{bin_num}_peak_time", None)
-
-    if np.isnan(beta_mean):
-        return None
-
-    # Use beta_fit (from linearized regression) if available, else beta_mean
-    beta_for_fit = beta_fit if not np.isnan(beta_fit) else beta_mean
-
-    col_inside = f"{bin_info['column']}_inside"
-
-    # Use peak_time as decay start if available, otherwise fall back to shower_off
-    if peak_time is not None:
-        decay_start = peak_time
-    else:
-        decay_start = event["shower_off"]
-
-    decay_end = event["deposition_end"]
-
-    mask = (particle_data["datetime"] >= decay_start) & (
-        particle_data["datetime"] <= decay_end
-    )
-    decay_data = particle_data[mask].copy()
-
-    if len(decay_data) < 2 or col_inside not in decay_data.columns:
-        return None
-
-    # Use the actual peak concentration in the decay window (first value should be peak,
-    # but verify by taking max in case of slight timing misalignment)
-    c_values = decay_data[col_inside].values
-    c_0 = float(
-        np.nanmax(c_values[: min(5, len(c_values))])
-    )  # Peak should be in first few points
-
-    if np.isnan(c_0):
-        return None
-
-    # Ensure c_steady_state is reasonable (positive and less than c_0)
-    if np.isnan(c_steady_state) or c_steady_state < 0:
-        c_steady_state = 0.0
-    if c_steady_state >= c_0:
-        # Use minimum concentration at end of window as approximation
-        c_steady_state = (
-            float(np.nanmin(c_values[-10:]) * 0.9) if len(c_values) >= 10 else 0.0
-        )
-        if c_steady_state >= c_0:
-            c_steady_state = 0.0
-
-    # Calculate time in hours from decay start (peak time)
-    t0 = decay_data["datetime"].iloc[0]
-    t_hours = (decay_data["datetime"] - t0).dt.total_seconds() / 3600.0
-
-    # Calculate fitted concentration: C(t) = C_ss + (C_0 - C_ss) * exp(-(lambda + beta)*t)
-    total_loss_rate = lambda_ach + beta_for_fit
-    c_fit = c_steady_state + (c_0 - c_steady_state) * np.exp(-total_loss_rate * t_hours)
-
-    return pd.DataFrame(
-        {
-            "datetime": decay_data["datetime"].values,
-            "C_fit": c_fit.values,
-        }
-    )
-
-
 def plot_particle_decay_event(
     particle_data: pd.DataFrame,
     event: Dict,
@@ -162,7 +64,7 @@ def plot_particle_decay_event(
     Plot particle concentration decay for a single event showing all bins.
 
     Creates a two-panel figure similar to CO2 decay plots:
-    - Top panel: Particle concentrations with exponential fit curves
+    - Top panel: Particle concentrations
     - Bottom panel: Linearized regression plot for all bins
 
     Parameters:
@@ -196,7 +98,7 @@ def plot_particle_decay_event(
     lambda_ach = result.get("lambda_ach", np.nan)
 
     # =========================================================================
-    # Top panel: Particle concentrations with exponential fit curves
+    # Top panel: Particle concentrations
     # =========================================================================
     for bin_num, bin_info in particle_bins.items():
         col_inside = f"{bin_info['column']}_inside"
@@ -219,21 +121,6 @@ def plot_particle_decay_event(
                 linestyle=linestyle,
                 alpha=alpha,
             )
-
-            # Add exponential fit curve if valid beta
-            if is_valid:
-                fit_curve = _calculate_exponential_fit_curve(
-                    particle_data, event, bin_num, bin_info, result, lambda_ach
-                )
-                if fit_curve is not None and len(fit_curve) > 0:
-                    ax1.plot(
-                        fit_curve["datetime"],
-                        fit_curve["C_fit"],
-                        color=color,
-                        linewidth=LINE_WIDTH_FIT,
-                        linestyle=":",
-                        alpha=0.8,
-                    )
 
     # Add shaded windows for analysis periods
     add_shaded_window(
@@ -286,7 +173,7 @@ def plot_particle_decay_event(
             beta_values.append((bin_num, beta_val, r2_val))
 
     textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
-    textstr += "(Solid=data, Dotted=fit)"
+    textstr += "(Solid=valid, Dashed=invalid)"
 
     props = dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray")
     ax1.text(
