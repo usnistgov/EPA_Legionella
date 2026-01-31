@@ -338,13 +338,15 @@ def create_event_details_dataframe(
     """
     Create detailed per-event DataFrame for a specific variable type.
 
+    Includes config_key column for grouping and adds summary rows per configuration.
+
     Args:
         all_results: List of per-event result dicts
         events: List of shower event dicts
         variable_type: 'rh', 'temperature', 'wind_speed', or 'wind_direction'
 
     Returns:
-        DataFrame with detailed per-event statistics
+        DataFrame with detailed per-event statistics and configuration summary rows
     """
     sensors = [
         name
@@ -365,11 +367,13 @@ def create_event_details_dataframe(
                 row = {
                     "Event": event.get("event_number", i + 1),
                     "Test_Name": event.get("test_name", f"Event_{i+1}"),
+                    "Config_Key": event.get("config_key", ""),
                     "Date": event["shower_on"].strftime("%Y-%m-%d"),
                     "Shower_ON": event["shower_on"].strftime("%H:%M"),
                     "Shower_OFF": event["shower_off"].strftime("%H:%M"),
                     "Duration_min": duration_min,
                     "Water_Temp": event.get("water_temp", ""),
+                    "Door_Position": event.get("door_position", ""),
                     "Time_of_Day": event.get("time_of_day", ""),
                     "Sensor": sensor_name,
                     "Pre_Mean": stats["pre"]["mean"],
@@ -384,7 +388,48 @@ def create_event_details_dataframe(
                 }
                 rows.append(row)
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+
+    # Add summary rows per configuration if config_key exists
+    if len(df) > 0 and "Config_Key" in df.columns:
+        config_keys = df["Config_Key"].dropna().unique()
+        if len(config_keys) > 0:
+            summary_rows = []
+            for config_key in config_keys:
+                config_df = df[df["Config_Key"] == config_key]
+                for sensor_name in sensors:
+                    sensor_df = config_df[config_df["Sensor"] == sensor_name]
+                    if len(sensor_df) > 0:
+                        summary_row = {
+                            "Event": f"SUMMARY",
+                            "Test_Name": f"Config: {config_key}",
+                            "Config_Key": config_key,
+                            "Date": "",
+                            "Shower_ON": "",
+                            "Shower_OFF": "",
+                            "Duration_min": "",
+                            "Water_Temp": config_key.split("_")[0] if "_" in config_key else "",
+                            "Door_Position": "",
+                            "Time_of_Day": "",
+                            "Sensor": sensor_name,
+                            "Pre_Mean": sensor_df["Pre_Mean"].mean(),
+                            "Pre_Std": sensor_df["Pre_Mean"].std(),
+                            "Pre_N": len(sensor_df),
+                            "Post_Mean": sensor_df["Post_Mean"].mean(),
+                            "Post_Std": sensor_df["Post_Mean"].std(),
+                            "Post_Min": sensor_df["Post_Min"].min(),
+                            "Post_Max": sensor_df["Post_Max"].max(),
+                            "Post_Range": sensor_df["Post_Max"].max() - sensor_df["Post_Min"].min(),
+                            "Post_N": len(sensor_df),
+                        }
+                        summary_rows.append(summary_row)
+
+            # Append summary rows at the end
+            if summary_rows:
+                summary_df = pd.DataFrame(summary_rows)
+                df = pd.concat([df, summary_df], ignore_index=True)
+
+    return df
 
 
 def save_results_to_excel(
@@ -421,19 +466,22 @@ def save_results_to_excel(
             if not details_df.empty:
                 details_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        # Event log
+        # Event log with full configuration details
         event_df = pd.DataFrame(
             [
                 {
                     "Event": e.get("event_number", i + 1),
                     "Test_Name": e.get("test_name", f"Event_{i+1}"),
+                    "Config_Key": e.get("config_key", ""),
                     "Shower_ON": e["shower_on"],
                     "Shower_OFF": e["shower_off"],
                     "Duration_min": e.get("duration_min",
                                          (e["shower_off"] - e["shower_on"]).total_seconds() / 60),
                     "Water_Temp": e.get("water_temp", ""),
-                    "Time_of_Day": e.get("time_of_day", ""),
+                    "Door_Position": e.get("door_position", ""),
+                    "Planned_Fan": e.get("planned_fan", ""),
                     "Fan_During_Test": e.get("fan_during_test", False),
+                    "Time_of_Day": e.get("time_of_day", ""),
                     "Pre_Start": e["pre_start"],
                     "Post_End": e["post_end"],
                 }
@@ -529,18 +577,28 @@ def generate_time_series_plots(
                 )
 
 
-def generate_comparison_plots(all_results: List[Dict], output_dir: Path):
+def generate_comparison_plots(all_results: List[Dict], events: List[Dict], output_dir: Path):
     """
     Generate box plots comparing pre vs post shower conditions.
 
+    If multiple configurations exist, creates subplots (one per configuration).
+
     Args:
         all_results: List of per-event result dicts
+        events: List of shower event dicts (for configuration info)
         output_dir: Directory for output plots
     """
     plot_dir = output_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     print("\nGenerating comparison plots...")
+
+    # Check if we have configuration data
+    has_config = len(events) > 0 and "config_key" in events[0]
+    config_keys = []
+    if has_config:
+        config_keys = list(set(e.get("config_key", "") for e in events if e.get("config_key")))
+        config_keys = [k for k in config_keys if k]  # Remove empty strings
 
     for var_type in ["rh", "temperature", "wind_speed", "wind_direction"]:
         sensors = [
@@ -552,20 +610,47 @@ def generate_comparison_plots(all_results: List[Dict], output_dir: Path):
         if var_type in ("rh", "temperature"):
             sensors = sorted(sensors, key=get_sensor_sort_key)
 
+        # Collect data for all events (for backward compatibility)
         pre_data = {s: [] for s in sensors}
         post_data = {s: [] for s in sensors}
 
-        for event_results in all_results:
+        # Also collect data grouped by configuration
+        config_grouped_data = {}
+        if has_config and len(config_keys) > 1:
+            for config_key in config_keys:
+                config_grouped_data[config_key] = {
+                    "pre": {s: [] for s in sensors},
+                    "post": {s: [] for s in sensors},
+                }
+
+        for i, event_results in enumerate(all_results):
+            event = events[i] if i < len(events) else {}
+            event_config = event.get("config_key", "") if has_config else ""
+
             for sensor_name in sensors:
                 if sensor_name in event_results:
                     stats = event_results[sensor_name]
                     if not np.isnan(stats["pre"]["mean"]):
                         pre_data[sensor_name].append(stats["pre"]["mean"])
+                        if event_config and event_config in config_grouped_data:
+                            config_grouped_data[event_config]["pre"][sensor_name].append(stats["pre"]["mean"])
                     if not np.isnan(stats["post"]["mean"]):
                         post_data[sensor_name].append(stats["post"]["mean"])
+                        if event_config and event_config in config_grouped_data:
+                            config_grouped_data[event_config]["post"][sensor_name].append(stats["post"]["mean"])
 
         pre_data = {k: v for k, v in pre_data.items() if v}
         post_data = {k: v for k, v in post_data.items() if v}
+
+        # Clean up config_grouped_data (remove empty sensors)
+        if config_grouped_data:
+            for config_key in config_grouped_data:
+                config_grouped_data[config_key]["pre"] = {
+                    k: v for k, v in config_grouped_data[config_key]["pre"].items() if v
+                }
+                config_grouped_data[config_key]["post"] = {
+                    k: v for k, v in config_grouped_data[config_key]["post"].items() if v
+                }
 
         if pre_data and post_data:
             output_path = plot_dir / f"{var_type}_pre_post_boxplot.png"
@@ -574,6 +659,7 @@ def generate_comparison_plots(all_results: List[Dict], output_dir: Path):
                 post_data=post_data,
                 variable_type=var_type,
                 output_path=output_path,
+                config_grouped_data=config_grouped_data if len(config_keys) > 1 else None,
             )
             print(f"  Saved: {output_path.name}")
 
@@ -759,7 +845,7 @@ def run_rh_temp_analysis(
     # Generate plots
     if generate_plots:
         generate_time_series_plots(events, output_dir, max_plot_events, specific_events)
-        generate_comparison_plots(all_results, output_dir)
+        generate_comparison_plots(all_results, events, output_dir)
         print(f"\nPlots saved to: {output_dir / 'plots'}")
 
     # Print summary

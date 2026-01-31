@@ -879,7 +879,10 @@ def analyze_event_all_bins(
     results = {
         "event_number": event.get("event_number", 0),
         "test_name": event.get("test_name", ""),
+        "config_key": event.get("config_key", ""),
         "water_temp": event.get("water_temp", ""),
+        "door_position": event.get("door_position", ""),
+        "planned_fan": event.get("planned_fan", ""),
         "time_of_day": event.get("time_of_day", ""),
         "fan_during_test": event.get("fan_during_test", False),
         "replicate_num": event.get("replicate_num", 0),

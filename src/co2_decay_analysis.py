@@ -77,6 +77,7 @@ from scripts.event_manager import (  # noqa: E402
     assign_test_names,
     get_water_temperature_code,
     get_time_of_day,
+    get_test_configuration,
 )
 from scripts.event_matching import match_co2_to_shower_event  # noqa: E402
 from scripts.plot_utils import (  # noqa: E402
@@ -796,6 +797,12 @@ def run_co2_decay_analysis(
         test_name = event.get("test_name", f"Event_{event_num:02d}")
         injection_time = event["injection_start"]
 
+        # Get test configuration for grouping
+        config = get_test_configuration(injection_time)
+        config_key = config["config_key"]
+        water_temp = config["water_temp"]
+        door_position = config["door_position"]
+
         # Check if corresponding shower event is excluded
         # CO2 injection happens ~20 minutes before shower
         expected_shower_time = injection_time + timedelta(minutes=20)
@@ -811,6 +818,9 @@ def run_co2_decay_analysis(
             result = {
                 "event_number": event_num,
                 "test_name": test_name,
+                "config_key": config_key,
+                "water_temp": water_temp,
+                "door_position": door_position,
                 "injection_start": injection_time,
                 "decay_start": event["decay_start"],
                 "decay_end": event["decay_end"],
@@ -846,6 +856,9 @@ def run_co2_decay_analysis(
 
         result = analyze_injection_event(co2_data, event, alpha, beta)
         result["test_name"] = test_name  # Add test_name to result
+        result["config_key"] = config_key  # Add configuration key for grouping
+        result["water_temp"] = water_temp
+        result["door_position"] = door_position
         results.append(result)
 
         # Print summary for this event
@@ -917,33 +930,98 @@ def run_co2_decay_analysis(
     results_df.to_csv(output_file, index=False)
     print(f"\nResults saved to: {output_file}")
 
-    # Save detailed summary
-    summary = {
-        "analysis_date": datetime.now().isoformat(),
-        "method": "analytical_linear_regression",
-        "alpha": alpha,
-        "beta": beta,
-        "decay_duration_hours": DECAY_DURATION_HOURS,
-        "rolling_window_min": ROLLING_WINDOW_MIN,
-        "n_events": len(events),
-        "n_valid_events": int(results_df["lambda_average_mean"].notna().sum()),
-    }
+    # Save detailed summary - one row per configuration
+    summary_rows = []
 
-    valid_values = pd.Series(dtype=float)
-    for mode in ["average", "outside", "entry"]:
-        col = f"lambda_{mode}_mean"
-        r2_col = f"lambda_{mode}_r_squared"
-        valid_values = results_df[col].dropna()
-        if len(valid_values) > 0:
-            valid_r2 = results_df.loc[valid_values.index, r2_col]
-            summary[f"lambda_{mode}_overall_mean"] = float(valid_values.mean())
-            summary[f"lambda_{mode}_overall_std"] = float(valid_values.std())
-            summary[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
+    # Get unique configurations
+    if "config_key" in results_df.columns:
+        config_keys = results_df["config_key"].dropna().unique()
+    else:
+        config_keys = ["All"]  # Fallback if no config_key column
 
-    summary_df = pd.DataFrame([summary])
+    # Calculate statistics for each configuration
+    for config_key in config_keys:
+        if config_key == "All":
+            config_df = results_df
+        else:
+            config_df = results_df[results_df["config_key"] == config_key]
+
+        # Extract configuration components from config_key
+        if config_key != "All" and "_" in config_key:
+            parts = config_key.split("_")
+            water_temp = parts[0] if len(parts) > 0 else ""
+            door_pos = parts[1].replace("Door", "") if len(parts) > 1 else ""
+            fan_status = parts[2].replace("Fan", "") if len(parts) > 2 else ""
+        else:
+            water_temp = config_df["water_temp"].iloc[0] if "water_temp" in config_df.columns and len(config_df) > 0 else ""
+            door_pos = config_df["door_position"].iloc[0] if "door_position" in config_df.columns and len(config_df) > 0 else ""
+            fan_status = ""
+
+        summary = {
+            "config_key": config_key,
+            "water_temp": water_temp,
+            "door_position": door_pos,
+            "analysis_date": datetime.now().isoformat(),
+            "method": "analytical_linear_regression",
+            "alpha": alpha,
+            "beta": beta,
+            "decay_duration_hours": DECAY_DURATION_HOURS,
+            "rolling_window_min": ROLLING_WINDOW_MIN,
+            "n_events": len(config_df),
+            "n_valid_events": int(config_df["lambda_average_mean"].notna().sum()),
+        }
+
+        for mode in ["average", "outside", "entry"]:
+            col = f"lambda_{mode}_mean"
+            r2_col = f"lambda_{mode}_r_squared"
+            valid_values = config_df[col].dropna()
+            if len(valid_values) > 0:
+                valid_r2 = config_df.loc[valid_values.index, r2_col]
+                summary[f"lambda_{mode}_overall_mean"] = float(valid_values.mean())
+                summary[f"lambda_{mode}_overall_std"] = float(valid_values.std())
+                summary[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
+            else:
+                summary[f"lambda_{mode}_overall_mean"] = np.nan
+                summary[f"lambda_{mode}_overall_std"] = np.nan
+                summary[f"lambda_{mode}_mean_r_squared"] = np.nan
+
+        summary_rows.append(summary)
+
+    # Add an "All" row with overall statistics
+    if len(config_keys) > 1:
+        summary_all = {
+            "config_key": "All",
+            "water_temp": "",
+            "door_position": "",
+            "analysis_date": datetime.now().isoformat(),
+            "method": "analytical_linear_regression",
+            "alpha": alpha,
+            "beta": beta,
+            "decay_duration_hours": DECAY_DURATION_HOURS,
+            "rolling_window_min": ROLLING_WINDOW_MIN,
+            "n_events": len(results_df),
+            "n_valid_events": int(results_df["lambda_average_mean"].notna().sum()),
+        }
+        for mode in ["average", "outside", "entry"]:
+            col = f"lambda_{mode}_mean"
+            r2_col = f"lambda_{mode}_r_squared"
+            valid_values = results_df[col].dropna()
+            if len(valid_values) > 0:
+                valid_r2 = results_df.loc[valid_values.index, r2_col]
+                summary_all[f"lambda_{mode}_overall_mean"] = float(valid_values.mean())
+                summary_all[f"lambda_{mode}_overall_std"] = float(valid_values.std())
+                summary_all[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
+            else:
+                summary_all[f"lambda_{mode}_overall_mean"] = np.nan
+                summary_all[f"lambda_{mode}_overall_std"] = np.nan
+                summary_all[f"lambda_{mode}_mean_r_squared"] = np.nan
+        summary_rows.append(summary_all)
+
+    summary_df = pd.DataFrame(summary_rows)
     summary_file = output_dir / "co2_lambda_overall_summary.csv"
     summary_df.to_csv(summary_file, index=False)
     print(f"Summary saved to: {summary_file}")
+    print(f"  Configurations: {len(config_keys)}")
 
     # Generate summary plot if enabled
     if generate_plots and len(valid_values) > 0:

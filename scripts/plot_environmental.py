@@ -31,18 +31,24 @@ from matplotlib.patches import Patch
 
 from scripts.plot_style import (
     COLORS,
+    CONFIG_KEY_COLORS,
+    FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
     FONT_SIZE_TICK,
+    FONT_SIZE_TITLE,
     LINE_WIDTH_ANNOTATION,
     LINE_WIDTH_DATA,
     SENSOR_COLORS,
     SHOWER_OFF_STYLE,
     SHOWER_ON_STYLE,
+    TITLE_FONTWEIGHT,
     add_shower_off_marker,
     add_shower_on_marker,
+    apply_style,
     create_figure,
     format_datetime_axis,
     format_test_name_for_title,
+    get_config_color,
     save_figure,
 )
 
@@ -382,9 +388,12 @@ def plot_pre_post_comparison(
     variable_type: str,
     output_path: Optional[Path] = None,
     title_suffix: str = "",
+    config_grouped_data: Optional[dict] = None,
 ) -> Figure:
     """
     Create box plots comparing pre-shower vs post-shower distributions.
+
+    If config_grouped_data is provided, creates subplots (one per configuration).
 
     Parameters:
         pre_data: Dictionary of {sensor_name: array of pre-shower values}
@@ -392,14 +401,113 @@ def plot_pre_post_comparison(
         variable_type: Type of variable ('rh', 'temperature', 'wind_speed', etc.)
         output_path: Path to save figure (optional)
         title_suffix: Additional text for title
+        config_grouped_data: Optional dict of {config_key: {'pre': {sensor: values}, 'post': {sensor: values}}}
 
     Returns:
         Matplotlib figure object
     """
+    apply_style()
     settings = _VAR_SETTINGS.get(
         variable_type, {"ylabel": "Value", "title_base": variable_type}
     )
 
+    # If config_grouped_data is provided, use subplots
+    if config_grouped_data and len(config_grouped_data) > 1:
+        config_keys = list(config_grouped_data.keys())
+        n_configs = len(config_keys)
+
+        # Determine sensors from all configurations
+        all_sensors = set()
+        for config_key in config_keys:
+            all_sensors.update(config_grouped_data[config_key].get("pre", {}).keys())
+            all_sensors.update(config_grouped_data[config_key].get("post", {}).keys())
+        sensors = sorted(list(all_sensors))
+
+        if not sensors:
+            fig, ax = create_figure(figsize=(10, 6))
+            ax.text(0.5, 0.5, "No data available", ha="center", va="center", transform=ax.transAxes)
+            return fig
+
+        n_sensors = len(sensors)
+        fig, axes = plt.subplots(
+            n_configs, 1,
+            figsize=(max(12, n_sensors * 0.8), 5 * n_configs),
+            squeeze=False
+        )
+        axes = axes.flatten()
+
+        for idx, config_key in enumerate(config_keys):
+            ax = axes[idx]
+            config_pre = config_grouped_data[config_key].get("pre", {})
+            config_post = config_grouped_data[config_key].get("post", {})
+
+            positions_pre = np.arange(n_sensors) * 2
+            positions_post = positions_pre + 0.7
+
+            pre_values = [np.array(config_pre.get(s, [])) for s in sensors]
+            post_values = [np.array(config_post.get(s, [])) for s in sensors]
+
+            valid_pre = [(i, v) for i, v in enumerate(pre_values) if len(v) > 0]
+            valid_post = [(i, v) for i, v in enumerate(post_values) if len(v) > 0]
+
+            # Get config-specific color for boxes
+            config_color = get_config_color(config_key, idx)
+
+            if valid_pre:
+                bp_pre = ax.boxplot(
+                    [v for _, v in valid_pre],
+                    positions=[positions_pre[i] for i, _ in valid_pre],
+                    widths=0.6,
+                    patch_artist=True,
+                )
+                for patch in bp_pre["boxes"]:
+                    patch.set_facecolor(COLORS["pre_shower"])
+                    patch.set_alpha(0.7)
+
+            if valid_post:
+                bp_post = ax.boxplot(
+                    [v for _, v in valid_post],
+                    positions=[positions_post[i] for i, _ in valid_post],
+                    widths=0.6,
+                    patch_artist=True,
+                )
+                for patch in bp_post["boxes"]:
+                    patch.set_facecolor(COLORS["post_shower"])
+                    patch.set_alpha(0.7)
+
+            ax.set_xticks((positions_pre + 0.35).tolist())
+            simplified_names = [simplify_sensor_name(s) for s in sensors]
+            ax.set_xticklabels(simplified_names, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
+            ax.set_ylabel(settings["ylabel"], fontsize=FONT_SIZE_LABEL)
+
+            n_events = len(list(config_pre.values())[0]) if config_pre else 0
+            ax.set_title(
+                f"Configuration: {config_key} (n={n_events})",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
+            )
+
+            legend_elements = [
+                Patch(facecolor=COLORS["pre_shower"], alpha=0.7, label="Pre-shower (30 min)"),
+                Patch(facecolor=COLORS["post_shower"], alpha=0.7, label="Post-shower (2 hr)"),
+            ]
+            ax.legend(handles=legend_elements, loc="upper right", fontsize=FONT_SIZE_LEGEND)
+
+        fig.suptitle(
+            f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}",
+            fontsize=FONT_SIZE_TITLE + 2,
+            fontweight=TITLE_FONTWEIGHT,
+            y=1.02,
+        )
+
+        plt.tight_layout()
+
+        if output_path is not None:
+            save_figure(fig, output_path, close=False)
+
+        return fig
+
+    # Original single-plot behavior
     sensors = [s for s in pre_data.keys() if s in post_data]
     if not sensors:
         fig, ax = create_figure(figsize=(10, 6))

@@ -90,6 +90,60 @@ SENSOR_COLORS = [
     "#17becf",  # Cyan
 ]
 
+# Configuration-based colors for grouping by test conditions
+# Maps configuration keys to colors for consistent visualization
+CONFIG_COLORS = {
+    # Water temperature colors
+    "HW": "#d62728",  # Red for Hot Water
+    "CW": "#1f77b4",  # Blue for Cold Water
+    "MW": "#9467bd",  # Purple for Mixed Water
+    # Door position colors (use hatching to distinguish from water temp)
+    "Open": "#2ca02c",  # Green for Open
+    "Closed": "#ff7f0e",  # Orange for Closed
+    "Partial": "#bcbd22",  # Yellow-green for Partial
+    # Fan status colors
+    "FanOn": "#e377c2",  # Pink for Fan On
+    "FanOff": "#7f7f7f",  # Gray for Fan Off
+}
+
+# Color palette for different config_key values (for bar charts with subplots)
+CONFIG_KEY_COLORS = [
+    "#1f77b4",  # Blue
+    "#d62728",  # Red
+    "#2ca02c",  # Green
+    "#ff7f0e",  # Orange
+    "#9467bd",  # Purple
+    "#8c564b",  # Brown
+    "#17becf",  # Cyan
+    "#bcbd22",  # Yellow-green
+]
+
+
+def get_config_color(config_key: str, index: int = 0) -> str:
+    """
+    Get color for a configuration key.
+
+    First tries to match water temperature (HW, CW, MW) for consistent coloring,
+    then falls back to the CONFIG_KEY_COLORS list.
+
+    Parameters:
+        config_key: Configuration key string (e.g., "HW_DoorClosed_FanOff")
+        index: Fallback index if no match found
+
+    Returns:
+        Hex color string
+    """
+    # Try to extract water temperature from config_key
+    if config_key.startswith("HW"):
+        return CONFIG_COLORS["HW"]
+    elif config_key.startswith("CW"):
+        return CONFIG_COLORS["CW"]
+    elif config_key.startswith("MW"):
+        return CONFIG_COLORS["MW"]
+    else:
+        # Fallback to indexed color
+        return CONFIG_KEY_COLORS[index % len(CONFIG_KEY_COLORS)]
+
 # Line styles
 LINE_WIDTH_DATA = 1.5
 LINE_WIDTH_FIT = 2.0

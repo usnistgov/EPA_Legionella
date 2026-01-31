@@ -28,6 +28,7 @@ import pandas as pd
 
 from scripts.plot_style import (
     COLORS,
+    CONFIG_KEY_COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
     FONT_SIZE_TICK,
@@ -47,6 +48,7 @@ from scripts.plot_style import (
     format_datetime_axis,
     format_test_name_for_title,
     format_title,
+    get_config_color,
     save_figure,
 )
 
@@ -293,6 +295,8 @@ def plot_penetration_summary(
     """
     Create bar chart summarizing penetration factors across all bins.
 
+    If config_key column exists, creates subplots (one per configuration).
+
     Parameters:
         results_df: DataFrame with analysis results
         particle_bins: Dictionary of particle bin information
@@ -303,66 +307,117 @@ def plot_penetration_summary(
     bin_nums = list(particle_bins.keys())
     bin_labels = [particle_bins[i]["name"] for i in bin_nums]
 
-    # Calculate mean and std for each bin
-    p_means = []
-    p_stds = []
-    for bin_num in bin_nums:
-        col = f"bin{bin_num}_p_mean"
-        valid_values = results_df[col].dropna()
-        p_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
-        p_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
+    # Check if we have configuration data for subplots
+    has_config = "config_key" in results_df.columns
+    if has_config:
+        config_keys = results_df["config_key"].dropna().unique()
+        n_configs = len(config_keys)
+    else:
+        config_keys = ["All"]
+        n_configs = 1
 
-    fig, ax = create_figure(figsize=(10, 6))
+    # Create figure with subplots
+    if n_configs > 1:
+        fig, axes = plt.subplots(
+            n_configs, 1,
+            figsize=(12, 5 * n_configs),
+            squeeze=False
+        )
+        axes = axes.flatten()
+    else:
+        fig, ax = create_figure(figsize=(10, 6))
+        axes = [ax]
 
-    x = np.arange(len(bin_nums))
-    bars = ax.bar(
-        x,
-        p_means,
-        yerr=p_stds,
-        capsize=5,
-        color=SENSOR_COLORS[0],
-        alpha=0.7,
-        edgecolor="black",
-        linewidth=1,
-    )
+    for idx, config_key in enumerate(config_keys):
+        ax = axes[idx]
 
-    # Add value labels on bars
-    for i, (bar, mean, std) in enumerate(zip(bars, p_means, p_stds)):
-        height = bar.get_height()
-        if mean > 0:
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                height + std + 0.02,
-                f"{mean:.3f}",
-                ha="center",
-                va="bottom",
-                fontsize=FONT_SIZE_TICK,
+        # Filter data for this configuration
+        if has_config and config_key != "All":
+            config_df = results_df[results_df["config_key"] == config_key]
+        else:
+            config_df = results_df
+
+        # Get color for this configuration
+        bar_color = get_config_color(config_key, idx)
+
+        # Calculate mean and std for each bin
+        p_means = []
+        p_stds = []
+        for bin_num in bin_nums:
+            col = f"bin{bin_num}_p_mean"
+            if col in config_df.columns:
+                valid_values = config_df[col].dropna()
+                p_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
+                p_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
+            else:
+                p_means.append(0)
+                p_stds.append(0)
+
+        x = np.arange(len(bin_nums))
+        bars = ax.bar(
+            x,
+            p_means,
+            yerr=p_stds,
+            capsize=5,
+            color=bar_color,
+            alpha=0.7,
+            edgecolor="black",
+            linewidth=1,
+        )
+
+        # Add value labels on bars
+        for i, (bar, mean, std) in enumerate(zip(bars, p_means, p_stds)):
+            height = bar.get_height()
+            if mean > 0:
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    height + std + 0.02,
+                    f"{mean:.3f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=FONT_SIZE_TICK - 1,
+                )
+
+        ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel("Penetration Factor (p)", fontsize=FONT_SIZE_LABEL)
+
+        if n_configs > 1:
+            ax.set_title(
+                f"Configuration: {config_key} (n={len(config_df)})",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
+            )
+        else:
+            ax.set_title(
+                "Penetration Factor by Particle Size\n(Mean ± Std Dev)",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
             )
 
-    ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
-    ax.set_ylabel("Penetration Factor (p)", fontsize=FONT_SIZE_LABEL)
-    ax.set_title(
-        "Penetration Factor by Particle Size\n(Mean ± Std Dev)",
-        fontsize=FONT_SIZE_TITLE,
-        fontweight=TITLE_FONTWEIGHT,
-    )
+        ax.set_xticks(x)
+        ax.set_xticklabels(bin_labels, rotation=45, ha="right")
+        ax.set_ylim(0, 1.4)
+        ax.axhline(
+            y=0.7,
+            color="gray",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.5,
+            label="Expected range",
+        )
+        ax.axhline(y=0.9, color="gray", linestyle="--", linewidth=1, alpha=0.5)
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(bin_labels, rotation=45, ha="right")
-    ax.set_ylim(0, 1.4)
-    ax.axhline(
-        y=0.7,
-        color="gray",
-        linestyle="--",
-        linewidth=1,
-        alpha=0.5,
-        label="Expected range",
-    )
-    ax.axhline(y=0.9, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.tick_params(labelsize=FONT_SIZE_TICK)
+        ax.legend(fontsize=FONT_SIZE_LEGEND)
 
-    ax.grid(True, alpha=0.3, axis="y")
-    ax.tick_params(labelsize=FONT_SIZE_TICK)
-    ax.legend(fontsize=FONT_SIZE_LEGEND)
+    if n_configs > 1:
+        fig.suptitle(
+            "Penetration Factor by Particle Size\n(Mean ± Std Dev)",
+            fontsize=FONT_SIZE_TITLE + 2,
+            fontweight=TITLE_FONTWEIGHT,
+            y=1.02,
+        )
 
     plt.tight_layout()
     save_figure(fig, output_path)
@@ -377,6 +432,8 @@ def plot_deposition_summary(
     """
     Create bar chart summarizing deposition rates across all bins.
 
+    If config_key column exists, creates subplots (one per configuration).
+
     Parameters:
         results_df: DataFrame with analysis results
         particle_bins: Dictionary of particle bin information
@@ -387,55 +444,105 @@ def plot_deposition_summary(
     bin_nums = list(particle_bins.keys())
     bin_labels = [particle_bins[i]["name"] for i in bin_nums]
 
-    # Calculate mean and std for each bin
-    beta_means = []
-    beta_stds = []
-    for bin_num in bin_nums:
-        col = f"bin{bin_num}_beta_mean"
-        valid_values = results_df[col].dropna()
-        beta_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
-        beta_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
+    # Check if we have configuration data for subplots
+    has_config = "config_key" in results_df.columns
+    if has_config:
+        config_keys = results_df["config_key"].dropna().unique()
+        n_configs = len(config_keys)
+    else:
+        config_keys = ["All"]
+        n_configs = 1
 
-    fig, ax = create_figure(figsize=(10, 6))
+    # Create figure with subplots
+    if n_configs > 1:
+        fig, axes = plt.subplots(
+            n_configs, 1,
+            figsize=(12, 5 * n_configs),
+            squeeze=False
+        )
+        axes = axes.flatten()
+    else:
+        fig, ax = create_figure(figsize=(10, 6))
+        axes = [ax]
 
-    x = np.arange(len(bin_nums))
-    bars = ax.bar(
-        x,
-        beta_means,
-        yerr=beta_stds,
-        capsize=5,
-        color=SENSOR_COLORS[1],
-        alpha=0.7,
-        edgecolor="black",
-        linewidth=1,
-    )
+    for idx, config_key in enumerate(config_keys):
+        ax = axes[idx]
 
-    # Add value labels on bars
-    for i, (bar, mean, std) in enumerate(zip(bars, beta_means, beta_stds)):
-        height = bar.get_height()
-        if mean > 0:
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                height + std + 0.1,
-                f"{mean:.2f}",
-                ha="center",
-                va="bottom",
-                fontsize=FONT_SIZE_TICK,
+        # Filter data for this configuration
+        if has_config and config_key != "All":
+            config_df = results_df[results_df["config_key"] == config_key]
+        else:
+            config_df = results_df
+
+        # Get color for this configuration
+        bar_color = get_config_color(config_key, idx)
+
+        # Calculate mean and std for each bin
+        beta_means = []
+        beta_stds = []
+        for bin_num in bin_nums:
+            col = f"bin{bin_num}_beta_mean"
+            if col in config_df.columns:
+                valid_values = config_df[col].dropna()
+                beta_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
+                beta_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
+            else:
+                beta_means.append(0)
+                beta_stds.append(0)
+
+        x = np.arange(len(bin_nums))
+        bars = ax.bar(
+            x,
+            beta_means,
+            yerr=beta_stds,
+            capsize=5,
+            color=bar_color,
+            alpha=0.7,
+            edgecolor="black",
+            linewidth=1,
+        )
+
+        # Add value labels on bars
+        for i, (bar, mean, std) in enumerate(zip(bars, beta_means, beta_stds)):
+            height = bar.get_height()
+            if mean > 0:
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    height + std + 0.1,
+                    f"{mean:.2f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=FONT_SIZE_TICK - 1,
+                )
+
+        ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
+
+        if n_configs > 1:
+            ax.set_title(
+                f"Configuration: {config_key} (n={len(config_df)})",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
+            )
+        else:
+            ax.set_title(
+                "Deposition Rate by Particle Size\n(Mean ± Std Dev)",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
             )
 
-    ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
-    ax.set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
-    ax.set_title(
-        "Deposition Rate by Particle Size\n(Mean ± Std Dev)",
-        fontsize=FONT_SIZE_TITLE,
-        fontweight=TITLE_FONTWEIGHT,
-    )
+        ax.set_xticks(x)
+        ax.set_xticklabels(bin_labels, rotation=45, ha="right")
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.tick_params(labelsize=FONT_SIZE_TICK)
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(bin_labels, rotation=45, ha="right")
-
-    ax.grid(True, alpha=0.3, axis="y")
-    ax.tick_params(labelsize=FONT_SIZE_TICK)
+    if n_configs > 1:
+        fig.suptitle(
+            "Deposition Rate by Particle Size\n(Mean ± Std Dev)",
+            fontsize=FONT_SIZE_TITLE + 2,
+            fontweight=TITLE_FONTWEIGHT,
+            y=1.02,
+        )
 
     plt.tight_layout()
     save_figure(fig, output_path)
@@ -450,6 +557,8 @@ def plot_emission_summary(
     """
     Create bar chart summarizing emission rates across all bins.
 
+    If config_key column exists, creates subplots (one per configuration).
+
     Parameters:
         results_df: DataFrame with analysis results
         particle_bins: Dictionary of particle bin information
@@ -460,63 +569,114 @@ def plot_emission_summary(
     bin_nums = list(particle_bins.keys())
     bin_labels = [particle_bins[i]["name"] for i in bin_nums]
 
-    # Calculate mean and std for each bin
-    E_means = []
-    E_stds = []
-    for bin_num in bin_nums:
-        col = f"bin{bin_num}_E_mean"
-        valid_values = results_df[col].dropna()
-        E_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
-        E_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
+    # Check if we have configuration data for subplots
+    has_config = "config_key" in results_df.columns
+    if has_config:
+        config_keys = results_df["config_key"].dropna().unique()
+        n_configs = len(config_keys)
+    else:
+        config_keys = ["All"]
+        n_configs = 1
 
-    fig, ax = create_figure(figsize=(10, 6))
+    # Create figure with subplots
+    if n_configs > 1:
+        fig, axes = plt.subplots(
+            n_configs, 1,
+            figsize=(12, 5 * n_configs),
+            squeeze=False
+        )
+        axes = axes.flatten()
+    else:
+        fig, ax = create_figure(figsize=(10, 6))
+        axes = [ax]
 
-    x = np.arange(len(bin_nums))
-    bars = ax.bar(
-        x,
-        E_means,
-        yerr=E_stds,
-        capsize=5,
-        color=SENSOR_COLORS[2],
-        alpha=0.7,
-        edgecolor="black",
-        linewidth=1,
-    )
+    for idx, config_key in enumerate(config_keys):
+        ax = axes[idx]
 
-    # Add value labels on bars (scientific notation)
-    for i, (bar, mean, std) in enumerate(zip(bars, E_means, E_stds)):
-        height = bar.get_height()
-        if mean > 0:
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                height + std,
-                f"{mean:.1e}",
-                ha="center",
-                va="bottom",
-                fontsize=FONT_SIZE_TICK - 1,
-                rotation=0,
+        # Filter data for this configuration
+        if has_config and config_key != "All":
+            config_df = results_df[results_df["config_key"] == config_key]
+        else:
+            config_df = results_df
+
+        # Get color for this configuration
+        bar_color = get_config_color(config_key, idx)
+
+        # Calculate mean and std for each bin
+        E_means = []
+        E_stds = []
+        for bin_num in bin_nums:
+            col = f"bin{bin_num}_E_mean"
+            if col in config_df.columns:
+                valid_values = config_df[col].dropna()
+                E_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
+                E_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
+            else:
+                E_means.append(0)
+                E_stds.append(0)
+
+        x = np.arange(len(bin_nums))
+        bars = ax.bar(
+            x,
+            E_means,
+            yerr=E_stds,
+            capsize=5,
+            color=bar_color,
+            alpha=0.7,
+            edgecolor="black",
+            linewidth=1,
+        )
+
+        # Add value labels on bars (scientific notation)
+        for i, (bar, mean, std) in enumerate(zip(bars, E_means, E_stds)):
+            height = bar.get_height()
+            if mean > 0:
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    height + std,
+                    f"{mean:.1e}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=FONT_SIZE_TICK - 1,
+                    rotation=0,
+                )
+
+        ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel("Emission Rate E (#/min)", fontsize=FONT_SIZE_LABEL)
+
+        if n_configs > 1:
+            ax.set_title(
+                f"Configuration: {config_key} (n={len(config_df)})",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
+            )
+        else:
+            ax.set_title(
+                "Shower Emission Rate by Particle Size\n(Mean ± Std Dev)",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
             )
 
-    ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
-    ax.set_ylabel("Emission Rate E (#/min)", fontsize=FONT_SIZE_LABEL)
-    ax.set_title(
-        "Shower Emission Rate by Particle Size\n(Mean ± Std Dev)",
-        fontsize=FONT_SIZE_TITLE,
-        fontweight=TITLE_FONTWEIGHT,
-    )
+        ax.set_xticks(x)
+        ax.set_xticklabels(bin_labels, rotation=45, ha="right")
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(bin_labels, rotation=45, ha="right")
+        # Use log scale if range is large
+        if (
+            max(E_means) > 0
+            and max(E_means) / min([m for m in E_means if m > 0] + [1]) > 100
+        ):
+            ax.set_yscale("log")
 
-    # Use log scale if range is large
-    if (
-        max(E_means) > 0
-        and max(E_means) / min([m for m in E_means if m > 0] + [1]) > 100
-    ):
-        ax.set_yscale("log")
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.tick_params(labelsize=FONT_SIZE_TICK)
 
-    ax.grid(True, alpha=0.3, axis="y")
-    ax.tick_params(labelsize=FONT_SIZE_TICK)
+    if n_configs > 1:
+        fig.suptitle(
+            "Shower Emission Rate by Particle Size\n(Mean ± Std Dev)",
+            fontsize=FONT_SIZE_TITLE + 2,
+            fontweight=TITLE_FONTWEIGHT,
+            y=1.02,
+        )
 
     plt.tight_layout()
     save_figure(fig, output_path)
