@@ -1169,6 +1169,8 @@ def run_particle_analysis(
                 )
             except ImportError:
                 pass  # Already warned about missing plot module
+            except Exception as e:
+                print(f"    Warning: Failed to generate plot for {test_name}: {e}")
 
     # Create results DataFrame
     results_df = pd.DataFrame(results)
@@ -1247,21 +1249,35 @@ def run_particle_analysis(
                 plot_emission_summary,
                 plot_penetration_summary,
             )
-
-            # Generate summary plots
-            plot_penetration_summary(
-                results_df, PARTICLE_BINS, plot_dir / "penetration_summary.png"
-            )
-            plot_deposition_summary(
-                results_df, PARTICLE_BINS, plot_dir / "deposition_summary.png"
-            )
-            plot_emission_summary(
-                results_df, PARTICLE_BINS, plot_dir / "emission_summary.png"
-            )
-
-            print(f"  Plots saved to: {plot_dir}")
         except ImportError:
             print("  Warning: plot_particle module not found. Skipping plots.")
+        else:
+            # Generate summary plots individually to identify which one fails
+            try:
+                plot_penetration_summary(
+                    results_df, PARTICLE_BINS, plot_dir / "penetration_summary.png"
+                )
+                print("  Generated: penetration_summary.png")
+            except Exception as e:
+                print(f"  Error generating penetration_summary.png: {e}")
+
+            try:
+                plot_deposition_summary(
+                    results_df, PARTICLE_BINS, plot_dir / "deposition_summary.png"
+                )
+                print("  Generated: deposition_summary.png")
+            except Exception as e:
+                print(f"  Error generating deposition_summary.png: {e}")
+
+            try:
+                plot_emission_summary(
+                    results_df, PARTICLE_BINS, plot_dir / "emission_summary.png"
+                )
+                print("  Generated: emission_summary.png")
+            except Exception as e:
+                print(f"  Error generating emission_summary.png: {e}")
+
+            print(f"  Plots saved to: {plot_dir}")
 
     return results_df
 
