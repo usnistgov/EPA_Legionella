@@ -82,7 +82,9 @@ def _calculate_exponential_fit_curve(
         DataFrame with datetime and C_fit columns, or None if insufficient data
     """
     beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
-    beta_fit = result.get(f"bin{bin_num}_beta_fit", np.nan)  # From linearized regression
+    beta_fit = result.get(
+        f"bin{bin_num}_beta_fit", np.nan
+    )  # From linearized regression
     c_steady_state = result.get(f"bin{bin_num}_c_steady_state", np.nan)
     peak_time = result.get(f"bin{bin_num}_peak_time", None)
 
@@ -113,7 +115,9 @@ def _calculate_exponential_fit_curve(
     # Use the actual peak concentration in the decay window (first value should be peak,
     # but verify by taking max in case of slight timing misalignment)
     c_values = decay_data[col_inside].values
-    c_0 = float(np.nanmax(c_values[:min(5, len(c_values))]))  # Peak should be in first few points
+    c_0 = float(
+        np.nanmax(c_values[: min(5, len(c_values))])
+    )  # Peak should be in first few points
 
     if np.isnan(c_0):
         return None
@@ -123,7 +127,9 @@ def _calculate_exponential_fit_curve(
         c_steady_state = 0.0
     if c_steady_state >= c_0:
         # Use minimum concentration at end of window as approximation
-        c_steady_state = float(np.nanmin(c_values[-10:]) * 0.9) if len(c_values) >= 10 else 0.0
+        c_steady_state = (
+            float(np.nanmin(c_values[-10:]) * 0.9) if len(c_values) >= 10 else 0.0
+        )
         if c_steady_state >= c_0:
             c_steady_state = 0.0
 
@@ -135,10 +141,12 @@ def _calculate_exponential_fit_curve(
     total_loss_rate = lambda_ach + beta_for_fit
     c_fit = c_steady_state + (c_0 - c_steady_state) * np.exp(-total_loss_rate * t_hours)
 
-    return pd.DataFrame({
-        "datetime": decay_data["datetime"].values,
-        "C_fit": c_fit.values,
-    })
+    return pd.DataFrame(
+        {
+            "datetime": decay_data["datetime"].values,
+            "C_fit": c_fit.values,
+        }
+    )
 
 
 def plot_particle_decay_event(
@@ -182,9 +190,7 @@ def plot_particle_decay_event(
         return
 
     # Create two-panel figure (like CO2 plots)
-    fig, axes = create_figure(
-        nrows=2, ncols=1, figsize=(12, 10), height_ratios=[2, 1]
-    )
+    fig, axes = create_figure(nrows=2, ncols=1, figsize=(12, 10), height_ratios=[2, 1])
     ax1, ax2 = axes  # type: ignore[misc]
 
     lambda_ach = result.get("lambda_ach", np.nan)
@@ -301,7 +307,7 @@ def plot_particle_decay_event(
     )
     ax1.set_yscale("log")
     # Set reasonable y-axis limits for log scale
-    ax1.set_ylim(bottom=0.1)  # Minimum value for log scale
+    ax1.set_ylim(bottom=0.01)  # Minimum value for log scale
     ax1.grid(True, alpha=0.3, which="both")
     ax1.tick_params(labelsize=FONT_SIZE_TICK)
     format_datetime_axis(ax1)
@@ -319,8 +325,12 @@ def plot_particle_decay_event(
         y_values = result.get(f"bin{bin_num}_fit_y_values", [])
         beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
         beta_fit = result.get(f"bin{bin_num}_beta_fit", np.nan)  # β from linearized fit
-        fit_slope = result.get(f"bin{bin_num}_fit_slope", np.nan)  # Actual regression slope
-        fit_intercept = result.get(f"bin{bin_num}_fit_intercept", 0.0)  # Regression intercept
+        fit_slope = result.get(
+            f"bin{bin_num}_fit_slope", np.nan
+        )  # Actual regression slope
+        fit_intercept = result.get(
+            f"bin{bin_num}_fit_intercept", 0.0
+        )  # Regression intercept
         r_squared = result.get(f"bin{bin_num}_beta_r_squared", np.nan)
 
         if t_values and y_values and not np.isnan(beta_mean):
@@ -359,7 +369,9 @@ def plot_particle_decay_event(
 
     if has_regression_data:
         ax2.set_xlabel("Time since decay start (hours)", fontsize=FONT_SIZE_LABEL)
-        ax2.set_ylabel("$-\\ln[(C(t) - C_{ss}) / (C_0 - C_{ss})]$", fontsize=FONT_SIZE_LABEL)
+        ax2.set_ylabel(
+            "$-\\ln[(C(t) - C_{ss}) / (C_0 - C_{ss})]$", fontsize=FONT_SIZE_LABEL
+        )
         ax2.legend(loc="upper left", fontsize=FONT_SIZE_LEGEND - 1, ncol=2)
         ax2.set_xlim(left=0)
         ax2.set_ylim(bottom=0)
@@ -375,7 +387,9 @@ def plot_particle_decay_event(
             fontsize=FONT_SIZE_LABEL,
         )
         ax2.set_xlabel("Time since decay start (hours)", fontsize=FONT_SIZE_LABEL)
-        ax2.set_ylabel("$-\\ln[(C(t) - C_{ss}) / (C_0 - C_{ss})]$", fontsize=FONT_SIZE_LABEL)
+        ax2.set_ylabel(
+            "$-\\ln[(C(t) - C_{ss}) / (C_0 - C_{ss})]$", fontsize=FONT_SIZE_LABEL
+        )
 
     ax2.tick_params(labelsize=FONT_SIZE_TICK)
 
