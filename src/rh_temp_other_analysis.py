@@ -80,6 +80,10 @@ from src.env_data_loader import (  # noqa: E402
     load_sensor_data,
     load_shower_log,
 )
+from src.co2_decay_analysis import (  # noqa: E402
+    load_co2_injection_log,
+    identify_injection_events,
+)
 
 # =============================================================================
 # Configuration
@@ -768,13 +772,20 @@ def run_rh_temp_analysis(
     # - Comprehensive logging to event_log.csv
     print("\nProcessing events with event management system...")
 
-    # Create empty CO2 results DataFrame (not needed for RH/temp analysis)
+    # Load CO2 injection events for proper event matching
+    # (CO2 injection happens ~20 min before shower, needed for event_log.csv)
+    print("\nLoading CO2 injection events...")
+    co2_log = load_co2_injection_log()
+    co2_events = identify_injection_events(co2_log)
+    print(f"  Found {len(co2_events)} CO2 injection events")
+
+    # Create empty CO2 results DataFrame (analysis results not needed for RH/temp)
     import pandas as pd
     co2_results = pd.DataFrame()
 
     events, co2_events_processed, event_log = process_events_with_management(
         raw_events,
-        [],  # CO2 events (not needed for this analysis)
+        co2_events,  # CO2 events for proper matching in event_log
         shower_log,
         co2_results,
         output_dir,

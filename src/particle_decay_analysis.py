@@ -102,6 +102,10 @@ from src.data_paths import (  # noqa: E402
     get_data_root,
     get_instrument_path,
 )
+from src.co2_decay_analysis import (  # noqa: E402
+    load_co2_injection_log,
+    identify_injection_events,
+)
 
 # =============================================================================
 # Configuration Constants
@@ -1033,6 +1037,13 @@ def run_particle_analysis(
     # Load CO2 lambda results
     co2_results = load_co2_lambda_results()
 
+    # Load CO2 injection events for proper event matching
+    # (CO2 injection happens ~20 min before shower, needed for event_log.csv)
+    print("\nLoading CO2 injection events...")
+    co2_log = load_co2_injection_log()
+    co2_events = identify_injection_events(co2_log)
+    print(f"  Found {len(co2_events)} CO2 injection events")
+
     # Process events using the enhanced event management system
     # This handles:
     # - Date filtering (>= 2026-01-14)
@@ -1043,7 +1054,7 @@ def run_particle_analysis(
     print("\nProcessing events with event management system...")
     events, co2_events_processed, event_log = process_events_with_management(
         raw_events,
-        [],  # CO2 events (will be loaded from co2_results)
+        co2_events,  # CO2 events for proper matching in event_log
         shower_log,
         co2_results,
         output_dir,
