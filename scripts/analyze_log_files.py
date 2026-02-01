@@ -41,9 +41,19 @@ Date: 2026
 import pandas as pd
 from datetime import datetime, timedelta
 
-# Load log files
-shower_log = pd.read_csv("C:/Users/Nathan/Documents/NIST/EPA_Legionella/Log - Shower/shower_log_file.csv")
-co2_log = pd.read_csv("C:/Users/Nathan/Documents/NIST/EPA_Legionella/Log - CO2 Injection/CO2_log_file.csv")
+# Add project root to path for imports
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.data_paths import get_common_file
+
+# Load log files using data_config.json paths
+shower_log_path = get_common_file("shower_log_file")
+co2_log_path = get_common_file("co2_log_file")
+
+shower_log = pd.read_csv(shower_log_path)
+co2_log = pd.read_csv(co2_log_path)
 
 # Convert datetime
 shower_log["datetime_EDT"] = pd.to_datetime(shower_log["datetime_EDT"])
