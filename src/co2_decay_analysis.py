@@ -752,8 +752,10 @@ def run_co2_decay_analysis(
     print(f"Found {len(raw_events)} raw injection events")
 
     # Filter events by experiment start date
+    # Note: filter_events_by_date uses expected shower time (injection + 20 min)
+    # for CO2 events, so injections before midnight are kept if shower is after
     print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
-    events = [e for e in raw_events if e["injection_start"] >= EXPERIMENT_START_DATE]
+    events = filter_events_by_date(raw_events)
     print(f"  {len(events)} events after date filtering")
 
     # Load shower events and assign test names for consistent naming
