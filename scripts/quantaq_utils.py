@@ -1,14 +1,47 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility script to access QuantAQ API and download instrument data.
+QuantAQ API Utilities
+=====================
+
+This module provides a Python interface for interacting with the QuantAQ API
+to download MODULAIR-PM sensor data. It integrates with the project's
+data_config.json for portable configuration management.
+
+Key Functions:
+    - get_quantaq_config: Load QuantAQ configuration from data_config.json
+    - get_data_root: Get the project data root directory
+    - get_quantaq_data_path: Get the QuantAQ data storage directory
+
+Key Classes:
+    - QuantAQAPI: Client class for QuantAQ API interactions
+        - get_devices: List all available devices
+        - get_device: Get info for a specific device
+        - get_device_data: Retrieve raw, final, or resampled data
+        - get_data_as_dataframe: Return data as pandas DataFrame
+        - save_data_to_file: Download and save data to CSV/Excel
+
+API Features:
+    - Authentication via API key (environment variable or .env file)
+    - Support for raw, final, and resampled data types
+    - Date range filtering with start/end dates
+    - Pagination handling for large datasets
+    - Data export to CSV or Excel formats
+
+Methodology:
+    1. Load API key from QUANTAQ_API_KEY or API_KEY environment variable
+    2. Read instrument configuration from data_config.json
+    3. Make authenticated requests to QuantAQ REST API
+    4. Parse JSON responses into pandas DataFrames
+    5. Save data to configured output directory
+
+Configuration:
+    - Requires data_config.json with QuantAQ_MODULAIR_PM instrument config
+    - Requires QUANTAQ_API_KEY or API_KEY in environment or .env file
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
-Date: 2025
-
-This module integrates with data_config.json for configuration management
-and provides functions for data retrieval and storage.
+Date: 2026
 """
 
 import json

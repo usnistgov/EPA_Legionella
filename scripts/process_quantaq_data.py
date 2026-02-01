@@ -1,23 +1,51 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script to process QuantAQ MODULAIR-PM raw and final data files.
+QuantAQ Data Processor
+======================
 
-Combines raw and final data for indoor/outdoor sensors into processed files:
-- Expands dictionary columns (geo, met, neph, opc) into individual columns
-- Renames pm25 to pm2.5 and reorders pm columns (pm1, pm2.5, pm10)
-- Adds final_ prefix to calibrated pm values from final data
-- Uses outer join to combine raw and final data on timestamp_local
+This script processes raw and final data files from QuantAQ MODULAIR-PM
+sensors, expanding nested dictionary columns and merging calibrated values
+into a unified analysis-ready format.
 
-Input files (from download_quantaq_data.py):
-- {date}-quantaq-outside-raw.csv
-- {date}-quantaq-outside-final.csv
-- {date}-quantaq-inside-raw.csv
-- {date}-quantaq-inside-final.csv
+Key Functions:
+    - parse_dict_string: Safely parse dictionary strings from CSV
+    - expand_dict_column: Expand nested dicts into individual columns
+    - process_raw_file: Extract and organize raw sensor data
+    - process_final_file: Extract calibrated PM values
+    - merge_raw_and_final: Combine datasets on timestamp
 
-Output files:
-- {date}-quantaq-outside-processed.csv
-- {date}-quantaq-inside-processed.csv
+Processing Features:
+    - Expands geo, met, neph, opc dictionary columns into flat structure
+    - Renames pm25 to pm2.5 for consistency
+    - Reorders PM columns: pm1, pm2.5, pm10
+    - Prefixes calibrated values with final_ (final_pm1, final_pm2.5, final_pm10)
+    - Outer join preserves all timestamps from both datasets
+
+Methodology:
+    1. Find matching raw/final file pairs in data directory
+    2. Parse raw file and expand dictionary columns
+    3. Extract calibrated PM values from final file
+    4. Merge on timestamp_local with outer join
+    5. Reorder columns and save processed output
+
+Input Files:
+    - {date}-quantaq-outside-raw.csv
+    - {date}-quantaq-outside-final.csv
+    - {date}-quantaq-inside-raw.csv
+    - {date}-quantaq-inside-final.csv
+
+Output Files:
+    - {date}-quantaq-outside-processed.csv: Merged outside sensor data
+    - {date}-quantaq-inside-processed.csv: Merged inside sensor data
+
+Column Organization:
+    - Base: timestamp_local, timestamp, sn, operating_state, flag
+    - Geo: geo_lat, geo_lon
+    - Met: met_rh, met_temp
+    - Neph: neph_bin0-5, neph_pm1, neph_pm2.5, neph_pm10, neph_rh, neph_temp
+    - OPC: opc_bin0-23, opc_pm1, opc_pm2.5, opc_pm10, opc_rh, opc_temp
+    - Final: final_pm1, final_pm2.5, final_pm10
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

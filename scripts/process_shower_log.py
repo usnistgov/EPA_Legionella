@@ -1,16 +1,45 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Process shower program log files into a consolidated state-change log.
+Shower Program Log Processor
+============================
 
-This script reads daily 1-second shower program log files and produces a single
-continuous file containing only the timestamps when valve states change.
+This script consolidates daily 1-second shower program log files into a single
+state-change log. It reduces millions of redundant records to only the
+timestamps when valve states actually change, enabling efficient event analysis.
 
-Input files: MH_ShowerProgram_YYYYMMDD.txt
-Output file: shower_log_file.csv
+Key Functions:
+    - parse_mixed_delimiter_file: Handle mixed tab/comma delimited input
+    - process_shower_logs: Main processing workflow
 
-Input columns: datetime_EDT, Shower, Fan, channel2
-Output columns: datetime_EDT, shower, bath_fan
+Processing Features:
+    - Parses mixed delimiter format (tab after datetime, commas between values)
+    - Detects state changes in shower valve and bathroom fan
+    - Filters out redundant consecutive identical states
+    - Renames columns for consistency (Shower -> shower, Fan -> bath_fan)
+    - Excludes backup files created by fix_log_files.py
+
+Methodology:
+    1. Locate all MH_ShowerProgram_*.txt files in input directory
+    2. Parse each file handling mixed delimiter format
+    3. Combine and sort all records chronologically
+    4. Detect state changes by comparing each row to previous
+    5. Output only rows where shower or bath_fan changed
+
+Input Files:
+    - MH_ShowerProgram_YYYYMMDD.txt (daily 1-second logs)
+    - Format: datetime_EDT<tab>Shower,Fan,channel2
+    - Located in: data_root/Log - Shower/
+
+Output Files:
+    - shower_log_file.csv: State-change log with columns:
+        - datetime_EDT: Timestamp of state change
+        - shower: Shower valve state (0=off, 1=on)
+        - bath_fan: Bathroom fan state (0=off, 1=on)
+
+Data Reduction:
+    - Typical reduction: ~86,400 records/day -> ~4-8 state changes/day
+    - Enables efficient event matching with CO2 injection log
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

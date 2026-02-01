@@ -27,8 +27,8 @@ NIST_EPA_Legionella/
 │
 ├── src/                              # Source modules
 │   ├── __init__.py                   # Package initialization
-│   ├── data_paths.py                 # Core data access utilities
-│   ├── env_data_loader.py            # Environmental data loader
+│   ├── data_paths.py                 # Portable data access utilities
+│   ├── env_data_loader.py            # Environmental sensor data loader
 │   ├── co2_decay_analysis.py         # CO2 decay & air-change rate analysis
 │   ├── particle_decay_analysis.py    # Particle penetration & emission analysis
 │   ├── rh_temp_other_analysis.py     # RH, temperature & wind analysis
@@ -36,17 +36,31 @@ NIST_EPA_Legionella/
 │       └── co2_decay_analysis.py     # Previous version of CO2 analysis
 │
 ├── scripts/                          # Executable scripts
-│   ├── download_quantaq_data.py      # Download QuantAQ sensor data
+│   │
+│   │ # Data Download & Processing
+│   ├── download_quantaq_data.py      # Download QuantAQ sensor data from API
 │   ├── process_quantaq_data.py       # Process raw/final QuantAQ data
-│   ├── process_co2_log.py            # Process CO2 injection log
-│   ├── process_shower_log.py         # Process shower event log
-│   ├── fix_log_files.py              # Utility to fix log file formatting
-│   ├── quantaq_utils.py              # QuantAQ API utilities
-│   ├── plot_co2.py                   # CO2 decay visualization
-│   ├── plot_particle.py              # Particle decay visualization
+│   ├── quantaq_utils.py              # QuantAQ API client utilities
+│   │
+│   │ # Log Processing
+│   ├── process_co2_log.py            # Consolidate CO2 injection logs
+│   ├── process_shower_log.py         # Consolidate shower event logs
+│   ├── fix_log_files.py              # Fix corrupted log file formatting
+│   ├── analyze_log_files.py          # Diagnose log file issues
+│   │
+│   │ # Event Management
+│   ├── event_manager.py              # Event filtering, naming, configuration
+│   ├── event_matching.py             # Match CO2 injections to shower events
+│   ├── event_registry.py             # Unified event registry with synthetic events
+│   │
+│   │ # Visualization
+│   ├── plot_style.py                 # Consistent matplotlib styling constants
+│   ├── plot_co2.py                   # CO2 decay visualization functions
+│   ├── plot_particle.py              # Particle decay visualization functions
 │   ├── plot_environmental.py         # RH, temperature, wind visualization
-│   ├── plot_style.py                 # Consistent plot styling
-│   ├── plot_utils.py                 # Plotting utilities
+│   ├── plot_utils.py                 # Main plotting entry point (re-exports)
+│   │
+│   │ # Examples
 │   └── example_data_access.py        # Example usage of data utilities
 │
 ├── testing/                          # Testing and exploratory scripts

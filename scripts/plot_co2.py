@@ -5,13 +5,32 @@ CO2 Decay Analysis Plotting Functions
 ======================================
 
 This module provides plotting functions for CO2 decay and air-change rate (λ)
-analysis in the EPA Legionella project.
+analysis in the EPA Legionella project. All plots follow a consistent visual
+style suitable for scientific publications.
 
 Key Functions:
-    - add_injection_marker: Add CO2 injection event markers
-    - plot_co2_decay_event: Plot decay with numerical method fit
+    - add_injection_marker: Add CO2 injection event markers to axes
+    - plot_co2_decay_event: Plot decay with numerical method exponential fit
     - plot_co2_decay_event_analytical: Plot decay with linear regression fit
     - plot_lambda_summary: Summary bar chart of λ values across events
+
+Plot Features:
+    - Two-panel figures showing CO2 concentrations and linearized regression
+    - Color-coded sensor traces (Bedroom, Entry, Outside)
+    - Exponential fit curves with uncertainty bands
+    - Injection and decay window markers
+    - Configuration-based grouping for multi-configuration experiments
+
+Methodology:
+    1. Extract data window around injection event (±hours_before/after)
+    2. Plot raw CO2 concentrations from all sensors
+    3. Calculate and overlay exponential fit: C(t) = C_avg + (C_0 - C_avg) * exp(-λ*t)
+    4. Add linearized regression panel showing y = -ln[(C(t) - C_avg)/(C_0 - C_avg)] vs t
+    5. Display λ value, R², and uncertainty in legend
+
+Output Files:
+    - Individual event plots: {test_name}_co2_decay.png
+    - Summary chart: co2_lambda_summary.png
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -31,13 +50,16 @@ from matplotlib.figure import Figure
 
 from scripts.plot_style import (
     COLORS,
+    CONFIG_KEY_COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
+    FONT_SIZE_TITLE,
     LINE_WIDTH_ANNOTATION,
     LINE_WIDTH_DATA,
     LINE_WIDTH_FIT,
     TITLE_FONTWEIGHT,
     apply_style,
+    get_config_color,
     create_figure,
     format_datetime_axis,
     format_test_name_for_title,
@@ -484,74 +506,144 @@ def plot_lambda_summary(
     """
     Plot summary bar chart of lambda values across all events.
 
+    If config_key column exists, creates subplots (one per configuration)
+    and colors bars by configuration. Otherwise, creates a single plot.
+
     Parameters:
-        results_df: DataFrame with lambda_average_mean and lambda_average_std
+        results_df: DataFrame with lambda_average_mean, lambda_average_std,
+                   and optionally config_key for grouping
         output_path: Path to save figure (optional)
 
     Returns:
         Matplotlib figure object
     """
-    fig, ax = create_figure(figsize=(10, 5))
+    apply_style()
 
-    # Use actual event numbers from the DataFrame (not sequential indices)
-    if "event_number" in results_df.columns:
-        event_numbers = results_df["event_number"].values
+    # Check if we have configuration data for subplots
+    has_config = "config_key" in results_df.columns
+    if has_config:
+        config_keys = results_df["config_key"].dropna().unique()
+        n_configs = len(config_keys)
     else:
-        # Fallback to sequential if column doesn't exist
-        event_numbers = np.arange(1, len(results_df) + 1)
+        config_keys = ["All"]
+        n_configs = 1
 
-    lambda_avg: npt.NDArray[np.float64] = np.asarray(
-        results_df["lambda_average_mean"].values, dtype=np.float64
-    )
-    lambda_std: npt.NDArray[np.float64] = np.asarray(
-        results_df["lambda_average_std"].values, dtype=np.float64
-    )
+    # Create figure with subplots (one row per configuration)
+    if n_configs > 1:
+        fig, axes = plt.subplots(
+            n_configs, 1,
+            figsize=(12, 4 * n_configs),
+            sharex=False,
+            squeeze=False
+        )
+        axes = axes.flatten()
+    else:
+        fig, ax = create_figure(figsize=(12, 5))
+        axes = [ax]
 
-    valid_mask = ~np.isnan(lambda_avg)
-    x_valid = [int(e) for e, v in zip(event_numbers, valid_mask) if v]
-    y_valid = lambda_avg[valid_mask]
-    yerr_valid = lambda_std[valid_mask]
+    # Plot each configuration
+    for idx, config_key in enumerate(config_keys):
+        ax = axes[idx]
 
-    ax.bar(
-        x_valid,
-        y_valid,
-        yerr=yerr_valid,
-        color=COLORS["bedroom"],
-        alpha=0.7,
-        capsize=3,
-        label="λ (average method)",
-    )
+        # Filter data for this configuration
+        if has_config and config_key != "All":
+            config_df = results_df[results_df["config_key"] == config_key]
+        else:
+            config_df = results_df
 
-    x_skipped = [int(e) for e, v in zip(event_numbers, valid_mask) if not v]
-    if x_skipped:
-        ax.scatter(
-            x_skipped,
-            [0] * len(x_skipped),
-            marker="x",
-            color=COLORS["lambda"],
-            s=50,
-            label="Skipped (insufficient data)",
-            zorder=5,
+        if len(config_df) == 0:
+            ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
+            continue
+
+        # Get event numbers
+        if "event_number" in config_df.columns:
+            event_numbers = config_df["event_number"].values
+        else:
+            event_numbers = np.arange(1, len(config_df) + 1)
+
+        lambda_avg: npt.NDArray[np.float64] = np.asarray(
+            config_df["lambda_average_mean"].values, dtype=np.float64
+        )
+        lambda_std: npt.NDArray[np.float64] = np.asarray(
+            config_df["lambda_average_std"].values, dtype=np.float64
         )
 
-    overall_mean = np.nanmean(lambda_avg)
-    if not np.isnan(overall_mean):
-        ax.axhline(
-            float(overall_mean),
-            color=COLORS["fit"],
-            linestyle="--",
-            linewidth=LINE_WIDTH_FIT,
-            label=f"Overall mean: {overall_mean:.3f} h⁻¹",
+        # Get color for this configuration
+        bar_color = get_config_color(config_key, idx)
+
+        valid_mask = ~np.isnan(lambda_avg)
+        x_valid = [int(e) for e, v in zip(event_numbers, valid_mask) if v]
+        y_valid = lambda_avg[valid_mask]
+        yerr_valid = lambda_std[valid_mask]
+
+        # Plot bars with configuration-specific color
+        if len(x_valid) > 0:
+            ax.bar(
+                x_valid,
+                y_valid,
+                yerr=yerr_valid,
+                color=bar_color,
+                alpha=0.7,
+                capsize=3,
+                label=f"λ ({config_key})" if n_configs > 1 else "λ (average method)",
+            )
+
+        # Mark skipped events
+        x_skipped = [int(e) for e, v in zip(event_numbers, valid_mask) if not v]
+        if x_skipped:
+            ax.scatter(
+                x_skipped,
+                [0] * len(x_skipped),
+                marker="x",
+                color=COLORS["lambda"],
+                s=50,
+                label="Skipped",
+                zorder=5,
+            )
+
+        # Add mean line for this configuration
+        config_mean = np.nanmean(lambda_avg)
+        if not np.isnan(config_mean):
+            ax.axhline(
+                float(config_mean),
+                color=COLORS["fit"],
+                linestyle="--",
+                linewidth=LINE_WIDTH_FIT,
+                label=f"Mean: {config_mean:.3f} h⁻¹",
+            )
+
+        ax.set_xlabel("Event Number", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel("Air-Change Rate λ (h⁻¹)", fontsize=FONT_SIZE_LABEL)
+
+        # Set title with configuration info
+        if n_configs > 1:
+            ax.set_title(
+                f"Configuration: {config_key} (n={len(config_df)})",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
+            )
+        else:
+            ax.set_title(
+                "Air-Change Rate Summary Across All Events",
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
+            )
+
+        ax.set_xticks([int(e) for e in event_numbers])
+        ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
+        ax.set_ylim(bottom=0)
+        ax.grid(True, alpha=0.3, axis="y")
+
+    # Add overall title if multiple configurations
+    if n_configs > 1:
+        fig.suptitle(
+            "Air-Change Rate Summary by Configuration",
+            fontsize=FONT_SIZE_TITLE + 2,
+            fontweight=TITLE_FONTWEIGHT,
+            y=1.02,
         )
 
-    ax.set_xlabel("Event Number")
-    ax.set_ylabel("Air-Change Rate λ (h⁻¹)")
-    ax.set_title(
-        "Air-Change Rate Summary Across All Events", fontweight=TITLE_FONTWEIGHT
-    )
-    ax.set_xticks([int(e) for e in event_numbers])
-    ax.legend(loc="upper right")
-    ax.set_ylim(bottom=0)
+    plt.tight_layout()
 
     if output_path is not None:
         save_figure(fig, output_path, close=False)

@@ -39,7 +39,7 @@ Generate a Python script that adheres to the following style guidelines and stru
    - Create general-purpose functions that handle multiple cases via parameters
    - Eliminate redundant calculations by storing intermediate results
 
-SCRIPT HEADER REQUIREMENTS:
+SCRIPT HEADER DOCSTRING REQUIREMENTS:
 ---------------------------
 1. Begin with shebang line: #!/usr/bin/env python3
 2. Include encoding declaration: # -*- coding: utf-8 -*-
