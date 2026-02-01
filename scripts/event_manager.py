@@ -57,38 +57,15 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Import existing event matching functions
-try:
-    from event_matching import get_lambda_for_shower, match_shower_to_co2_event
-except ImportError:
-    from scripts.event_matching import get_lambda_for_shower, match_shower_to_co2_event
-
-# Import from unified event registry (for bidirectional synthetic events)
-try:
-    from event_registry import (
-        create_synthetic_co2_event as create_synthetic_co2_event_v2,
-    )
-    from event_registry import (
-        create_synthetic_shower_event,
-        infer_duration_from_neighbors,
-        match_events_bidirectional,
-    )
-
-    _HAS_REGISTRY = True
-except ImportError:
-    try:
-        from scripts.event_registry import (
-            create_synthetic_co2_event as create_synthetic_co2_event_v2,
-        )
-        from scripts.event_registry import (
-            create_synthetic_shower_event,
-            infer_duration_from_neighbors,
-            match_events_bidirectional,
-        )
-
-        _HAS_REGISTRY = True
-    except ImportError:
-        _HAS_REGISTRY = False
-
+from scripts.event_matching import get_lambda_for_shower, match_shower_to_co2_event
+from scripts.event_registry import (
+    create_synthetic_co2_event as create_synthetic_co2_event_v2,
+)
+from scripts.event_registry import (
+    create_synthetic_shower_event,
+    infer_duration_from_neighbors,
+    match_events_bidirectional,
+)
 
 # =============================================================================
 # Configuration Constants
@@ -123,7 +100,7 @@ DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door Open from experiment start
     # Add future transitions here, e.g.:
     # (datetime(2026, 2, 1, 0, 0, 0), "Closed"),    # Door closed from Feb 1
-    # (datetime(2026, 3, 1, 0, 0, 0), "Partial"), # Partially open from Mar 1
+    # (datetime(2026, 3, 1, 0, 0, 0), "Partial"),   # Partially open from Mar 1
 ]
 
 # Bath fan transitions: (datetime, status)
