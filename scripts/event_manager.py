@@ -58,14 +58,41 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Import existing event matching functions
 from scripts.event_matching import get_lambda_for_shower, match_shower_to_co2_event
-from scripts.event_registry import (
-    create_synthetic_co2_event as create_synthetic_co2_event_v2,
-)
-from scripts.event_registry import (
-    create_synthetic_shower_event,
-    infer_duration_from_neighbors,
-    match_events_bidirectional,
-)
+
+# Lazy import for event_registry to avoid circular import
+# These are imported inside functions that use them
+_HAS_REGISTRY = False
+create_synthetic_co2_event_v2 = None
+create_synthetic_shower_event = None
+infer_duration_from_neighbors = None
+match_events_bidirectional = None
+
+
+def _ensure_registry_imports():
+    """Lazy import of event_registry module to avoid circular imports."""
+    global _HAS_REGISTRY, create_synthetic_co2_event_v2, create_synthetic_shower_event
+    global infer_duration_from_neighbors, match_events_bidirectional
+
+    if _HAS_REGISTRY:
+        return True
+
+    try:
+        from scripts.event_registry import (
+            create_synthetic_co2_event as _create_synthetic_co2_event_v2,
+        )
+        from scripts.event_registry import (
+            create_synthetic_shower_event as _create_synthetic_shower_event,
+            infer_duration_from_neighbors as _infer_duration_from_neighbors,
+            match_events_bidirectional as _match_events_bidirectional,
+        )
+        create_synthetic_co2_event_v2 = _create_synthetic_co2_event_v2
+        create_synthetic_shower_event = _create_synthetic_shower_event
+        infer_duration_from_neighbors = _infer_duration_from_neighbors
+        match_events_bidirectional = _match_events_bidirectional
+        _HAS_REGISTRY = True
+        return True
+    except ImportError:
+        return False
 
 # =============================================================================
 # Configuration Constants
@@ -765,6 +792,9 @@ def process_events_with_management(
     print("\n" + "=" * 70)
     print("Event Management System")
     print("=" * 70)
+
+    # Ensure registry imports are loaded (lazy import to avoid circular dependency)
+    _ensure_registry_imports()
 
     # Step 1: Filter by date
     print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
