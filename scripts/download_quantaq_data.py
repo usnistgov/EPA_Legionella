@@ -1,14 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script to download QuantAQ MODULAIR-PM data for indoor/outdoor sensors.
+QuantAQ Data Downloader
+=======================
 
-Downloads raw and final data for:
-- MOD-PM-00785 (outside sensor) -> {date}-quantaq-outside-{type}.csv
-- MOD-PM-00195 (inside sensor) -> {date}-quantaq-inside-{type}.csv
+This script downloads raw and final data from QuantAQ MODULAIR-PM particulate
+matter sensors deployed at the EPA Legionella test site. It handles pagination
+and rate limiting to retrieve complete datasets from the QuantAQ cloud API.
 
-Data is downloaded from January 5, 2026 to current date.
-Files are saved to the QuantAQ data path specified in data_config.json.
+Key Metrics Downloaded:
+    - PM1, PM2.5, PM10 concentrations (raw and calibrated)
+    - Meteorological data (temperature, RH from integrated sensors)
+    - Optical particle counts by size bin
+    - GPS and operating state information
+
+Analysis Features:
+    - Automatic pagination for large datasets (500 records/page)
+    - Rate limiting (0.5s delay) to respect API quotas
+    - Date range filtering from experiment start to current date
+    - Separate files for raw vs. calibrated (final) data
+
+Methodology:
+    1. Load API configuration from data_config.json
+    2. Authenticate with QuantAQ API using environment variable key
+    3. For each device (inside/outside), download raw and final data
+    4. Handle pagination to retrieve all records in date range
+    5. Save each dataset to timestamped CSV files
+
+Output Files:
+    - {YYYYMMDD}-quantaq-outside-raw.csv: Raw outside sensor data
+    - {YYYYMMDD}-quantaq-outside-final.csv: Calibrated outside data
+    - {YYYYMMDD}-quantaq-inside-raw.csv: Raw inside sensor data
+    - {YYYYMMDD}-quantaq-inside-final.csv: Calibrated inside data
+
+Configuration:
+    - Device serial numbers: MOD-PM-00785 (outside), MOD-PM-00195 (inside)
+    - Data start date: January 5, 2026
+    - Requires QUANTAQ_API_KEY environment variable
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

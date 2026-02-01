@@ -5,13 +5,32 @@ CO2 Decay Analysis Plotting Functions
 ======================================
 
 This module provides plotting functions for CO2 decay and air-change rate (λ)
-analysis in the EPA Legionella project.
+analysis in the EPA Legionella project. All plots follow a consistent visual
+style suitable for scientific publications.
 
 Key Functions:
-    - add_injection_marker: Add CO2 injection event markers
-    - plot_co2_decay_event: Plot decay with numerical method fit
+    - add_injection_marker: Add CO2 injection event markers to axes
+    - plot_co2_decay_event: Plot decay with numerical method exponential fit
     - plot_co2_decay_event_analytical: Plot decay with linear regression fit
     - plot_lambda_summary: Summary bar chart of λ values across events
+
+Plot Features:
+    - Two-panel figures showing CO2 concentrations and linearized regression
+    - Color-coded sensor traces (Bedroom, Entry, Outside)
+    - Exponential fit curves with uncertainty bands
+    - Injection and decay window markers
+    - Configuration-based grouping for multi-configuration experiments
+
+Methodology:
+    1. Extract data window around injection event (±hours_before/after)
+    2. Plot raw CO2 concentrations from all sensors
+    3. Calculate and overlay exponential fit: C(t) = C_avg + (C_0 - C_avg) * exp(-λ*t)
+    4. Add linearized regression panel showing y = -ln[(C(t) - C_avg)/(C_0 - C_avg)] vs t
+    5. Display λ value, R², and uncertainty in legend
+
+Output Files:
+    - Individual event plots: {test_name}_co2_decay.png
+    - Summary chart: co2_lambda_summary.png
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

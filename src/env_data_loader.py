@@ -4,16 +4,44 @@
 Environmental Data Loader Module
 =================================
 
-This module provides data loading functions for environmental sensors used in
-the EPA Legionella project. It handles loading data from multiple instrument
-types including Aranet4, QuantAQ, Vaisala (DAQ), and AIO2 weather station.
+This module provides unified data loading functions for all environmental
+sensors deployed in the EPA Legionella project. It abstracts instrument-specific
+file formats and provides a consistent DataFrame output with datetime indexing.
 
 Key Functions:
-    - load_aranet_data: Load Aranet4 CO2/RH/Temp sensor data
-    - load_quantaq_data: Load QuantAQ MODULAIR-PM data
-    - load_daq_data: Load indoor DAQ data (Vaisala sensors)
-    - load_aio2_data: Load AIO2 weather station data
-    - load_sensor_data: Generic loader using sensor configuration
+    - load_aranet_data: Load Aranet4 CO2/RH/Temp sensor data from Excel files
+    - load_quantaq_data: Load QuantAQ MODULAIR-PM processed CSV files
+    - load_daq_data: Load indoor DAQ data (Vaisala RH/Temp sensors)
+    - load_aio2_data: Load AIO2 weather station data (wind speed/direction)
+    - load_sensor_data: Generic loader using SENSOR_CONFIG mapping
+    - load_shower_log: Load shower event state-change log
+    - identify_shower_events: Parse log into individual shower events
+
+Data Loading Features:
+    - Automatic date range filtering across multiple files
+    - Datetime parsing and normalization to consistent format
+    - Duplicate record removal and chronological sorting
+    - Error handling with informative warnings
+    - Support for mixed delimiter formats (tab/comma)
+
+Sensor Configuration:
+    - SENSOR_CONFIG dict maps display names to instrument/location/column
+    - Supports RH, temperature, wind speed, and wind direction variables
+    - get_sensors_by_type() filters sensors by variable type
+
+Methodology:
+    1. Locate data files using data_paths module functions
+    2. Parse files according to instrument-specific format
+    3. Normalize datetime column to pandas datetime
+    4. Filter to requested date range
+    5. Combine multiple files and deduplicate
+    6. Return DataFrame with 'datetime' column and sensor data
+
+Supported Instruments:
+    - Aranet4: CO2, RH, Temperature (Entry, Bedroom, Outside)
+    - QuantAQ MODULAIR-PM: RH, Temperature (Inside, Outside)
+    - Vaisala HMP155/HMP45A: RH, Temperature (via DAQ)
+    - AIO2: Wind speed and direction
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

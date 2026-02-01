@@ -1,10 +1,43 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Data path utilities for EPA Legionella Project.
+Data Path Utilities
+===================
 
-This module provides portable data access functions that work across different
-machines by reading configuration from data_config.json.
+This module provides portable data access functions for the EPA Legionella
+project. It abstracts file system paths through a JSON configuration file,
+enabling the codebase to work across different machines without hardcoded paths.
+
+Key Functions:
+    - get_data_root: Get the root directory for all project data
+    - get_instrument_path: Get directory path for an instrument
+    - get_instrument_file: Get file path for a specific date
+    - get_instrument_files_for_date_range: Get list of files for date range
+    - get_all_instrument_files: Get all files using glob patterns
+    - get_common_file: Get path to shared files (logs, output folders)
+    - get_instrument_config: Get full configuration for an instrument
+    - get_instrument_variables: Get list of variable/column names
+    - get_active_instruments: List instruments with ACTIVE status
+
+Configuration Features:
+    - Machine-independent paths via data_config.json
+    - Support for year-based directory structures
+    - Flexible file naming templates with date formatting
+    - Instrument specifications and variable definitions
+    - DAQ system configuration
+
+Methodology:
+    1. Load data_config.json from project root or current directory
+    2. Parse instrument configurations including paths and templates
+    3. Construct full paths by combining data_root with relative paths
+    4. Handle year subdirectories automatically for dated instruments
+    5. Support glob patterns for finding multiple files
+
+Configuration File (data_config.json):
+    - data_root: Base directory for all data files
+    - instruments: Per-instrument configuration (paths, templates, variables)
+    - common_files: Shared files like log files and output directories
+    - daq_system: DAQ hardware configuration
 
 Usage:
     from src.data_paths import (
@@ -18,7 +51,7 @@ Usage:
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
-Date: 2025
+Date: 2026
 """
 
 import json

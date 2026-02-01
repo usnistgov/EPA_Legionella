@@ -1,16 +1,45 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Process CO2 injection log files into a consolidated state-change log.
+CO2 Injection Log Processor
+===========================
 
-This script reads daily 1-second CO2 injection log files and produces a single
-continuous file containing only the timestamps when valve states change.
+This script consolidates daily 1-second CO2 injection log files into a single
+state-change log. It reduces millions of redundant records to only the
+timestamps when valve states actually change, enabling efficient event analysis.
 
-Input files: MH_CO2andFanProgram_YYYYMMDD.txt
-Output file: CO2_log_file.csv
+Key Functions:
+    - parse_mixed_delimiter_file: Handle mixed tab/comma delimited input
+    - process_co2_logs: Main processing workflow
 
-Input columns: datetime_EDT, CO2, Fan, notAssigned
-Output columns: datetime_EDT, CO2, mixing_fan
+Processing Features:
+    - Parses mixed delimiter format (tab after datetime, commas between values)
+    - Detects state changes in CO2 valve and mixing fan
+    - Filters out redundant consecutive identical states
+    - Renames columns for consistency (Fan -> mixing_fan)
+    - Excludes backup files created by fix_log_files.py
+
+Methodology:
+    1. Locate all MH_CO2andFanProgram_*.txt files in input directory
+    2. Parse each file handling mixed delimiter format
+    3. Combine and sort all records chronologically
+    4. Detect state changes by comparing each row to previous
+    5. Output only rows where CO2 or mixing_fan changed
+
+Input Files:
+    - MH_CO2andFanProgram_YYYYMMDD.txt (daily 1-second logs)
+    - Format: datetime_EDT<tab>CO2,Fan,notAssigned
+    - Located in: data_root/Log - CO2 Injection/
+
+Output Files:
+    - CO2_log_file.csv: State-change log with columns:
+        - datetime_EDT: Timestamp of state change
+        - CO2: CO2 valve state (0=off, 1=on)
+        - mixing_fan: Mixing fan state (0=off, 1=on)
+
+Data Reduction:
+    - Typical reduction: ~86,400 records/day -> ~4-10 state changes/day
+    - Enables efficient event matching with shower log
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

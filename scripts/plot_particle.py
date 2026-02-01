@@ -5,13 +5,35 @@ Particle Analysis Plotting Functions
 =====================================
 
 This module provides specialized plotting functions for particle decay and
-emission analysis in the EPA Legionella project.
+emission analysis in the EPA Legionella project. Plots are designed for
+analyzing aerosol behavior during and after shower events.
 
 Key Functions:
     - plot_particle_decay_event: Individual event decay curves per bin
-    - plot_penetration_summary: Bar chart of penetration factors
-    - plot_deposition_summary: Bar chart of deposition rates
-    - plot_emission_summary: Bar chart of emission rates
+    - plot_penetration_summary: Bar chart of penetration factors by size
+    - plot_deposition_summary: Bar chart of deposition rates by size
+    - plot_emission_summary: Bar chart of emission rates by size
+    - plot_size_distribution_summary: Multi-panel summary of all metrics
+
+Plot Features:
+    - Two-panel event plots (concentrations + linearized regression)
+    - Color-coded particle size bins (0.35-3.0 µm)
+    - Shaded analysis windows (penetration and deposition periods)
+    - Shower ON/OFF markers with consistent styling
+    - Log-scale concentration axis for wide dynamic range
+    - Configuration-based subplot grouping
+
+Methodology:
+    1. Extract data window around shower event (2 hr before to 1 hr after)
+    2. Plot particle concentrations for all 7 size bins
+    3. Shade penetration window (1 hr pre-shower) and deposition window (2 hr post)
+    4. Calculate linearized regression: y = -ln[(C(t) - C_ss)/(C_0 - C_ss)] vs t
+    5. Display β (deposition rate), p (penetration), and E (emission) values
+
+Output Files:
+    - Individual event plots: {test_name}_particle_decay.png
+    - Summary charts: penetration_summary.png, deposition_summary.png,
+      emission_summary.png, size_distribution_summary.png
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

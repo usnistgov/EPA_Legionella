@@ -1,7 +1,41 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Quick script to analyze log files for issues
+Log File Analysis Utility
+=========================
+
+This script analyzes shower and CO2 injection log files to identify potential
+data quality issues and mismatches between correlated events. It is designed
+to help diagnose problems in the automated shower and CO2 injection experiment
+logging system.
+
+Key Functions:
+    - Load and parse shower log and CO2 injection log files
+    - Identify shower events without matching CO2 injections (within ±10 min window)
+    - Identify CO2 injections without matching shower events
+    - Detect duplicate consecutive ON events (missing OFF state)
+    - Identify unusual shower durations (<3 min or >20 min)
+
+Analysis Features:
+    - Date range filtering (events >= 2026-01-14)
+    - Temporal matching with ±10 minute tolerance around expected 20-min offset
+    - Consecutive state validation for ON/OFF sequencing
+    - Duration analysis for shower events
+
+Methodology:
+    1. Load shower_log_file.csv and CO2_log_file.csv
+    2. Filter to events after the experiment start date
+    3. For each shower ON event, search for matching CO2 injection 20 min prior
+    4. For each CO2 ON event, search for matching shower 20 min later
+    5. Check for consecutive ON states without intervening OFF
+    6. Calculate and validate shower durations
+
+Output Files:
+    - Console output with analysis results and potential issues
+
+Author: Nathan Lima
+Institution: National Institute of Standards and Technology (NIST)
+Date: 2026
 """
 
 import pandas as pd

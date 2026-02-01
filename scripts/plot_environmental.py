@@ -5,14 +5,36 @@ Environmental Data Plotting Functions
 ======================================
 
 This module provides plotting functions for environmental data (RH, Temperature,
-Wind) analysis around shower events in the EPA Legionella project.
+Wind) analysis around shower events in the EPA Legionella project. Supports
+multi-sensor visualization and pre/post shower comparisons.
 
 Key Functions:
-    - add_shower_markers: Add shower ON/OFF event markers
+    - add_shower_markers: Add shower ON/OFF event markers with consistent styling
     - add_analysis_windows: Add shaded pre/post analysis windows
     - plot_environmental_time_series: Time series plots for RH/Temp/Wind
     - plot_pre_post_comparison: Box plots comparing pre vs post shower
     - plot_sensor_summary_bars: Bar charts of sensor summary statistics
+    - simplify_sensor_name: Convert internal names to display names
+
+Plot Features:
+    - Multi-sensor overlay with distinct colors per sensor
+    - Dual y-axis support for wind speed + direction
+    - Shaded pre-shower (30 min) and post-shower (2 hr) windows
+    - Box plot distributions for pre/post comparison
+    - Configuration-based subplot grouping
+    - Sensor display name mapping for cleaner legends
+
+Methodology:
+    1. Load time series data for all sensors of given variable type
+    2. Filter to event window (±hours before/after shower)
+    3. Plot each sensor with distinct color from SENSOR_COLORS
+    4. Add shower ON/OFF vertical line markers
+    5. Shade analysis windows for baseline and response periods
+
+Output Files:
+    - Time series: {test_name}_rh.png, {test_name}_temperature.png, {test_name}_wind.png
+    - Comparisons: rh_pre_post_comparison.png, temperature_pre_post_comparison.png
+    - Summaries: rh_sensor_summary.png, temperature_sensor_summary.png
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
