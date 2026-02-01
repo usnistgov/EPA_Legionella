@@ -387,6 +387,11 @@ def filter_events_by_date(
     """
     Filter events to only include those on or after the experiment start date.
 
+    For CO2 events, the comparison is based on the expected shower time
+    (injection_start + 20 minutes) rather than the injection start itself.
+    This ensures CO2 injections that occur before midnight but correspond
+    to showers after midnight are correctly included.
+
     Parameters:
         events: List of event dictionaries
         start_date: Minimum date/time to include (default: 2026-01-14)
@@ -396,8 +401,20 @@ def filter_events_by_date(
     """
     filtered = []
     for event in events:
-        event_time = event.get("shower_on") or event.get("injection_start")
-        if event_time and event_time >= start_date:
+        if "shower_on" in event:
+            # Shower event - compare shower_on directly
+            event_time = event["shower_on"]
+        elif "injection_start" in event:
+            # CO2 event - compare expected shower time (injection + 20 min)
+            # This handles cases where CO2 injection is before midnight
+            # but the corresponding shower is after midnight
+            event_time = event["injection_start"] + timedelta(
+                minutes=EXPECTED_CO2_BEFORE_SHOWER
+            )
+        else:
+            continue
+
+        if event_time >= start_date:
             filtered.append(event)
 
     return filtered
