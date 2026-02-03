@@ -789,6 +789,26 @@ def run_co2_decay_analysis(
             event["time_of_day"] = time_of_day
             event["is_unmatched"] = True  # Flag for reports (not plots)
 
+            # Diagnostic: show why no match was found
+            print(f"\n  WARNING: No shower match for CO2 event #{event.get('event_number', '?')}")
+            print(f"    CO2 injection time: {injection_time.strftime('%Y-%m-%d %H:%M')}")
+            print(f"    Expected shower time: {expected_shower_time.strftime('%Y-%m-%d %H:%M')} (±10 min)")
+            # Find nearest shower event to help diagnose
+            if shower_events:
+                nearest_shower = None
+                nearest_diff = float("inf")
+                for se in shower_events:
+                    shower_time = se.get("shower_on")
+                    if shower_time:
+                        diff_min = abs((shower_time - expected_shower_time).total_seconds() / 60.0)
+                        if diff_min < nearest_diff:
+                            nearest_diff = diff_min
+                            nearest_shower = se
+                if nearest_shower:
+                    print(f"    Nearest shower event: {nearest_shower['shower_on'].strftime('%Y-%m-%d %H:%M')} "
+                          f"({nearest_diff:.1f} min from expected)")
+                    print(f"    Assigned fallback name: {event['test_name']}")
+
     # Analyze each event
     print("\nAnalyzing injection events...")
     results = []
