@@ -17,7 +17,8 @@ This is awesome. Great Job on the figures.
 
 A few question/comments:
 
-1)	When I look at the particle summary p_pentration sheet on the IAQ drive it appears there are a lot of penetration values above one.  By definition it should be between 0 and 1, right?  Any reason for them to be so high? I would set the value to one if the ratio exceeds 1.  
+1)	When I look at the particle summary p_pentration sheet on the IAQ drive it appears there are a lot of penetration values above one.  By definition it should be between 0 and 1, right?  Any reason for them to be so high? I would set the value to one if the ratio exceeds 1.
+	This was one of the items that I wanted your feedback on. The main reason why valids are classes as invalid for the decay calcultaions is that the p_pentration were to high (some from 10s to ~130). 
 2)	The penetration time window should be from 2 h prior to the shower to 1 h prior to the shower.  I have the bathroom exhaust fan on during the last hour and that would impact the value.  
 3)	We need units in all the summary pages.  It doesn’t need to be in each header.  
 4)	The timing on the shower in experiment 10 seems off.  Double check. Maybe it is okay.
@@ -29,6 +30,8 @@ I finally got to campus today and will download more ARANET data this evening.
 
 dustin
 
-1/29/2026	11:00 AM	People in house, throw out  3 pm data
-2/2/2026	5:00 PM	switched to warm water (25C)
 
+
+
+1) For the particale analysis, Change the penetration window to be from 2 h prior to the shower to 1 h prior to the shower. This change is done to remove the impact of the fan running before the shower.
+2) For all summary tables (co2_lambda_overall_summary.csv, co2_lambda_summary.csv, particle_analysis_summary.xlsx, and rh_temp_wind_summary.xlsx) units need to be added to the headers names.

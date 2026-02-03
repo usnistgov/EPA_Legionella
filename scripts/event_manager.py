@@ -36,7 +36,7 @@ Time of Day Categories:
     - Night: 9pm - 5am
 
 Test Parameters:
-    - Water Temperature: Hot (before 2026-01-22 14:00), Cold (after)
+    - Water Temperature: Hot (Test start), Cold (Started 2026-01-22 14:00), Mixed (Started 2026-02-02 17:00)
     - Time of Day: Based on shower start time
     - Bath Fan Status: Fan running during or within 2 hours after shower
 
@@ -82,9 +82,14 @@ def _ensure_registry_imports():
         )
         from scripts.event_registry import (
             create_synthetic_shower_event as _create_synthetic_shower_event,
+        )
+        from scripts.event_registry import (
             infer_duration_from_neighbors as _infer_duration_from_neighbors,
+        )
+        from scripts.event_registry import (
             match_events_bidirectional as _match_events_bidirectional,
         )
+
         create_synthetic_co2_event_v2 = _create_synthetic_co2_event_v2
         create_synthetic_shower_event = _create_synthetic_shower_event
         infer_duration_from_neighbors = _infer_duration_from_neighbors
@@ -93,6 +98,7 @@ def _ensure_registry_imports():
         return True
     except ImportError:
         return False
+
 
 # =============================================================================
 # Configuration Constants
@@ -117,8 +123,7 @@ EXPERIMENT_START_DATE = datetime(2026, 1, 14, 0, 0, 0)
 WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "HW"),  # Hot water from experiment start
     (datetime(2026, 1, 22, 14, 0, 0), "CW"),  # Cold water from Jan 22 2PM
-    # Add future transitions here, e.g.:
-    # (datetime(2026, 2, 15, 0, 0, 0), "MW"),  # Mixed water from Feb 15
+    (datetime(2026, 2, 2, 17, 0, 0), "MW"),  # Mixed water from Feb 2 5PM
 ]
 
 # Door position transitions: (datetime, position)
@@ -154,6 +159,7 @@ TIME_OF_DAY_RANGES = {
 # Predefined exclusions: datetime -> reason
 EXCLUDED_EVENTS = {
     datetime(2026, 1, 22, 15, 0, 0): "Tour in house during test",
+    datetime(2026, 1, 29, 15, 0, 0): "People in house",
 }
 
 # Expected CO2 to shower timing offset (minutes)
