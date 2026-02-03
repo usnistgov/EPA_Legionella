@@ -94,17 +94,17 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.event_manager import (  # noqa: E402
-    process_events_with_management,
     is_event_excluded,
+    process_events_with_management,
+)
+from src.co2_decay_analysis import (  # noqa: E402
+    identify_injection_events,
+    load_co2_injection_log,
 )
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
     get_instrument_path,
-)
-from src.co2_decay_analysis import (  # noqa: E402
-    load_co2_injection_log,
-    identify_injection_events,
 )
 
 # =============================================================================
@@ -138,11 +138,15 @@ ROLLING_WINDOW_MIN = 0  # Rolling average window in minutes (0 = no smoothing)
 MIN_PENETRATION = 0.3  # Minimum reasonable p value (reduced from 0.5)
 MAX_PENETRATION = 1.5  # Maximum reasonable p value (increased from 1.0)
 MAX_DEPOSITION_RATE = 15.0  # Maximum reasonable β (h⁻¹) (increased from 10.0)
-MIN_CONCENTRATION_RATIO = 1.05  # Minimum C_inside/C_outside during decay (reduced from 1.2)
+MIN_CONCENTRATION_RATIO = (
+    1.05  # Minimum C_inside/C_outside during decay (reduced from 1.2)
+)
 
 # Minimum data point requirements
 MIN_POINTS_PENETRATION = 10  # Minimum points for penetration calculation
-MIN_POINTS_DEPOSITION = 10  # Minimum points for deposition calculation (reduced from 20)
+MIN_POINTS_DEPOSITION = (
+    10  # Minimum points for deposition calculation (reduced from 20)
+)
 MIN_POINTS_EMISSION = 3  # Minimum points for emission calculation (reduced from 5)
 MIN_VALID_BETA = 5  # Minimum valid β values required (reduced from 10)
 
@@ -294,12 +298,14 @@ def load_co2_lambda_results() -> pd.DataFrame:
     co2_results_path = output_dir / "co2_lambda_summary.csv"
 
     if not co2_results_path.exists():
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("DEPENDENCY REQUIRED")
-        print("="*80)
+        print("=" * 80)
         print(f"\n[ERROR] CO2 lambda results not found: {co2_results_path}")
         print("\nRequired Dependency:")
-        print("   The particle analysis requires air change rates (lambda) from CO2 analysis.")
+        print(
+            "   The particle analysis requires air change rates (lambda) from CO2 analysis."
+        )
         print("\nAction Required:")
         print("   Run the CO2 decay analysis first:")
         print("   python src/co2_decay_analysis.py")
@@ -307,14 +313,28 @@ def load_co2_lambda_results() -> pd.DataFrame:
         print("   1. co2_decay_analysis.py     (provides lambda values)")
         print("   2. rh_temp_other_analysis.py  (optional)")
         print("   3. particle_decay_analysis.py (requires lambda from step 1)")
-        print("\n" + "="*80 + "\n")
+        print("\n" + "=" * 80 + "\n")
         raise FileNotFoundError(
-            f"CO2 lambda results not found. Please run co2_decay_analysis.py first."
+            "CO2 lambda results not found. Please run co2_decay_analysis.py first."
         )
 
     df = pd.read_csv(co2_results_path)
     df["decay_start"] = pd.to_datetime(df["decay_start"])
     df["injection_start"] = pd.to_datetime(df["injection_start"])
+
+    # Handle column names with units (rename back to internal names for processing)
+    column_rename = {
+        "decay_duration (h)": "decay_duration_hours",
+        "c_bedroom_initial (ppm)": "c_bedroom_initial",
+        "c_bedroom_final (ppm)": "c_bedroom_final",
+        "c_source_mean (ppm)": "c_source_mean",
+        "c_outside_mean (ppm)": "c_outside_mean",
+        "c_entry_mean (ppm)": "c_entry_mean",
+    }
+    for mode in ["average", "outside", "entry"]:
+        column_rename[f"lambda_{mode}_mean (h-1)"] = f"lambda_{mode}_mean"
+        column_rename[f"lambda_{mode}_std (h-1)"] = f"lambda_{mode}_std"
+    df = df.rename(columns=column_rename)
 
     print(f"\nLoaded CO2 lambda results: {len(df)} events")
 
@@ -360,7 +380,9 @@ def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
 
             # Calculate analysis windows
             # Penetration window: 2h to 1h before shower (to avoid fan running effect)
-            penetration_start = shower_on - timedelta(hours=PENETRATION_WINDOW_START_HOURS)
+            penetration_start = shower_on - timedelta(
+                hours=PENETRATION_WINDOW_START_HOURS
+            )
             penetration_end = shower_on - timedelta(hours=PENETRATION_WINDOW_END_HOURS)
             deposition_start = shower_off
             deposition_end = shower_off + timedelta(hours=DEPOSITION_WINDOW_HOURS)
@@ -518,7 +540,13 @@ def _calculate_linearized_fit(
     total_loss_rate = lambda_ach + beta_numerical
 
     if total_loss_rate <= 0:
-        return {"beta_fit": np.nan, "r_squared": np.nan, "_t_values": [], "_y_values": [], "c_steady_state": np.nan}
+        return {
+            "beta_fit": np.nan,
+            "r_squared": np.nan,
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": np.nan,
+        }
 
     c_steady_state = (p * lambda_ach * c_outside_mean) / total_loss_rate
 
@@ -527,13 +555,19 @@ def _calculate_linearized_fit(
     delta_c_0 = c_0 - c_steady_state
 
     if delta_c_0 <= 0:
-        return {"beta_fit": np.nan, "r_squared": np.nan, "_t_values": [], "_y_values": [], "c_steady_state": c_steady_state}
+        return {
+            "beta_fit": np.nan,
+            "r_squared": np.nan,
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": c_steady_state,
+        }
 
     # Calculate time in hours from start
     # Convert numpy datetime64 to hours since start
     t0 = datetimes[0]
     # numpy timedelta64 division gives hours directly
-    t_hours = (datetimes - t0).astype('timedelta64[s]').astype(float) / 3600.0
+    t_hours = (datetimes - t0).astype("timedelta64[s]").astype(float) / 3600.0
 
     # Calculate linearized y values: y = -ln[(C(t) - C_ss) / (C_0 - C_ss)]
     t_values = []
@@ -553,14 +587,20 @@ def _calculate_linearized_fit(
             y_values.append(y)
 
     if len(t_values) < 5:
-        return {"beta_fit": np.nan, "r_squared": np.nan, "_t_values": [], "_y_values": [], "c_steady_state": c_steady_state}
+        return {
+            "beta_fit": np.nan,
+            "r_squared": np.nan,
+            "_t_values": [],
+            "_y_values": [],
+            "c_steady_state": c_steady_state,
+        }
 
     # Linear regression: y = slope * t (forced through origin would be ideal, but we allow intercept)
     t_arr = np.array(t_values)
     y_arr = np.array(y_values)
 
     slope, intercept, r_value, p_value, std_err = stats.linregress(t_arr, y_arr)
-    r_squared = r_value ** 2
+    r_squared = r_value**2
 
     # slope = λ + β, so β_fit = slope - λ
     beta_fit = slope - lambda_ach
@@ -752,7 +792,9 @@ def calculate_deposition_rate(
         "beta_r_squared": fit_result.get("r_squared", np.nan),
         "beta_fit": fit_result.get("beta_fit", np.nan),  # β from linearized regression
         "_fit_slope": fit_result.get("_slope", np.nan),  # Actual slope from regression
-        "_fit_intercept": fit_result.get("_intercept", 0.0),  # Intercept from regression
+        "_fit_intercept": fit_result.get(
+            "_intercept", 0.0
+        ),  # Intercept from regression
         "n_points": len(beta_values),
         "_t_values": fit_result.get("_t_values", []),
         "_y_values": fit_result.get("_y_values", []),
@@ -895,7 +937,9 @@ def analyze_event_all_bins(
         "replicate_num": event.get("replicate_num", 0),
         "shower_on": event["shower_on"],
         "shower_off": event["shower_off"],
-        "shower_duration_min": event.get("shower_duration_min", event.get("duration_min", 0)),
+        "shower_duration_min": event.get(
+            "shower_duration_min", event.get("duration_min", 0)
+        ),
         "lambda_ach": lambda_ach,
         "co2_event_idx": event.get("co2_event_idx", None),
     }
@@ -947,15 +991,25 @@ def analyze_event_all_bins(
 
         results[f"bin{bin_num}_beta_mean"] = beta_result.get("beta_mean", np.nan)
         results[f"bin{bin_num}_beta_std"] = beta_result.get("beta_std", np.nan)
-        results[f"bin{bin_num}_beta_r_squared"] = beta_result.get("beta_r_squared", np.nan)
-        results[f"bin{bin_num}_beta_fit"] = beta_result.get("beta_fit", np.nan)  # From linearized regression
+        results[f"bin{bin_num}_beta_r_squared"] = beta_result.get(
+            "beta_r_squared", np.nan
+        )
+        results[f"bin{bin_num}_beta_fit"] = beta_result.get(
+            "beta_fit", np.nan
+        )  # From linearized regression
 
         # Store fit data for plotting (even if beta is valid, we want the data)
         results[f"bin{bin_num}_fit_t_values"] = beta_result.get("_t_values", [])
         results[f"bin{bin_num}_fit_y_values"] = beta_result.get("_y_values", [])
-        results[f"bin{bin_num}_fit_slope"] = beta_result.get("_fit_slope", np.nan)  # Actual regression slope
-        results[f"bin{bin_num}_fit_intercept"] = beta_result.get("_fit_intercept", 0.0)  # Regression intercept
-        results[f"bin{bin_num}_c_steady_state"] = beta_result.get("c_steady_state", np.nan)
+        results[f"bin{bin_num}_fit_slope"] = beta_result.get(
+            "_fit_slope", np.nan
+        )  # Actual regression slope
+        results[f"bin{bin_num}_fit_intercept"] = beta_result.get(
+            "_fit_intercept", 0.0
+        )  # Regression intercept
+        results[f"bin{bin_num}_c_steady_state"] = beta_result.get(
+            "c_steady_state", np.nan
+        )
         results[f"bin{bin_num}_peak_time"] = beta_result.get("peak_time", None)
 
         # Skip emission calculation if beta is invalid
@@ -1014,13 +1068,17 @@ def run_particle_analysis(
     print("=" * 80)
     print(f"Bedroom volume: {BEDROOM_VOLUME_M3} m^3")
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
-    print(f"Penetration window: {PENETRATION_WINDOW_START_HOURS}h to {PENETRATION_WINDOW_END_HOURS}h before shower")
+    print(
+        f"Penetration window: {PENETRATION_WINDOW_START_HOURS}h to {PENETRATION_WINDOW_END_HOURS}h before shower"
+    )
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
     print("\nValidation thresholds:")
     print(f"  Penetration factor (p): {MIN_PENETRATION} - {MAX_PENETRATION}")
     print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
     print(f"  Min concentration ratio: {MIN_CONCENTRATION_RATIO}")
-    print(f"  Min data points: p={MIN_POINTS_PENETRATION}, beta={MIN_POINTS_DEPOSITION}, E={MIN_POINTS_EMISSION}")
+    print(
+        f"  Min data points: p={MIN_POINTS_PENETRATION}, beta={MIN_POINTS_DEPOSITION}, E={MIN_POINTS_EMISSION}"
+    )
 
     # Set output directory
     if output_dir is None:
@@ -1061,7 +1119,7 @@ def run_particle_analysis(
         shower_log,
         co2_results,
         output_dir,
-        create_synthetic=True
+        create_synthetic=True,
     )
 
     # Match events with CO2 lambda values
@@ -1106,8 +1164,10 @@ def run_particle_analysis(
                 f"No lambda value available"
             )
 
-    print(f"\nTotal: {len(events)} events | Matched: {matched_count} | "
-          f"Excluded: {excluded_count} | Missing lambda: {missing_lambda_count}")
+    print(
+        f"\nTotal: {len(events)} events | Matched: {matched_count} | "
+        f"Excluded: {excluded_count} | Missing lambda: {missing_lambda_count}"
+    )
 
     # Analyze each event
     print("\nAnalyzing shower events...")
@@ -1174,7 +1234,9 @@ def run_particle_analysis(
 
                 # Format filename: event_01-0114_hw_morning_pm_decay.png
                 formatted_name = format_test_name_for_filename(test_name)
-                plot_path = plot_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
+                plot_path = (
+                    plot_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
+                )
                 plot_particle_decay_event(
                     particle_data=particle_data,
                     event=event,
@@ -1197,81 +1259,95 @@ def run_particle_analysis(
     print("Overall Results Summary")
     print("=" * 80)
 
-    for bin_num, bin_info in PARTICLE_BINS.items():
-        bin_name = bin_info["name"]
-        p_col = f"bin{bin_num}_p_mean"
-        beta_col = f"bin{bin_num}_beta_mean"
-        E_col = f"bin{bin_num}_E_mean"
+    if results_df.empty:
+        print(
+            "\nNo events were analyzed (all skipped due to missing lambda or exclusions)."
+        )
+    else:
+        for bin_num, bin_info in PARTICLE_BINS.items():
+            bin_name = bin_info["name"]
+            p_col = f"bin{bin_num}_p_mean"
+            beta_col = f"bin{bin_num}_beta_mean"
+            E_col = f"bin{bin_num}_E_mean"
 
-        valid_p = results_df[p_col].dropna()
-        valid_beta = results_df[beta_col].dropna()
-        valid_E = results_df[E_col].dropna()
+            valid_p = results_df[p_col].dropna()
+            valid_beta = results_df[beta_col].dropna()
+            valid_E = results_df[E_col].dropna()
 
-        print(f"\nBin {bin_num} ({bin_name} µm):")
-        if len(valid_p) > 0:
-            print(f"  p (penetration):     {valid_p.mean():.3f} +/- {valid_p.std():.3f}")
-        if len(valid_beta) > 0:
-            print(
-                f"  beta (deposition):   {valid_beta.mean():.3f} +/- {valid_beta.std():.3f} h^-1"
-            )
-        if len(valid_E) > 0:
-            print(
-                f"  E (emission):        {valid_E.mean():.2e} +/- {valid_E.std():.2e} #/min"
-            )
-        print(f"  Valid events:        {len(valid_E)}/{len(results)}")
+            print(f"\nBin {bin_num} ({bin_name} µm):")
+            if len(valid_p) > 0:
+                print(
+                    f"  p (penetration):     {valid_p.mean():.3f} +/- {valid_p.std():.3f}"
+                )
+            if len(valid_beta) > 0:
+                print(
+                    f"  beta (deposition):   {valid_beta.mean():.3f} +/- {valid_beta.std():.3f} h^-1"
+                )
+            if len(valid_E) > 0:
+                print(
+                    f"  E (emission):        {valid_E.mean():.2e} +/- {valid_E.std():.2e} #/min"
+                )
+            print(f"  Valid events:        {len(valid_E)}/{len(results)}")
 
     # Save results with units in column names
     output_file = output_dir / "particle_analysis_summary.xlsx"
 
-    # Create column rename mapping for units
-    column_rename = {
-        "shower_duration_min": "shower_duration (min)",
-        "lambda_ach": "lambda_ach (h-1)",
-    }
-    for bin_num in PARTICLE_BINS.keys():
-        column_rename[f"bin{bin_num}_p_mean"] = f"bin{bin_num}_p_mean (-)"
-        column_rename[f"bin{bin_num}_p_std"] = f"bin{bin_num}_p_std (-)"
-        column_rename[f"bin{bin_num}_beta_mean"] = f"bin{bin_num}_beta_mean (h-1)"
-        column_rename[f"bin{bin_num}_beta_std"] = f"bin{bin_num}_beta_std (h-1)"
-        column_rename[f"bin{bin_num}_beta_fit"] = f"bin{bin_num}_beta_fit (h-1)"
-        column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
-        column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
-        column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
+    if results_df.empty:
+        print(f"\nNo results to save - skipping {output_file}")
+    else:
+        # Create column rename mapping for units
+        column_rename = {
+            "shower_duration_min": "shower_duration (min)",
+            "lambda_ach": "lambda_ach (h-1)",
+        }
+        for bin_num in PARTICLE_BINS.keys():
+            column_rename[f"bin{bin_num}_p_mean"] = f"bin{bin_num}_p_mean (-)"
+            column_rename[f"bin{bin_num}_p_std"] = f"bin{bin_num}_p_std (-)"
+            column_rename[f"bin{bin_num}_beta_mean"] = f"bin{bin_num}_beta_mean (h-1)"
+            column_rename[f"bin{bin_num}_beta_std"] = f"bin{bin_num}_beta_std (h-1)"
+            column_rename[f"bin{bin_num}_beta_fit"] = f"bin{bin_num}_beta_fit (h-1)"
+            column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
+            column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
+            column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
 
-    results_df_export = results_df.rename(columns=column_rename)
+        results_df_export = results_df.rename(columns=column_rename)
 
-    with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
-        # Main results
-        results_df_export.to_excel(writer, sheet_name="all_results", index=False)
+        with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
+            # Main results
+            results_df_export.to_excel(writer, sheet_name="all_results", index=False)
 
-        # Separate sheets for each metric
-        p_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_p_mean (-)" for i in PARTICLE_BINS.keys()
-        ]
-        beta_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_beta_mean (h-1)" for i in PARTICLE_BINS.keys()
-        ]
-        beta_r2_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
-        ]
-        E_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()
-        ]
+            # Separate sheets for each metric
+            p_cols = ["event_number", "shower_on"] + [
+                f"bin{i}_p_mean (-)" for i in PARTICLE_BINS.keys()
+            ]
+            beta_cols = ["event_number", "shower_on"] + [
+                f"bin{i}_beta_mean (h-1)" for i in PARTICLE_BINS.keys()
+            ]
+            beta_r2_cols = ["event_number", "shower_on"] + [
+                f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
+            ]
+            E_cols = ["event_number", "shower_on"] + [
+                f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()
+            ]
 
-        results_df_export[p_cols].to_excel(writer, sheet_name="p_penetration", index=False)
-        results_df_export[beta_cols].to_excel(
-            writer, sheet_name="beta_deposition", index=False
-        )
-        # Add R² sheet for deposition fits
-        results_df_export[beta_r2_cols].to_excel(
-            writer, sheet_name="beta_r_squared", index=False
-        )
-        results_df_export[E_cols].to_excel(writer, sheet_name="E_emission", index=False)
+            results_df_export[p_cols].to_excel(
+                writer, sheet_name="p_penetration", index=False
+            )
+            results_df_export[beta_cols].to_excel(
+                writer, sheet_name="beta_deposition", index=False
+            )
+            # Add R² sheet for deposition fits
+            results_df_export[beta_r2_cols].to_excel(
+                writer, sheet_name="beta_r_squared", index=False
+            )
+            results_df_export[E_cols].to_excel(
+                writer, sheet_name="E_emission", index=False
+            )
 
-    print(f"\nResults saved to: {output_file}")
+        print(f"\nResults saved to: {output_file}")
 
     # Generate plots if enabled
-    if generate_plots:
+    if generate_plots and not results_df.empty:
         print("\nGenerating plots...")
         plot_dir = output_dir / "plots"
         plot_dir.mkdir(exist_ok=True)
@@ -1312,6 +1388,8 @@ def run_particle_analysis(
                 print(f"  Error generating emission_summary.png: {e}")
 
             print(f"  Plots saved to: {plot_dir}")
+    elif generate_plots and results_df.empty:
+        print("\nSkipping plot generation - no results to plot.")
 
     return results_df
 

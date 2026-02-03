@@ -899,9 +899,15 @@ def process_events_with_management(
 
         matched_pairs[i] = co2_idx
 
-        # Add lambda value if available
-        if co2_idx is not None and "lambda_average_mean" in co2_results_df.columns:
-            lambda_val = co2_results_df.iloc[co2_idx]["lambda_average_mean"]
+        # Add lambda value if available (handle both old and new column names)
+        lambda_col = None
+        if "lambda_average_mean" in co2_results_df.columns:
+            lambda_col = "lambda_average_mean"
+        elif "lambda_average_mean (h-1)" in co2_results_df.columns:
+            lambda_col = "lambda_average_mean (h-1)"
+
+        if co2_idx is not None and lambda_col is not None:
+            lambda_val = co2_results_df.iloc[co2_idx][lambda_col]
             shower_event["lambda_ach"] = lambda_val
             shower_event["co2_event_idx"] = co2_idx
 

@@ -202,7 +202,7 @@ def build_event_mapping(
 def get_lambda_for_shower(
     shower_time: datetime,
     co2_events_df: pd.DataFrame,
-    lambda_column: str = "lambda_average_mean",
+    lambda_column: Optional[str] = None,
     time_tolerance_before: float = 10.0,
     time_tolerance_after: float = 10.0,
 ) -> Tuple[Optional[float], Optional[int]]:
@@ -212,7 +212,7 @@ def get_lambda_for_shower(
     Parameters:
         shower_time: Datetime when shower started
         co2_events_df: DataFrame with CO2 analysis results
-        lambda_column: Column name for λ value
+        lambda_column: Column name for λ value (auto-detected if None)
         time_tolerance_before: Minutes before expected CO2 time to search (default 10)
         time_tolerance_after: Minutes after expected CO2 time to search (default 10)
 
@@ -228,6 +228,15 @@ def get_lambda_for_shower(
 
     if co2_idx is None:
         return None, None
+
+    # Auto-detect lambda column name (handle both old and new naming)
+    if lambda_column is None:
+        if "lambda_average_mean" in co2_events_df.columns:
+            lambda_column = "lambda_average_mean"
+        elif "lambda_average_mean (h-1)" in co2_events_df.columns:
+            lambda_column = "lambda_average_mean (h-1)"
+        else:
+            return None, co2_idx
 
     lambda_value = co2_events_df.iloc[co2_idx][lambda_column]
     return lambda_value, co2_idx
@@ -268,7 +277,9 @@ def print_event_matching_summary(
             co2_row = co2_events_df.iloc[co2_idx]
             co2_time = pd.to_datetime(co2_row["injection_start"])
             co2_time_str = co2_time.strftime("%Y-%m-%d %H:%M")
-            lambda_val = co2_row.get("lambda_average_mean", float("nan"))
+            # Handle both old and new column names
+            lambda_val = co2_row.get("lambda_average_mean",
+                                     co2_row.get("lambda_average_mean (h-1)", float("nan")))
             co2_num = co2_idx + 1
             print(
                 f"{shower_num:<10} {shower_time_str:<20} {co2_num:<10} {co2_time_str:<20} {lambda_val:.4f}"
