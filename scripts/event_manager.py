@@ -665,6 +665,7 @@ def create_event_log(
     co2_events_df: pd.DataFrame,
     matched_pairs: Dict[int, Optional[int]],
     output_path: Path,
+    process_co2: bool = True,
 ) -> pd.DataFrame:
     """
     Create a comprehensive event log CSV with all events and their status.
@@ -681,6 +682,7 @@ def create_event_log(
         co2_events_df: DataFrame with CO2 event data
         matched_pairs: Dict mapping shower index to CO2 DataFrame index
         output_path: Path to save event_log.csv
+        process_co2: Whether CO2 processing is enabled (controls summary output)
 
     Returns:
         DataFrame with event log
@@ -747,18 +749,21 @@ def create_event_log(
     # Print summary
     n_total = len(df)
     n_excluded = df["is_excluded"].sum()
-    n_missing_co2 = (~df["has_matching_co2"]).sum()
-    n_synthetic_co2 = df["co2_is_synthetic"].sum()
-    n_synthetic_shower = (
-        df["shower_is_synthetic"].sum() if "shower_is_synthetic" in df.columns else 0
-    )
 
     print(f"\nEvent Log Summary:")
     print(f"  Total shower events: {n_total}")
     print(f"  Excluded events: {n_excluded}")
-    print(f"  Missing CO2 events: {n_missing_co2}")
-    print(f"  Synthetic CO2 events: {n_synthetic_co2}")
-    print(f"  Synthetic shower events: {n_synthetic_shower}")
+
+    # Only print CO2-related summary when CO2 processing is enabled
+    if process_co2:
+        n_missing_co2 = (~df["has_matching_co2"]).sum()
+        n_synthetic_co2 = df["co2_is_synthetic"].sum()
+        n_synthetic_shower = (
+            df["shower_is_synthetic"].sum() if "shower_is_synthetic" in df.columns else 0
+        )
+        print(f"  Missing CO2 events: {n_missing_co2}")
+        print(f"  Synthetic CO2 events: {n_synthetic_co2}")
+        print(f"  Synthetic shower events: {n_synthetic_shower}")
 
     return df
 
@@ -934,7 +939,7 @@ def process_events_with_management(
     print("\nCreating event log...")
     log_path = output_dir / "event_log.csv"
     event_log_df = create_event_log(
-        shower_events, co2_results_df, matched_pairs, log_path
+        shower_events, co2_results_df, matched_pairs, log_path, process_co2
     )
 
     print("\n" + "=" * 70)
