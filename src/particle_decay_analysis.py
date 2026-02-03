@@ -120,6 +120,7 @@ PARTICLE_BINS = {
 
 # Physical parameters
 BEDROOM_VOLUME_M3 = 36.0  # Bedroom volume in cubic meters
+CM3_PER_M3 = 1e6  # Conversion factor: cubic centimeters per cubic meter
 
 # Analysis timing parameters
 PENETRATION_WINDOW_START_HOURS = 2.0  # Hours before shower to START penetration window
@@ -851,7 +852,7 @@ def calculate_emission_rate(
     c_inside = np.asarray(shower_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(shower_data[col_outside].values, dtype=np.float64)
 
-    V = BEDROOM_VOLUME_M3  # m³
+    V = BEDROOM_VOLUME_M3 * CM3_PER_M3  # Convert m³ to cm³ for concentration units (#/cm³)
     dt_minutes = TIME_STEP_MINUTES  # minutes
 
     # Calculate E for each time step
