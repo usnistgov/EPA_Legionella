@@ -18,11 +18,15 @@ This is awesome. Great Job on the figures.
 A few question/comments:
 
 1)	When I look at the particle summary p_pentration sheet on the IAQ drive it appears there are a lot of penetration values above one.  By definition it should be between 0 and 1, right?  Any reason for them to be so high? I would set the value to one if the ratio exceeds 1.
-	This was one of the items that I wanted your feedback on. The main reason why valids are classes as invalid for the decay calcultaions is that the p_pentration were to high (some from 10s to ~130). 
-2)	The penetration time window should be from 2 h prior to the shower to 1 h prior to the shower.  I have the bathroom exhaust fan on during the last hour and that would impact the value.  
-3)	We need units in all the summary pages.  It doesn’t need to be in each header.  
+	- This was one of the items that I wanted your feedback on. One of the two reasons why data is classes as not valids are the calculated p_pentration values (the allowed valid range is set to: 0.3-1.5) anything outside of the range are dropped. While ther are a couple that are droped for being under the 0.3 most are greater from 1 to ~130 (way high). I think we need to think more about how were are calculateding P, as I would not think just appling 1 for all values over 1 be a good approch.   
+2)	The penetration time window should be from 2 h prior to the shower to 1 h prior to the shower.  I have the bathroom exhaust fan on during the last hour and that would impact the value.
+	- This change was made.
+3)	We need units in all the summary pages.  It doesn’t need to be in each header.
+	- Not sure what you mean by "It doesn’t need to be in each header." Units were added to the column headings 
 4)	The timing on the shower in experiment 10 seems off.  Double check. Maybe it is okay.
-5)	Do you have unit conversions to correct for transferring concentrations in #/cm3 to room volume (you list that in m3)?   The emission number seems like there might be an error in sizes.  
+	- I did not notice it being off, but I may be looking at something different then you so we can wrap back to this problem. 
+5)	Do you have unit conversions to correct for transferring concentrations in #/cm3 to room volume (you list that in m3)?   The emission number seems like there might be an error in sizes.
+	- You are correct, I did miss that unit converstion. 
 
 Great job.  That last thing I would request is a Emission rate verification graph (during the shower time are you able to fit the concentration rise given the initial concentrations in each bin)?  
 
