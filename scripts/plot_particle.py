@@ -24,9 +24,9 @@ Plot Features:
     - Configuration-based subplot grouping
 
 Methodology:
-    1. Extract data window around shower event (2 hr before to 1 hr after)
+    1. Extract data window around shower event (2 hr before to 1 hr after deposition end)
     2. Plot particle concentrations for all 7 size bins
-    3. Shade penetration window (1 hr pre-shower) and deposition window (2 hr post)
+    3. Shade penetration window (2h-1h pre-shower) and deposition window (2 hr post)
     4. Calculate linearized regression: y = -ln[(C(t) - C_ss)/(C_0 - C_ss)] vs t
     5. Display β (deposition rate), p (penetration), and E (emission) values
 
@@ -150,9 +150,9 @@ def plot_particle_decay_event(
     add_shaded_window(
         ax1,
         event["penetration_start"],
-        event["shower_on"],
+        event["penetration_end"],
         color=COLORS["pre_shower"],
-        label="Penetration window (1 hr)",
+        label="Penetration window (2h-1h pre-shower)",
         alpha=WINDOW_ALPHA,
     )
     add_shaded_window(
