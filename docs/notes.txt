@@ -1,0 +1,34 @@
+Nathan,
+
+I just change the system to a “warm” flow setup and noted it in the log (along with removing a sample from 1/29/26).
+
+I have uploaded the Aranet data to the I drive.  
+
+Per the “Emission rate verification graph (during the shower time are you able to fit the concentration rise given the initial concentrations in each bin)” make this a model of the emission and decay data starting with the initial concentration.  You could overlay it on the existing graphs (or maybe not, it might get busy).  Let me know if you need help on this.  I can give you the analytical solution or you could do it numerically.  
+
+Thanks, keep up the good work. 
+
+dustin
+
+
+Nathan,
+
+This is awesome. Great Job on the figures. 
+
+A few question/comments:
+
+1)	When I look at the particle summary p_pentration sheet on the IAQ drive it appears there are a lot of penetration values above one.  By definition it should be between 0 and 1, right?  Any reason for them to be so high? I would set the value to one if the ratio exceeds 1.  
+2)	The penetration time window should be from 2 h prior to the shower to 1 h prior to the shower.  I have the bathroom exhaust fan on during the last hour and that would impact the value.  
+3)	We need units in all the summary pages.  It doesn’t need to be in each header.  
+4)	The timing on the shower in experiment 10 seems off.  Double check. Maybe it is okay.
+5)	Do you have unit conversions to correct for transferring concentrations in #/cm3 to room volume (you list that in m3)?   The emission number seems like there might be an error in sizes.  
+
+Great job.  That last thing I would request is a Emission rate verification graph (during the shower time are you able to fit the concentration rise given the initial concentrations in each bin)?  
+
+I finally got to campus today and will download more ARANET data this evening. 
+
+dustin
+
+1/29/2026	11:00 AM	People in house, throw out  3 pm data
+2/2/2026	5:00 PM	switched to warm water (25C)
+
