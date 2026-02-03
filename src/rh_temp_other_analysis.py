@@ -64,9 +64,8 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.event_manager import (  # noqa: E402
-    process_events_with_management,
-    filter_events_by_date,
     is_event_excluded,
+    process_events_with_management,
 )
 from scripts.plot_utils import (  # noqa: E402
     plot_environmental_time_series,
@@ -149,7 +148,9 @@ def preload_all_sensor_data(events: List[Dict]) -> Dict[str, pd.DataFrame]:
     global_start = min(all_starts) - timedelta(hours=2)
     global_end = max(all_ends) + timedelta(hours=2)
 
-    print(f"\nPre-loading sensor data for {global_start.date()} to {global_end.date()}...")
+    print(
+        f"\nPre-loading sensor data for {global_start.date()} to {global_end.date()}..."
+    )
 
     for sensor_name, cfg in SENSOR_CONFIG.items():
         data = load_sensor_data(sensor_name, cfg, global_start, global_end)
@@ -161,9 +162,7 @@ def preload_all_sensor_data(events: List[Dict]) -> Dict[str, pd.DataFrame]:
 
 
 def get_cached_sensor_data(
-    sensor_name: str,
-    start_date: datetime,
-    end_date: datetime
+    sensor_name: str, start_date: datetime, end_date: datetime
 ) -> Optional[pd.DataFrame]:
     """
     Get sensor data from cache, filtered to the requested date range.
@@ -362,11 +361,13 @@ def create_event_details_dataframe(
         for sensor_name in sensors:
             if sensor_name in results:
                 stats = results[sensor_name]
-                duration_min = event.get("duration_min",
-                                        (event["shower_off"] - event["shower_on"]).total_seconds() / 60)
+                duration_min = event.get(
+                    "duration_min",
+                    (event["shower_off"] - event["shower_on"]).total_seconds() / 60,
+                )
                 row = {
                     "Event": event.get("event_number", i + 1),
-                    "Test_Name": event.get("test_name", f"Event_{i+1}"),
+                    "Test_Name": event.get("test_name", f"Event_{i + 1}"),
                     "Config_Key": event.get("config_key", ""),
                     "Date": event["shower_on"].strftime("%Y-%m-%d"),
                     "Shower_ON": event["shower_on"].strftime("%H:%M"),
@@ -401,14 +402,16 @@ def create_event_details_dataframe(
                     sensor_df = config_df[config_df["Sensor"] == sensor_name]
                     if len(sensor_df) > 0:
                         summary_row = {
-                            "Event": f"SUMMARY",
+                            "Event": "SUMMARY",
                             "Test_Name": f"Config: {config_key}",
                             "Config_Key": config_key,
                             "Date": "",
                             "Shower_ON": "",
                             "Shower_OFF": "",
                             "Duration_min": "",
-                            "Water_Temp": config_key.split("_")[0] if "_" in config_key else "",
+                            "Water_Temp": config_key.split("_")[0]
+                            if "_" in config_key
+                            else "",
                             "Door_Position": "",
                             "Time_of_Day": "",
                             "Sensor": sensor_name,
@@ -419,7 +422,8 @@ def create_event_details_dataframe(
                             "Post_Std": sensor_df["Post_Mean"].std(),
                             "Post_Min": sensor_df["Post_Min"].min(),
                             "Post_Max": sensor_df["Post_Max"].max(),
-                            "Post_Range": sensor_df["Post_Max"].max() - sensor_df["Post_Min"].min(),
+                            "Post_Range": sensor_df["Post_Max"].max()
+                            - sensor_df["Post_Min"].min(),
                             "Post_N": len(sensor_df),
                         }
                         summary_rows.append(summary_row)
@@ -452,8 +456,24 @@ def save_results_to_excel(
     }
 
     # Columns that need units (excluding Sensor and N_Events)
-    stat_cols = ["Pre_Mean", "Pre_Std", "Pre_Max", "Post_Mean", "Post_Std", "Post_Max", "Post_Range"]
-    detail_stat_cols = ["Pre_Mean", "Pre_Std", "Post_Mean", "Post_Std", "Post_Min", "Post_Max", "Post_Range"]
+    stat_cols = [
+        "Pre_Mean",
+        "Pre_Std",
+        "Pre_Max",
+        "Post_Mean",
+        "Post_Std",
+        "Post_Max",
+        "Post_Range",
+    ]
+    detail_stat_cols = [
+        "Pre_Mean",
+        "Pre_Std",
+        "Post_Mean",
+        "Post_Std",
+        "Post_Min",
+        "Post_Max",
+        "Post_Range",
+    ]
 
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
         # Summary sheets
@@ -467,7 +487,11 @@ def save_results_to_excel(
             if not summary_df.empty:
                 # Rename columns with units
                 unit = unit_map.get(var_type, "")
-                rename_map = {col: f"{col} ({unit})" for col in stat_cols if col in summary_df.columns}
+                rename_map = {
+                    col: f"{col} ({unit})"
+                    for col in stat_cols
+                    if col in summary_df.columns
+                }
                 summary_df = summary_df.rename(columns=rename_map)
                 summary_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
@@ -482,7 +506,11 @@ def save_results_to_excel(
             if not details_df.empty:
                 # Rename columns with units
                 unit = unit_map.get(var_type, "")
-                rename_map = {col: f"{col} ({unit})" for col in detail_stat_cols if col in details_df.columns}
+                rename_map = {
+                    col: f"{col} ({unit})"
+                    for col in detail_stat_cols
+                    if col in details_df.columns
+                }
                 # Also rename Duration_min
                 rename_map["Duration_min"] = "Duration (min)"
                 details_df = details_df.rename(columns=rename_map)
@@ -493,12 +521,14 @@ def save_results_to_excel(
             [
                 {
                     "Event": e.get("event_number", i + 1),
-                    "Test_Name": e.get("test_name", f"Event_{i+1}"),
+                    "Test_Name": e.get("test_name", f"Event_{i + 1}"),
                     "Config_Key": e.get("config_key", ""),
                     "Shower_ON": e["shower_on"],
                     "Shower_OFF": e["shower_off"],
-                    "Duration (min)": e.get("duration_min",
-                                         (e["shower_off"] - e["shower_on"]).total_seconds() / 60),
+                    "Duration (min)": e.get(
+                        "duration_min",
+                        (e["shower_off"] - e["shower_on"]).total_seconds() / 60,
+                    ),
                     "Water_Temp": e.get("water_temp", ""),
                     "Door_Position": e.get("door_position", ""),
                     "Planned_Fan": e.get("planned_fan", ""),
@@ -559,7 +589,9 @@ def generate_time_series_plots(
 
     for idx in event_indices:
         event = events[idx]
-        event_num = event.get("event_number", idx + 1)  # Use event_number from event dict
+        event_num = event.get(
+            "event_number", idx + 1
+        )  # Use event_number from event dict
         test_name = event.get("test_name", f"Event_{event_num:02d}")
         print(f"  {test_name}: {event['shower_on'].strftime('%Y-%m-%d %H:%M')}")
 
@@ -584,9 +616,11 @@ def generate_time_series_plots(
             if data_dict:
                 # Format filename: event_01-0114_hw_morning_rh_timeseries.png
                 from scripts.plot_style import format_test_name_for_filename
+
                 formatted_name = format_test_name_for_filename(test_name)
                 output_path = (
-                    plot_dir / f"event_{event_num:02d}-{formatted_name}_{var_type}_timeseries.png"
+                    plot_dir
+                    / f"event_{event_num:02d}-{formatted_name}_{var_type}_timeseries.png"
                 )
                 plot_environmental_time_series(
                     data_dict=data_dict,
@@ -599,7 +633,9 @@ def generate_time_series_plots(
                 )
 
 
-def generate_comparison_plots(all_results: List[Dict], events: List[Dict], output_dir: Path):
+def generate_comparison_plots(
+    all_results: List[Dict], events: List[Dict], output_dir: Path
+):
     """
     Generate box plots comparing pre vs post shower conditions.
 
@@ -619,7 +655,9 @@ def generate_comparison_plots(all_results: List[Dict], events: List[Dict], outpu
     has_config = len(events) > 0 and "config_key" in events[0]
     config_keys = []
     if has_config:
-        config_keys = list(set(e.get("config_key", "") for e in events if e.get("config_key")))
+        config_keys = list(
+            set(e.get("config_key", "") for e in events if e.get("config_key"))
+        )
         config_keys = [k for k in config_keys if k]  # Remove empty strings
 
     for var_type in ["rh", "temperature", "wind_speed", "wind_direction"]:
@@ -655,11 +693,15 @@ def generate_comparison_plots(all_results: List[Dict], events: List[Dict], outpu
                     if not np.isnan(stats["pre"]["mean"]):
                         pre_data[sensor_name].append(stats["pre"]["mean"])
                         if event_config and event_config in config_grouped_data:
-                            config_grouped_data[event_config]["pre"][sensor_name].append(stats["pre"]["mean"])
+                            config_grouped_data[event_config]["pre"][
+                                sensor_name
+                            ].append(stats["pre"]["mean"])
                     if not np.isnan(stats["post"]["mean"]):
                         post_data[sensor_name].append(stats["post"]["mean"])
                         if event_config and event_config in config_grouped_data:
-                            config_grouped_data[event_config]["post"][sensor_name].append(stats["post"]["mean"])
+                            config_grouped_data[event_config]["post"][
+                                sensor_name
+                            ].append(stats["post"]["mean"])
 
         pre_data = {k: v for k, v in pre_data.items() if v}
         post_data = {k: v for k, v in post_data.items() if v}
@@ -671,7 +713,9 @@ def generate_comparison_plots(all_results: List[Dict], events: List[Dict], outpu
                     k: v for k, v in config_grouped_data[config_key]["pre"].items() if v
                 }
                 config_grouped_data[config_key]["post"] = {
-                    k: v for k, v in config_grouped_data[config_key]["post"].items() if v
+                    k: v
+                    for k, v in config_grouped_data[config_key]["post"].items()
+                    if v
                 }
 
         if pre_data and post_data:
@@ -681,7 +725,9 @@ def generate_comparison_plots(all_results: List[Dict], events: List[Dict], outpu
                 post_data=post_data,
                 variable_type=var_type,
                 output_path=output_path,
-                config_grouped_data=config_grouped_data if len(config_keys) > 1 else None,
+                config_grouped_data=config_grouped_data
+                if len(config_keys) > 1
+                else None,
             )
             print(f"  Saved: {output_path.name}")
 
@@ -778,7 +824,9 @@ def run_rh_temp_analysis(
     # Load shower log and identify raw events
     print("\nLoading shower event log...")
     shower_log = load_shower_log()
-    raw_events = identify_shower_events(shower_log, PRE_SHOWER_MINUTES, POST_SHOWER_HOURS)
+    raw_events = identify_shower_events(
+        shower_log, PRE_SHOWER_MINUTES, POST_SHOWER_HOURS
+    )
     print(f"Found {len(raw_events)} raw shower events")
 
     # Process events using the enhanced event management system
@@ -792,6 +840,7 @@ def run_rh_temp_analysis(
 
     # Create empty CO2 results DataFrame (not needed for RH/temp analysis)
     import pandas as pd
+
     co2_results = pd.DataFrame()
 
     events, co2_events_processed, event_log = process_events_with_management(
@@ -800,7 +849,7 @@ def run_rh_temp_analysis(
         shower_log,
         co2_results,
         output_dir,
-        create_synthetic=False  # No synthetic events needed for RH/temp
+        create_synthetic=False,  # No synthetic events needed for RH/temp
     )
 
     print(f"Processed {len(events)} events for analysis")
@@ -824,13 +873,13 @@ def run_rh_temp_analysis(
         # Check if excluded
         is_excluded_flag, exclusion_reason = is_event_excluded(shower_time)
         if is_excluded_flag:
-            print(
-                f"\n  {test_name}: Skipped (excluded: {exclusion_reason})"
-            )
+            print(f"\n  {test_name}: Skipped (excluded: {exclusion_reason})")
             continue
 
-        duration_min = event.get("duration_min",
-                                 (event["shower_off"] - event["shower_on"]).total_seconds() / 60)
+        duration_min = event.get(
+            "duration_min",
+            (event["shower_off"] - event["shower_on"]).total_seconds() / 60,
+        )
 
         print(
             f"\n  {test_name} ({shower_time.strftime('%Y-%m-%d %H:%M')}): "
