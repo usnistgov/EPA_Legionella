@@ -927,9 +927,22 @@ def run_co2_decay_analysis(
             print(f"  Mean R²: {valid_r2.mean():.4f}")
             print(f"  N events: {len(valid_values)}")
 
-    # Save results
+    # Save results with units in column names
     output_file = output_dir / "co2_lambda_summary.csv"
-    results_df.to_csv(output_file, index=False)
+    # Create column rename mapping for units
+    column_rename = {
+        "decay_duration_hours": "decay_duration (h)",
+        "c_bedroom_initial": "c_bedroom_initial (ppm)",
+        "c_bedroom_final": "c_bedroom_final (ppm)",
+        "c_source_mean": "c_source_mean (ppm)",
+        "c_outside_mean": "c_outside_mean (ppm)",
+        "c_entry_mean": "c_entry_mean (ppm)",
+    }
+    for mode in ["average", "outside", "entry"]:
+        column_rename[f"lambda_{mode}_mean"] = f"lambda_{mode}_mean (h-1)"
+        column_rename[f"lambda_{mode}_std"] = f"lambda_{mode}_std (h-1)"
+    results_df_export = results_df.rename(columns=column_rename)
+    results_df_export.to_csv(output_file, index=False)
     print(f"\nResults saved to: {output_file}")
 
     # Save detailed summary - one row per configuration
@@ -967,8 +980,8 @@ def run_co2_decay_analysis(
             "method": "analytical_linear_regression",
             "alpha": alpha,
             "beta": beta,
-            "decay_duration_hours": DECAY_DURATION_HOURS,
-            "rolling_window_min": ROLLING_WINDOW_MIN,
+            "decay_duration (h)": DECAY_DURATION_HOURS,
+            "rolling_window (min)": ROLLING_WINDOW_MIN,
             "n_events": len(config_df),
             "n_valid_events": int(config_df["lambda_average_mean"].notna().sum()),
         }
@@ -979,12 +992,12 @@ def run_co2_decay_analysis(
             valid_values = config_df[col].dropna()
             if len(valid_values) > 0:
                 valid_r2 = config_df.loc[valid_values.index, r2_col]
-                summary[f"lambda_{mode}_overall_mean"] = float(valid_values.mean())
-                summary[f"lambda_{mode}_overall_std"] = float(valid_values.std())
+                summary[f"lambda_{mode}_overall_mean (h-1)"] = float(valid_values.mean())
+                summary[f"lambda_{mode}_overall_std (h-1)"] = float(valid_values.std())
                 summary[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
             else:
-                summary[f"lambda_{mode}_overall_mean"] = np.nan
-                summary[f"lambda_{mode}_overall_std"] = np.nan
+                summary[f"lambda_{mode}_overall_mean (h-1)"] = np.nan
+                summary[f"lambda_{mode}_overall_std (h-1)"] = np.nan
                 summary[f"lambda_{mode}_mean_r_squared"] = np.nan
 
         summary_rows.append(summary)
@@ -999,8 +1012,8 @@ def run_co2_decay_analysis(
             "method": "analytical_linear_regression",
             "alpha": alpha,
             "beta": beta,
-            "decay_duration_hours": DECAY_DURATION_HOURS,
-            "rolling_window_min": ROLLING_WINDOW_MIN,
+            "decay_duration (h)": DECAY_DURATION_HOURS,
+            "rolling_window (min)": ROLLING_WINDOW_MIN,
             "n_events": len(results_df),
             "n_valid_events": int(results_df["lambda_average_mean"].notna().sum()),
         }
@@ -1010,12 +1023,12 @@ def run_co2_decay_analysis(
             valid_values = results_df[col].dropna()
             if len(valid_values) > 0:
                 valid_r2 = results_df.loc[valid_values.index, r2_col]
-                summary_all[f"lambda_{mode}_overall_mean"] = float(valid_values.mean())
-                summary_all[f"lambda_{mode}_overall_std"] = float(valid_values.std())
+                summary_all[f"lambda_{mode}_overall_mean (h-1)"] = float(valid_values.mean())
+                summary_all[f"lambda_{mode}_overall_std (h-1)"] = float(valid_values.std())
                 summary_all[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
             else:
-                summary_all[f"lambda_{mode}_overall_mean"] = np.nan
-                summary_all[f"lambda_{mode}_overall_std"] = np.nan
+                summary_all[f"lambda_{mode}_overall_mean (h-1)"] = np.nan
+                summary_all[f"lambda_{mode}_overall_std (h-1)"] = np.nan
                 summary_all[f"lambda_{mode}_mean_r_squared"] = np.nan
         summary_rows.append(summary_all)
 

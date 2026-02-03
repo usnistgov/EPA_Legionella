@@ -447,6 +447,18 @@ def save_results_to_excel(
         events: List of shower event dicts
         output_path: Path for output Excel file
     """
+    # Units for each variable type
+    unit_map = {
+        "rh": "%",
+        "temperature": "degC",
+        "wind_speed": "m/s",
+        "wind_direction": "deg",
+    }
+
+    # Columns that need units (excluding Sensor and N_Events)
+    stat_cols = ["Pre_Mean", "Pre_Std", "Pre_Max", "Post_Mean", "Post_Std", "Post_Max", "Post_Range"]
+    detail_stat_cols = ["Pre_Mean", "Pre_Std", "Post_Mean", "Post_Std", "Post_Min", "Post_Max", "Post_Range"]
+
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
         # Summary sheets
         for var_type, sheet_name in [
@@ -457,6 +469,10 @@ def save_results_to_excel(
         ]:
             summary_df = create_summary_dataframe(all_results, var_type)
             if not summary_df.empty:
+                # Rename columns with units
+                unit = unit_map.get(var_type, "")
+                rename_map = {col: f"{col} ({unit})" for col in stat_cols if col in summary_df.columns}
+                summary_df = summary_df.rename(columns=rename_map)
                 summary_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
         # Detail sheets
@@ -468,6 +484,12 @@ def save_results_to_excel(
         ]:
             details_df = create_event_details_dataframe(all_results, events, var_type)
             if not details_df.empty:
+                # Rename columns with units
+                unit = unit_map.get(var_type, "")
+                rename_map = {col: f"{col} ({unit})" for col in detail_stat_cols if col in details_df.columns}
+                # Also rename Duration_min
+                rename_map["Duration_min"] = "Duration (min)"
+                details_df = details_df.rename(columns=rename_map)
                 details_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
         # Event log with full configuration details
@@ -479,7 +501,7 @@ def save_results_to_excel(
                     "Config_Key": e.get("config_key", ""),
                     "Shower_ON": e["shower_on"],
                     "Shower_OFF": e["shower_off"],
-                    "Duration_min": e.get("duration_min",
+                    "Duration (min)": e.get("duration_min",
                                          (e["shower_off"] - e["shower_on"]).total_seconds() / 60),
                     "Water_Temp": e.get("water_temp", ""),
                     "Door_Position": e.get("door_position", ""),

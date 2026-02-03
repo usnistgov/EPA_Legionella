@@ -29,9 +29,3 @@ Great job.  That last thing I would request is a Emission rate verification grap
 I finally got to campus today and will download more ARANET data this evening. 
 
 dustin
-
-
-
-
-1) For the particale analysis, Change the penetration window to be from 2 h prior to the shower to 1 h prior to the shower. This change is done to remove the impact of the fan running before the shower.
-2) For all summary tables (co2_lambda_overall_summary.csv, co2_lambda_summary.csv, particle_analysis_summary.xlsx, and rh_temp_wind_summary.xlsx) units need to be added to the headers names.

@@ -37,7 +37,7 @@ Methodology:
         ∂C/∂t = pλC_out - λC - β_deposition C + E/V
 
     1. Calculate penetration factor (p):
-       - Use 1-hour window before shower starts
+       - Use window from 2h to 1h before shower starts (avoids fan running effect)
        - p = C_inside / C_outside (averaged over window)
        - Expected range: 0.7-0.9
 
@@ -126,7 +126,8 @@ PARTICLE_BINS = {
 BEDROOM_VOLUME_M3 = 36.0  # Bedroom volume in cubic meters
 
 # Analysis timing parameters
-PENETRATION_WINDOW_HOURS = 1.0  # Hours before shower for p calculation
+PENETRATION_WINDOW_START_HOURS = 2.0  # Hours before shower to START penetration window
+PENETRATION_WINDOW_END_HOURS = 1.0  # Hours before shower to END penetration window
 DEPOSITION_WINDOW_HOURS = 2.0  # Hours after shower for β calculation
 TIME_STEP_MINUTES = 1.0  # Time resolution for numerical calculations
 
@@ -358,7 +359,9 @@ def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
                 shower_off = shower_on + timedelta(minutes=10)
 
             # Calculate analysis windows
-            penetration_start = shower_on - timedelta(hours=PENETRATION_WINDOW_HOURS)
+            # Penetration window: 2h to 1h before shower (to avoid fan running effect)
+            penetration_start = shower_on - timedelta(hours=PENETRATION_WINDOW_START_HOURS)
+            penetration_end = shower_on - timedelta(hours=PENETRATION_WINDOW_END_HOURS)
             deposition_start = shower_off
             deposition_end = shower_off + timedelta(hours=DEPOSITION_WINDOW_HOURS)
 
@@ -370,7 +373,7 @@ def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
                     "shower_duration_min": (shower_off - shower_on).total_seconds()
                     / 60,
                     "penetration_start": penetration_start,
-                    "penetration_end": shower_on,
+                    "penetration_end": penetration_end,
                     "deposition_start": deposition_start,
                     "deposition_end": deposition_end,
                 }
@@ -1011,7 +1014,7 @@ def run_particle_analysis(
     print("=" * 80)
     print(f"Bedroom volume: {BEDROOM_VOLUME_M3} m^3")
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
-    print(f"Penetration window: {PENETRATION_WINDOW_HOURS} hour(s) before shower")
+    print(f"Penetration window: {PENETRATION_WINDOW_START_HOURS}h to {PENETRATION_WINDOW_END_HOURS}h before shower")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
     print("\nValidation thresholds:")
     print(f"  Penetration factor (p): {MIN_PENETRATION} - {MAX_PENETRATION}")
@@ -1217,36 +1220,53 @@ def run_particle_analysis(
             )
         print(f"  Valid events:        {len(valid_E)}/{len(results)}")
 
-    # Save results
+    # Save results with units in column names
     output_file = output_dir / "particle_analysis_summary.xlsx"
+
+    # Create column rename mapping for units
+    column_rename = {
+        "shower_duration_min": "shower_duration (min)",
+        "lambda_ach": "lambda_ach (h-1)",
+    }
+    for bin_num in PARTICLE_BINS.keys():
+        column_rename[f"bin{bin_num}_p_mean"] = f"bin{bin_num}_p_mean (-)"
+        column_rename[f"bin{bin_num}_p_std"] = f"bin{bin_num}_p_std (-)"
+        column_rename[f"bin{bin_num}_beta_mean"] = f"bin{bin_num}_beta_mean (h-1)"
+        column_rename[f"bin{bin_num}_beta_std"] = f"bin{bin_num}_beta_std (h-1)"
+        column_rename[f"bin{bin_num}_beta_fit"] = f"bin{bin_num}_beta_fit (h-1)"
+        column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
+        column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
+        column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
+
+    results_df_export = results_df.rename(columns=column_rename)
 
     with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
         # Main results
-        results_df.to_excel(writer, sheet_name="all_results", index=False)
+        results_df_export.to_excel(writer, sheet_name="all_results", index=False)
 
         # Separate sheets for each metric
         p_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_p_mean" for i in PARTICLE_BINS.keys()
+            f"bin{i}_p_mean (-)" for i in PARTICLE_BINS.keys()
         ]
         beta_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_beta_mean" for i in PARTICLE_BINS.keys()
+            f"bin{i}_beta_mean (h-1)" for i in PARTICLE_BINS.keys()
         ]
         beta_r2_cols = ["event_number", "shower_on"] + [
             f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
         ]
         E_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_E_mean" for i in PARTICLE_BINS.keys()
+            f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()
         ]
 
-        results_df[p_cols].to_excel(writer, sheet_name="p_penetration", index=False)
-        results_df[beta_cols].to_excel(
+        results_df_export[p_cols].to_excel(writer, sheet_name="p_penetration", index=False)
+        results_df_export[beta_cols].to_excel(
             writer, sheet_name="beta_deposition", index=False
         )
         # Add R² sheet for deposition fits
-        results_df[beta_r2_cols].to_excel(
+        results_df_export[beta_r2_cols].to_excel(
             writer, sheet_name="beta_r_squared", index=False
         )
-        results_df[E_cols].to_excel(writer, sheet_name="E_emission", index=False)
+        results_df_export[E_cols].to_excel(writer, sheet_name="E_emission", index=False)
 
     print(f"\nResults saved to: {output_file}")
 
