@@ -802,118 +802,133 @@ def process_events_with_management(
     # Ensure registry imports are loaded (lazy import to avoid circular dependency)
     _ensure_registry_imports()
 
+    # Check if CO2 processing is needed (non-empty co2_events list provided)
+    process_co2 = len(co2_events) > 0 or not co2_results_df.empty
+
     # Step 1: Filter by date
     print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
     shower_events = filter_events_by_date(shower_events)
-    co2_events = filter_events_by_date(co2_events)
+    if process_co2:
+        co2_events = filter_events_by_date(co2_events)
     print(f"  Shower events after filtering: {len(shower_events)}")
-    print(f"  CO2 events after filtering: {len(co2_events)}")
+    if process_co2:
+        print(f"  CO2 events after filtering: {len(co2_events)}")
 
     # Step 2: Assign test names
     print("\nAssigning test condition names...")
     shower_events = assign_test_names(shower_events, shower_log)
 
-    # Step 3: Detect missing events (bidirectional)
-    print("\nDetecting missing events...")
-    showers_missing_co2, co2_missing_shower = detect_missing_events(
-        shower_events, co2_events
-    )
+    # Step 3: Detect missing events (bidirectional) - only if CO2 processing is enabled
+    showers_missing_co2 = []
+    co2_missing_shower = []
 
-    if showers_missing_co2:
-        print(f"  Found {len(showers_missing_co2)} shower events without CO2 data")
-
-        if create_synthetic:
-            print("  Creating synthetic CO2 events...")
-            next_co2_num = len(co2_events) + 1
-
-            for shower_idx in showers_missing_co2:
-                shower_event = shower_events[shower_idx]
-                # Use new registry function if available (with duration inference)
-                if _HAS_REGISTRY:
-                    synthetic_co2 = create_synthetic_co2_event_v2(
-                        shower_event["shower_on"], next_co2_num, co2_events, prompt_user
-                    )
-                else:
-                    synthetic_co2 = create_synthetic_co2_event(
-                        shower_event["shower_on"], next_co2_num
-                    )
-                co2_events.append(synthetic_co2)
-                next_co2_num += 1
-
-    if co2_missing_shower:
-        print(f"  Found {len(co2_missing_shower)} CO2 events without shower data")
-
-        if create_synthetic and _HAS_REGISTRY:
-            print("  Creating synthetic shower events...")
-            next_shower_num = len(shower_events) + 1
-
-            for co2_idx in co2_missing_shower:
-                co2_event = co2_events[co2_idx]
-                synthetic_shower = create_synthetic_shower_event(
-                    co2_event["injection_start"],
-                    next_shower_num,
-                    shower_events,
-                    prompt_user,
-                )
-                # Assign test name to synthetic shower
-                shower_time = synthetic_shower["shower_on"]
-                water_temp = get_water_temperature_code(shower_time)
-                time_of_day = get_time_of_day(shower_time)
-                date_str = shower_time.strftime("%m%d")
-                synthetic_shower["test_name"] = (
-                    f"{date_str}_{water_temp}_{time_of_day}_R??"
-                )
-                synthetic_shower["water_temp"] = water_temp
-                synthetic_shower["time_of_day"] = time_of_day
-                synthetic_shower["fan_during_test"] = False
-
-                shower_events.append(synthetic_shower)
-                next_shower_num += 1
-        elif co2_missing_shower and not _HAS_REGISTRY:
-            print("  (Synthetic shower events require event_registry module)")
-
-    # Step 4: Match events
-    print("\nMatching shower events to CO2 events...")
-    matched_pairs = {}
-
-    # Convert co2_events to DataFrame for matching if needed
-    if not isinstance(co2_results_df, pd.DataFrame) or co2_results_df.empty:
-        co2_results_df = pd.DataFrame(co2_events)
-
-    for i, shower_event in enumerate(shower_events):
-        shower_time = shower_event["shower_on"]
-
-        # Skip excluded events
-        is_excluded, _ = is_event_excluded(shower_time)
-        if is_excluded:
-            matched_pairs[i] = None
-            continue
-
-        # Find matching CO2 event
-        co2_idx = match_shower_to_co2_event(
-            shower_time,
-            co2_results_df,
-            time_tolerance_before=10.0,
-            time_tolerance_after=10.0,
+    if process_co2:
+        print("\nDetecting missing events...")
+        showers_missing_co2, co2_missing_shower = detect_missing_events(
+            shower_events, co2_events
         )
 
-        matched_pairs[i] = co2_idx
+        if showers_missing_co2:
+            print(f"  Found {len(showers_missing_co2)} shower events without CO2 data")
 
-        # Add lambda value if available (handle both old and new column names)
-        lambda_col = None
-        if "lambda_average_mean" in co2_results_df.columns:
-            lambda_col = "lambda_average_mean"
-        elif "lambda_average_mean (h-1)" in co2_results_df.columns:
-            lambda_col = "lambda_average_mean (h-1)"
+            if create_synthetic:
+                print("  Creating synthetic CO2 events...")
+                next_co2_num = len(co2_events) + 1
 
-        if co2_idx is not None and lambda_col is not None:
-            lambda_val = co2_results_df.iloc[co2_idx][lambda_col]
-            shower_event["lambda_ach"] = lambda_val
-            shower_event["co2_event_idx"] = co2_idx
+                for shower_idx in showers_missing_co2:
+                    shower_event = shower_events[shower_idx]
+                    # Use new registry function if available (with duration inference)
+                    if _HAS_REGISTRY:
+                        synthetic_co2 = create_synthetic_co2_event_v2(
+                            shower_event["shower_on"], next_co2_num, co2_events, prompt_user
+                        )
+                    else:
+                        synthetic_co2 = create_synthetic_co2_event(
+                            shower_event["shower_on"], next_co2_num
+                        )
+                    co2_events.append(synthetic_co2)
+                    next_co2_num += 1
 
-    print(
-        f"  Matched: {sum(1 for v in matched_pairs.values() if v is not None)}/{len(shower_events)}"
-    )
+        if co2_missing_shower:
+            print(f"  Found {len(co2_missing_shower)} CO2 events without shower data")
+
+            if create_synthetic and _HAS_REGISTRY:
+                print("  Creating synthetic shower events...")
+                next_shower_num = len(shower_events) + 1
+
+                for co2_idx in co2_missing_shower:
+                    co2_event = co2_events[co2_idx]
+                    synthetic_shower = create_synthetic_shower_event(
+                        co2_event["injection_start"],
+                        next_shower_num,
+                        shower_events,
+                        prompt_user,
+                    )
+                    # Assign test name to synthetic shower
+                    shower_time = synthetic_shower["shower_on"]
+                    water_temp = get_water_temperature_code(shower_time)
+                    time_of_day = get_time_of_day(shower_time)
+                    date_str = shower_time.strftime("%m%d")
+                    synthetic_shower["test_name"] = (
+                        f"{date_str}_{water_temp}_{time_of_day}_R??"
+                    )
+                    synthetic_shower["water_temp"] = water_temp
+                    synthetic_shower["time_of_day"] = time_of_day
+                    synthetic_shower["fan_during_test"] = False
+
+                    shower_events.append(synthetic_shower)
+                    next_shower_num += 1
+            elif co2_missing_shower and not _HAS_REGISTRY:
+                print("  (Synthetic shower events require event_registry module)")
+
+    # Step 4: Match events (only if CO2 processing is enabled)
+    matched_pairs = {}
+
+    if process_co2:
+        print("\nMatching shower events to CO2 events...")
+
+        # Convert co2_events to DataFrame for matching if needed
+        if not isinstance(co2_results_df, pd.DataFrame) or co2_results_df.empty:
+            co2_results_df = pd.DataFrame(co2_events)
+
+        for i, shower_event in enumerate(shower_events):
+            shower_time = shower_event["shower_on"]
+
+            # Skip excluded events
+            is_excluded, _ = is_event_excluded(shower_time)
+            if is_excluded:
+                matched_pairs[i] = None
+                continue
+
+            # Find matching CO2 event
+            co2_idx = match_shower_to_co2_event(
+                shower_time,
+                co2_results_df,
+                time_tolerance_before=10.0,
+                time_tolerance_after=10.0,
+            )
+
+            matched_pairs[i] = co2_idx
+
+            # Add lambda value if available (handle both old and new column names)
+            lambda_col = None
+            if "lambda_average_mean" in co2_results_df.columns:
+                lambda_col = "lambda_average_mean"
+            elif "lambda_average_mean (h-1)" in co2_results_df.columns:
+                lambda_col = "lambda_average_mean (h-1)"
+
+            if co2_idx is not None and lambda_col is not None:
+                lambda_val = co2_results_df.iloc[co2_idx][lambda_col]
+                shower_event["lambda_ach"] = lambda_val
+                shower_event["co2_event_idx"] = co2_idx
+
+        print(
+            f"  Matched: {sum(1 for v in matched_pairs.values() if v is not None)}/{len(shower_events)}"
+        )
+    else:
+        # No CO2 processing - set all matched pairs to None
+        for i in range(len(shower_events)):
+            matched_pairs[i] = None
 
     # Step 5: Create event log
     print("\nCreating event log...")
