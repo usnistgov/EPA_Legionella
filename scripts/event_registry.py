@@ -60,6 +60,9 @@ DEFAULT_SHOWER_DURATION = 10.0  # minutes
 # Time tolerance for matching (minutes)
 MATCH_TOLERANCE_MINUTES = 10.0
 
+# Registry output file
+REGISTRY_FILENAME = "event_registry.csv"
+
 
 # =============================================================================
 # Duration Inference Functions
@@ -445,15 +448,16 @@ def build_unified_event_registry(
     all_shower_events = shower_events + synthetic_shower_events
     all_co2_events = co2_events + synthetic_co2_events
 
-    # Step 5: Sort by time and re-number
+    # Step 5: Sort by time and assign UNIFIED event numbers
+    # Event numbers are based on SHOWER events only (primary source of truth)
     all_shower_events.sort(key=lambda e: e["shower_on"])
     all_co2_events.sort(key=lambda e: e["injection_start"])
 
     for i, event in enumerate(all_shower_events):
         event["event_number"] = i + 1
 
-    for i, event in enumerate(all_co2_events):
-        event["event_number"] = i + 1
+    # NOTE: CO2 events get their event_number from matched showers in Step 7 below
+    # This ensures unified numbering across all analysis scripts
 
     # Step 6: Assign test names based on shower events
     print("\nAssigning test names...")
@@ -498,7 +502,8 @@ def build_unified_event_registry(
         event["fan_during_test"] = fan_status
         event["replicate_num"] = replicate_num
 
-    # Step 7: Re-match and propagate test names to CO2 events
+    # Step 7: Re-match and propagate UNIFIED event numbers and test names to CO2 events
+    # This ensures CO2 events use the SAME event_number as their matched shower
     shower_to_co2, co2_to_shower = match_events_bidirectional(
         all_shower_events, all_co2_events
     )
@@ -507,13 +512,17 @@ def build_unified_event_registry(
         if shower_idx is not None:
             co2_event = all_co2_events[co2_idx]
             shower_event = all_shower_events[shower_idx]
+            # CRITICAL: Use shower's event_number for unified numbering
+            co2_event["event_number"] = shower_event["event_number"]
             co2_event["test_name"] = shower_event["test_name"]
             co2_event["water_temp"] = shower_event.get("water_temp")
             co2_event["time_of_day"] = shower_event.get("time_of_day")
             co2_event["matched_shower_idx"] = shower_idx
         else:
-            # CO2 without matched shower - generate name from expected shower time
+            # CO2 without matched shower - this shouldn't happen if create_synthetic=True
+            # Assign None for event_number (will be excluded from analysis)
             co2_event = all_co2_events[co2_idx]
+            co2_event["event_number"] = None  # No matching shower
             expected_shower = co2_event["injection_start"] + timedelta(
                 minutes=EXPECTED_CO2_BEFORE_SHOWER
             )
@@ -591,14 +600,338 @@ def build_unified_event_registry(
 
 
 # =============================================================================
-# Module Entry Point
+# Registry File I/O Functions
 # =============================================================================
 
+
+def save_event_registry(
+    shower_events: List[Dict],
+    co2_events: List[Dict],
+    co2_results_df: pd.DataFrame,
+    output_path: Path,
+) -> pd.DataFrame:
+    """
+    Save the unified event registry to a CSV file.
+
+    The registry contains one row per shower event (the primary source of truth
+    for event numbering), with matched CO2 data and lambda values.
+
+    Parameters:
+        shower_events: List of unified shower event dictionaries
+        co2_events: List of CO2 event dictionaries (matched to showers)
+        co2_results_df: DataFrame with CO2 analysis results (lambda values)
+        output_path: Path to save event_registry.csv
+
+    Returns:
+        DataFrame: The registry as a DataFrame
+    """
+    # Build shower-to-CO2 mapping
+    shower_to_co2, _ = match_events_bidirectional(shower_events, co2_events)
+
+    registry_rows = []
+
+    for i, shower in enumerate(shower_events):
+        event_num = shower["event_number"]
+        shower_time = shower["shower_on"]
+
+        # Check exclusion status
+        is_excluded, exclusion_reason = is_event_excluded(shower_time)
+
+        # Find matched CO2 event
+        co2_idx = shower_to_co2.get(i)
+        co2_event = co2_events[co2_idx] if co2_idx is not None else None
+
+        # Get lambda values from CO2 results if available
+        lambda_mean = np.nan
+        lambda_std = np.nan
+        lambda_r_squared = np.nan
+
+        if co2_event is not None and not co2_results_df.empty:
+            # Match by injection_start time
+            co2_time = co2_event.get("injection_start")
+            if co2_time is not None:
+                # Find matching row in co2_results_df
+                time_diffs = abs(
+                    (co2_results_df["injection_start"] - co2_time).dt.total_seconds()
+                )
+                if len(time_diffs) > 0 and time_diffs.min() < 60:  # Within 1 minute
+                    match_idx = time_diffs.idxmin()
+                    result_row = co2_results_df.loc[match_idx]
+                    # Handle column name variations
+                    if "lambda_average_mean" in result_row:
+                        lambda_mean = result_row["lambda_average_mean"]
+                    elif "lambda_average_mean (h-1)" in result_row:
+                        lambda_mean = result_row["lambda_average_mean (h-1)"]
+                    if "lambda_average_std" in result_row:
+                        lambda_std = result_row["lambda_average_std"]
+                    elif "lambda_average_std (h-1)" in result_row:
+                        lambda_std = result_row["lambda_average_std (h-1)"]
+                    if "lambda_average_r_squared" in result_row:
+                        lambda_r_squared = result_row["lambda_average_r_squared"]
+
+        row = {
+            "event_number": event_num,
+            "test_name": shower.get("test_name", ""),
+            "shower_on": shower["shower_on"],
+            "shower_off": shower["shower_off"],
+            "shower_duration_min": shower.get(
+                "shower_duration_min", shower.get("duration_min", 0)
+            ),
+            "is_shower_synthetic": shower.get("is_synthetic", False),
+            "co2_injection_start": co2_event["injection_start"]
+            if co2_event
+            else pd.NaT,
+            "co2_injection_end": co2_event.get("injection_end")
+            if co2_event
+            else pd.NaT,
+            "is_co2_missing": co2_event is None,
+            "is_co2_synthetic": co2_event.get("is_synthetic", False)
+            if co2_event
+            else False,
+            "lambda_average_mean": lambda_mean,
+            "lambda_average_std": lambda_std,
+            "lambda_r_squared": lambda_r_squared,
+            "water_temp": shower.get("water_temp", ""),
+            "door_position": shower.get("door_position", "Open"),
+            "time_of_day": shower.get("time_of_day", ""),
+            "fan_during_test": shower.get("fan_during_test", False),
+            "replicate_num": shower.get("replicate_num", 0),
+            "is_excluded": is_excluded,
+            "exclusion_reason": exclusion_reason or "",
+            "penetration_start": shower.get("penetration_start"),
+            "penetration_end": shower.get("penetration_end"),
+            "deposition_start": shower.get("deposition_start"),
+            "deposition_end": shower.get("deposition_end"),
+            "decay_start": co2_event.get("decay_start") if co2_event else pd.NaT,
+            "decay_end": co2_event.get("decay_end") if co2_event else pd.NaT,
+        }
+        registry_rows.append(row)
+
+    registry_df = pd.DataFrame(registry_rows)
+
+    # Save to CSV
+    registry_df.to_csv(output_path, index=False)
+    print(f"\nEvent registry saved to: {output_path}")
+    print(f"  Total events: {len(registry_df)}")
+    print(f"  With CO2 data: {(~registry_df['is_co2_missing']).sum()}")
+    print(f"  With lambda values: {registry_df['lambda_average_mean'].notna().sum()}")
+    print(f"  Excluded: {registry_df['is_excluded'].sum()}")
+
+    return registry_df
+
+
+def load_event_registry(registry_path: Optional[Path] = None) -> pd.DataFrame:
+    """
+    Load the unified event registry from CSV.
+
+    This function is used by analysis scripts to get consistent event numbering.
+
+    Parameters:
+        registry_path: Path to registry file (defaults to output/event_registry.csv)
+
+    Returns:
+        DataFrame: The event registry with parsed datetime columns
+
+    Raises:
+        FileNotFoundError: If registry doesn't exist (suggests running this script)
+    """
+    if registry_path is None:
+        from src.data_paths import get_data_root
+
+        registry_path = get_data_root() / "output" / REGISTRY_FILENAME
+
+    if not registry_path.exists():
+        raise FileNotFoundError(
+            f"Event registry not found: {registry_path}\n"
+            "Run 'python scripts/event_registry.py' to generate it."
+        )
+
+    # Define datetime columns to parse
+    datetime_cols = [
+        "shower_on",
+        "shower_off",
+        "co2_injection_start",
+        "co2_injection_end",
+        "penetration_start",
+        "penetration_end",
+        "deposition_start",
+        "deposition_end",
+        "decay_start",
+        "decay_end",
+    ]
+
+    df = pd.read_csv(registry_path)
+
+    # Parse datetime columns
+    for col in datetime_cols:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+
+    return df
+
+
+def run_co2_analysis_if_needed(output_dir: Path, force: bool = False) -> pd.DataFrame:
+    """
+    Run CO2 analysis if results don't exist, return lambda results.
+
+    Parameters:
+        output_dir: Output directory
+        force: If True, re-run even if results exist
+
+    Returns:
+        DataFrame: CO2 analysis results with lambda values
+    """
+    co2_results_path = output_dir / "co2_lambda_summary.csv"
+
+    if not co2_results_path.exists() or force:
+        print("\n" + "=" * 70)
+        print("Running CO2 decay analysis to get lambda values...")
+        print("=" * 70)
+
+        # Import and run CO2 analysis
+        from src.co2_decay_analysis import run_co2_decay_analysis
+
+        run_co2_decay_analysis(output_dir=output_dir, generate_plots=False)
+
+    # Load and return results
+    if co2_results_path.exists():
+        df = pd.read_csv(co2_results_path)
+        df["injection_start"] = pd.to_datetime(df["injection_start"])
+        print(f"\nLoaded CO2 results: {len(df)} events with lambda values")
+        return df
+    else:
+        print("\nWarning: CO2 analysis did not produce results")
+        return pd.DataFrame()
+
+
+# =============================================================================
+# Main Entry Point (CLI)
+# =============================================================================
+
+
+def main():
+    """
+    Build and save the unified event registry.
+
+    This is the recommended entry point for generating the event registry
+    that all analysis scripts should use for consistent event numbering.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Build unified event registry for EPA Legionella project.\n"
+        "This creates event_registry.csv with consistent event numbering "
+        "that all analysis scripts should use.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory (default: data_root/output)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate registry even if it exists",
+    )
+    parser.add_argument(
+        "--no-co2",
+        action="store_true",
+        help="Skip CO2 analysis (registry will have no lambda values)",
+    )
+    parser.add_argument(
+        "--no-synthetic",
+        action="store_true",
+        help="Don't create synthetic events for missing data",
+    )
+
+    args = parser.parse_args()
+
+    # Set output directory
+    from src.data_paths import get_data_root
+
+    output_dir = Path(args.output_dir) if args.output_dir else get_data_root() / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    registry_path = output_dir / REGISTRY_FILENAME
+
+    # Check if registry exists
+    if registry_path.exists() and not args.force:
+        print(f"Registry already exists: {registry_path}")
+        print("Use --force to regenerate.")
+
+        # Show summary of existing registry
+        existing = load_event_registry(registry_path)
+        print(f"\nExisting registry summary:")
+        print(f"  Total events: {len(existing)}")
+        print(f"  Date range: {existing['shower_on'].min()} to {existing['shower_on'].max()}")
+        return
+
+    print("=" * 70)
+    print("Building Unified Event Registry")
+    print("=" * 70)
+    print(f"\nOutput directory: {output_dir}")
+
+    # STEP 1: Load shower log and identify events
+    print("\nLoading shower events...")
+    from src.env_data_loader import identify_shower_events, load_shower_log
+
+    shower_log = load_shower_log()
+    shower_events = identify_shower_events(shower_log)
+    print(f"  Found {len(shower_events)} raw shower events")
+
+    # STEP 2: Load CO2 injection events
+    print("\nLoading CO2 injection events...")
+    from src.co2_decay_analysis import identify_injection_events, load_co2_injection_log
+
+    co2_log = load_co2_injection_log()
+    co2_events = identify_injection_events(co2_log)
+    print(f"  Found {len(co2_events)} raw CO2 injection events")
+
+    # STEP 3: Build unified registry (without lambda values first)
+    unified_showers, unified_co2, event_log = build_unified_event_registry(
+        shower_events,
+        co2_events,
+        shower_log,
+        create_synthetic=not args.no_synthetic,
+        prompt_user=False,  # Non-interactive mode for CLI
+    )
+
+    # STEP 4: Save registry FIRST (so CO2 analysis can use it for event numbering)
+    # This initial save has no lambda values yet
+    print("\nSaving initial registry (without lambda values)...")
+    registry_df = save_event_registry(
+        unified_showers, unified_co2, pd.DataFrame(), registry_path
+    )
+
+    # STEP 5: Now run CO2 analysis (which will use the registry for event numbering)
+    co2_results_df = pd.DataFrame()
+    if not args.no_co2:
+        print("\n" + "=" * 70)
+        print("Running CO2 analysis with unified event numbering...")
+        print("=" * 70)
+        co2_results_df = run_co2_analysis_if_needed(output_dir, force=True)
+
+        # STEP 6: Update registry with lambda values from CO2 analysis
+        if not co2_results_df.empty:
+            print("\nUpdating registry with lambda values...")
+            registry_df = save_event_registry(
+                unified_showers, unified_co2, co2_results_df, registry_path
+            )
+
+    # Save the event log for reference
+    event_log_path = output_dir / "event_log.csv"
+    event_log.to_csv(event_log_path, index=False)
+    print(f"Event log saved to: {event_log_path}")
+
+    print("\n" + "=" * 70)
+    print("Event Registry Complete")
+    print("=" * 70)
+    print(f"\nTo use in analysis scripts:")
+    print(f"  from scripts.event_registry import load_event_registry")
+    print(f"  registry = load_event_registry()")
+
+
 if __name__ == "__main__":
-    print("Unified Event Registry Module")
-    print("=" * 40)
-    print("\nThis module should be imported and used by analysis scripts.")
-    print("\nKey function:")
-    print("  build_unified_event_registry(shower_events, co2_events, shower_log)")
-    print("\nReturns:")
-    print("  (unified_shower_events, unified_co2_events, event_log)")
+    main()

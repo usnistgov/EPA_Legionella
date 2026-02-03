@@ -97,6 +97,10 @@ from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
 )
+from scripts.event_registry import (  # noqa: E402
+    load_event_registry,
+    REGISTRY_FILENAME,
+)
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
@@ -399,6 +403,82 @@ def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
             )
 
     return events
+
+
+def get_events_from_registry(output_dir: Path) -> tuple:
+    """
+    Try to load shower events from the unified event registry.
+
+    If registry exists, use it for consistent event numbering across all scripts.
+    The registry also provides lambda values from CO2 analysis.
+
+    Parameters:
+        output_dir: Output directory where registry is stored
+
+    Returns:
+        Tuple of (events_list, co2_results_df, used_registry: bool)
+    """
+    registry_path = output_dir / REGISTRY_FILENAME
+
+    if not registry_path.exists():
+        return [], pd.DataFrame(), False
+
+    try:
+        print(f"\nLoading events from registry: {registry_path}")
+        registry_df = load_event_registry(registry_path)
+
+        events = []
+        for _, row in registry_df.iterrows():
+            # Include all events (excluded ones will be skipped in analysis)
+            events.append(
+                {
+                    "event_number": int(row["event_number"]),
+                    "test_name": row["test_name"],
+                    "config_key": f"{row.get('water_temp', '')}_{row.get('door_position', 'Open')}_FanOff",
+                    "water_temp": row.get("water_temp", ""),
+                    "door_position": row.get("door_position", "Open"),
+                    "time_of_day": row.get("time_of_day", ""),
+                    "fan_during_test": row.get("fan_during_test", False),
+                    "replicate_num": row.get("replicate_num", 0),
+                    "shower_on": pd.to_datetime(row["shower_on"]),
+                    "shower_off": pd.to_datetime(row["shower_off"]),
+                    "shower_duration_min": row.get("shower_duration_min", 0),
+                    "lambda_ach": row.get("lambda_average_mean", np.nan),
+                    "co2_event_idx": None,  # Not needed when using registry
+                    "penetration_start": pd.to_datetime(row.get("penetration_start"))
+                    if pd.notna(row.get("penetration_start"))
+                    else None,
+                    "penetration_end": pd.to_datetime(row.get("penetration_end"))
+                    if pd.notna(row.get("penetration_end"))
+                    else None,
+                    "deposition_start": pd.to_datetime(row.get("deposition_start"))
+                    if pd.notna(row.get("deposition_start"))
+                    else None,
+                    "deposition_end": pd.to_datetime(row.get("deposition_end"))
+                    if pd.notna(row.get("deposition_end"))
+                    else None,
+                    "is_excluded": row.get("is_excluded", False),
+                    "exclusion_reason": row.get("exclusion_reason", ""),
+                }
+            )
+
+        # Create CO2 results DataFrame from registry for compatibility
+        co2_results_df = registry_df[
+            ["event_number", "co2_injection_start", "lambda_average_mean"]
+        ].copy()
+        co2_results_df = co2_results_df.rename(
+            columns={"co2_injection_start": "injection_start"}
+        )
+
+        print(f"  Loaded {len(events)} events from registry")
+        n_with_lambda = sum(1 for e in events if not np.isnan(e.get("lambda_ach", np.nan)))
+        print(f"  Events with lambda values: {n_with_lambda}")
+
+        return events, co2_results_df, True
+
+    except Exception as e:
+        print(f"  Warning: Could not load registry: {e}")
+        return [], pd.DataFrame(), False
 
 
 # =============================================================================
@@ -1086,31 +1166,35 @@ def run_particle_analysis(
     # Load particle data
     particle_data = load_and_merge_quantaq_data()
 
-    # Load shower log and identify events
-    print("\nLoading shower log...")
-    shower_log = load_shower_log()
-    raw_events = identify_shower_events(shower_log)
-    print(f"Found {len(raw_events)} raw shower events")
+    # Try to load events from unified registry first (for consistent numbering)
+    events, co2_results, used_registry = get_events_from_registry(output_dir)
 
-    # Load CO2 lambda results
-    co2_results = load_co2_lambda_results()
+    if used_registry:
+        print("  Using unified event registry for consistent event numbering")
+    else:
+        # Fall back to existing event management system
+        print("\nNote: Registry not found. Using process_events_with_management().")
+        print("  Run 'python scripts/event_registry.py' for unified numbering.\n")
 
-    # Process events using the enhanced event management system
-    # This handles:
-    # - Date filtering (>= 2026-01-14)
-    # - Missing event detection and synthetic event creation
-    # - Test condition naming (e.g., 0114_HW_Morning_R01)
-    # - Event exclusions (e.g., 2026-01-22 15:00 tour)
-    # - Comprehensive logging to event_log.csv
-    print("\nProcessing events with event management system...")
-    events, co2_events_processed, event_log = process_events_with_management(
-        raw_events,
-        [],  # CO2 events (will be loaded from co2_results)
-        shower_log,
-        co2_results,
-        output_dir,
-        create_synthetic=False,  # Disable synthetic events to avoid duplicates
-    )
+        # Load shower log and identify events
+        print("Loading shower log...")
+        shower_log = load_shower_log()
+        raw_events = identify_shower_events(shower_log)
+        print(f"Found {len(raw_events)} raw shower events")
+
+        # Load CO2 lambda results
+        co2_results = load_co2_lambda_results()
+
+        # Process events using the enhanced event management system
+        print("\nProcessing events with event management system...")
+        events, co2_events_processed, event_log = process_events_with_management(
+            raw_events,
+            [],  # CO2 events (will be loaded from co2_results)
+            shower_log,
+            co2_results,
+            output_dir,
+            create_synthetic=False,
+        )
 
     # Match events with CO2 lambda values
     # (Already done in process_events_with_management, but we print summary here)

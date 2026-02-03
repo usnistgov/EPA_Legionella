@@ -67,6 +67,10 @@ from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
 )
+from scripts.event_registry import (  # noqa: E402
+    load_event_registry,
+    REGISTRY_FILENAME,
+)
 from scripts.plot_utils import (  # noqa: E402
     plot_environmental_time_series,
     plot_pre_post_comparison,
@@ -790,6 +794,68 @@ def generate_summary_bar_charts(all_results: List[Dict], output_dir: Path):
 
 
 # =============================================================================
+# Registry Integration
+# =============================================================================
+
+
+def get_events_from_registry(output_dir: Path) -> tuple:
+    """
+    Try to load shower events from the unified event registry.
+
+    If registry exists, use it for consistent event numbering across all scripts.
+
+    Parameters:
+        output_dir: Output directory where registry is stored
+
+    Returns:
+        Tuple of (events_list, used_registry: bool)
+    """
+    registry_path = output_dir / REGISTRY_FILENAME
+
+    if not registry_path.exists():
+        return [], False
+
+    try:
+        print(f"\nLoading events from registry: {registry_path}")
+        registry_df = load_event_registry(registry_path)
+
+        events = []
+        for _, row in registry_df.iterrows():
+            # Calculate analysis windows if not in registry
+            shower_on = pd.to_datetime(row["shower_on"])
+            shower_off = pd.to_datetime(row["shower_off"])
+            pre_start = shower_on - timedelta(minutes=PRE_SHOWER_MINUTES)
+            post_end = shower_off + timedelta(hours=POST_SHOWER_HOURS)
+
+            events.append(
+                {
+                    "event_number": int(row["event_number"]),
+                    "test_name": row["test_name"],
+                    "config_key": f"{row.get('water_temp', '')}_{row.get('door_position', 'Open')}_FanOff",
+                    "water_temp": row.get("water_temp", ""),
+                    "door_position": row.get("door_position", "Open"),
+                    "time_of_day": row.get("time_of_day", ""),
+                    "fan_during_test": row.get("fan_during_test", False),
+                    "replicate_num": row.get("replicate_num", 0),
+                    "shower_on": shower_on,
+                    "shower_off": shower_off,
+                    "duration_min": row.get("shower_duration_min", 0),
+                    "pre_start": pre_start,
+                    "post_end": post_end,
+                    "is_excluded": row.get("is_excluded", False),
+                    "exclusion_reason": row.get("exclusion_reason", ""),
+                }
+            )
+
+        print(f"  Loaded {len(events)} events from registry")
+        return events, True
+
+    except Exception as e:
+        print(f"  Warning: Could not load registry: {e}")
+        return [], False
+
+
+# =============================================================================
 # Main Analysis Pipeline
 # =============================================================================
 
@@ -821,36 +887,38 @@ def run_rh_temp_analysis(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load shower log and identify raw events
-    print("\nLoading shower event log...")
-    shower_log = load_shower_log()
-    raw_events = identify_shower_events(
-        shower_log, PRE_SHOWER_MINUTES, POST_SHOWER_HOURS
-    )
-    print(f"Found {len(raw_events)} raw shower events")
+    # Try to load events from unified registry first (for consistent numbering)
+    events, used_registry = get_events_from_registry(output_dir)
 
-    # Process events using the enhanced event management system
-    # This handles:
-    # - Date filtering (>= 2026-01-14)
-    # - Missing event detection
-    # - Test condition naming (e.g., 0114_HW_Morning_R01)
-    # - Event exclusions (e.g., 2026-01-22 15:00 tour)
-    # - Comprehensive logging to event_log.csv
-    print("\nProcessing events with event management system...")
+    if used_registry:
+        print("  Using unified event registry for consistent event numbering")
+    else:
+        # Fall back to existing event management system
+        print("\nNote: Registry not found. Using process_events_with_management().")
+        print("  Run 'python scripts/event_registry.py' for unified numbering.\n")
 
-    # Create empty CO2 results DataFrame (not needed for RH/temp analysis)
-    import pandas as pd
+        # Load shower log and identify raw events
+        print("Loading shower event log...")
+        shower_log = load_shower_log()
+        raw_events = identify_shower_events(
+            shower_log, PRE_SHOWER_MINUTES, POST_SHOWER_HOURS
+        )
+        print(f"Found {len(raw_events)} raw shower events")
 
-    co2_results = pd.DataFrame()
+        # Process events using the enhanced event management system
+        print("\nProcessing events with event management system...")
 
-    events, co2_events_processed, event_log = process_events_with_management(
-        raw_events,
-        [],  # CO2 events (not needed for this analysis)
-        shower_log,
-        co2_results,
-        output_dir,
-        create_synthetic=False,  # No synthetic events needed for RH/temp
-    )
+        # Create empty CO2 results DataFrame (not needed for RH/temp analysis)
+        co2_results = pd.DataFrame()
+
+        events, co2_events_processed, event_log = process_events_with_management(
+            raw_events,
+            [],  # CO2 events (not needed for this analysis)
+            shower_log,
+            co2_results,
+            output_dir,
+            create_synthetic=False,
+        )
 
     print(f"Processed {len(events)} events for analysis")
 

@@ -80,6 +80,10 @@ from scripts.event_manager import (  # noqa: E402
     get_test_configuration,
 )
 from scripts.event_matching import match_co2_to_shower_event  # noqa: E402
+from scripts.event_registry import (  # noqa: E402
+    load_event_registry,
+    REGISTRY_FILENAME,
+)
 from scripts.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
     plot_lambda_summary,
@@ -448,6 +452,70 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
     return events
 
 
+def get_events_from_registry(output_dir: Path) -> tuple:
+    """
+    Try to load CO2 events from the unified event registry.
+
+    If registry exists, use it for consistent event numbering across all scripts.
+    Otherwise, fall back to direct event identification.
+
+    Parameters:
+        output_dir: Output directory where registry is stored
+
+    Returns:
+        Tuple of (events_list, used_registry: bool)
+    """
+    registry_path = output_dir / REGISTRY_FILENAME
+
+    if not registry_path.exists():
+        return [], False
+
+    try:
+        print(f"\nLoading events from registry: {registry_path}")
+        registry_df = load_event_registry(registry_path)
+
+        events = []
+        for _, row in registry_df.iterrows():
+            # Skip events without CO2 data
+            if pd.isna(row.get("co2_injection_start")):
+                continue
+
+            # Get decay duration (default 2 hours)
+            decay_start = row.get("decay_start")
+            decay_end = row.get("decay_end")
+            if pd.notna(decay_start) and pd.notna(decay_end):
+                decay_duration = (decay_end - decay_start).total_seconds() / 3600
+            else:
+                decay_duration = DECAY_DURATION_HOURS
+
+            events.append(
+                {
+                    "event_number": int(row["event_number"]),
+                    "test_name": row["test_name"],
+                    "water_temp": row.get("water_temp", ""),
+                    "time_of_day": row.get("time_of_day", ""),
+                    "injection_start": pd.to_datetime(row["co2_injection_start"]),
+                    "injection_end": pd.to_datetime(row.get("co2_injection_end")),
+                    "decay_start": pd.to_datetime(decay_start)
+                    if pd.notna(decay_start)
+                    else None,
+                    "decay_end": pd.to_datetime(decay_end)
+                    if pd.notna(decay_end)
+                    else None,
+                    "decay_duration_hours": decay_duration,
+                    "is_excluded": row.get("is_excluded", False),
+                    "exclusion_reason": row.get("exclusion_reason", ""),
+                }
+            )
+
+        print(f"  Loaded {len(events)} CO2 events from registry")
+        return events, True
+
+    except Exception as e:
+        print(f"  Warning: Could not load registry: {e}")
+        return [], False
+
+
 # =============================================================================
 # Air-Change Rate Calculation (Analytical Linear Regression Method)
 # =============================================================================
@@ -745,65 +813,71 @@ def run_co2_decay_analysis(
     # Load CO2 concentration data
     co2_data = load_and_merge_co2_data()
 
-    # Load CO2 injection log and identify events
-    print("\nLoading CO2 injection log...")
-    co2_log = load_co2_injection_log()
-    raw_events = identify_injection_events(co2_log)
-    print(f"Found {len(raw_events)} raw injection events")
+    # Try to load events from unified registry first (for consistent numbering)
+    events, used_registry = get_events_from_registry(output_dir)
 
-    # Filter events by experiment start date
-    # Note: filter_events_by_date uses expected shower time (injection + 20 min)
-    # for CO2 events, so injections before midnight are kept if shower is after
-    print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
-    events = filter_events_by_date(raw_events)
-    print(f"  {len(events)} events after date filtering")
+    if used_registry:
+        print("  Using unified event registry for consistent event numbering")
+    else:
+        # Fall back to direct event identification
+        print("\nNote: Registry not found. Using direct event identification.")
+        print("  Run 'python scripts/event_registry.py' for unified numbering.\n")
 
-    # Load shower events and assign test names for consistent naming
-    print("\nLoading shower events for test name assignment...")
-    shower_log = load_shower_log()
-    shower_events = identify_shower_events(shower_log)
-    shower_events = filter_events_by_date(shower_events)
-    shower_events = assign_test_names(shower_events, shower_log)
-    print(f"  Found {len(shower_events)} shower events")
+        # Load CO2 injection log and identify events
+        print("Loading CO2 injection log...")
+        co2_log = load_co2_injection_log()
+        raw_events = identify_injection_events(co2_log)
+        print(f"Found {len(raw_events)} raw injection events")
 
-    # Match each CO2 event to its corresponding shower event to get test name
-    for event in events:
-        injection_time = event["injection_start"]
-        shower_idx = match_co2_to_shower_event(injection_time, shower_events)
+        # Filter events by experiment start date
+        print(f"\nFiltering events (keeping >= {EXPERIMENT_START_DATE.date()})...")
+        events = filter_events_by_date(raw_events)
+        print(f"  {len(events)} events after date filtering")
 
-        if shower_idx is not None:
-            shower_event = shower_events[shower_idx]
-            event["test_name"] = shower_event.get("test_name")
-            event["water_temp"] = shower_event.get("water_temp")
-            event["time_of_day"] = shower_event.get("time_of_day")
-        else:
-            # Fallback: generate test name based on CO2 injection time
-            # (shower would be ~20 minutes after injection)
-            # Note: Uses _R?? to indicate unmatched/fallback naming
-            expected_shower_time = injection_time + timedelta(minutes=20)
-            water_temp = get_water_temperature_code(expected_shower_time)
-            time_of_day = get_time_of_day(expected_shower_time)
-            date_str = expected_shower_time.strftime("%m%d")
-            event["test_name"] = f"{date_str}_{water_temp}_{time_of_day}_R??"
-            event["water_temp"] = water_temp
-            event["time_of_day"] = time_of_day
-            event["is_unmatched"] = True  # Flag for reports (not plots)
+        # Load shower events and assign test names for consistent naming
+        print("\nLoading shower events for test name assignment...")
+        shower_log = load_shower_log()
+        shower_events = identify_shower_events(shower_log)
+        shower_events = filter_events_by_date(shower_events)
+        shower_events = assign_test_names(shower_events, shower_log)
+        print(f"  Found {len(shower_events)} shower events")
 
-            # Diagnostic: show why no match was found
-            print(f"\n  WARNING: No shower match for CO2 event #{event.get('event_number', '?')}")
-            print(f"    CO2 injection time: {injection_time.strftime('%Y-%m-%d %H:%M')}")
-            print(f"    Expected shower time: {expected_shower_time.strftime('%Y-%m-%d %H:%M')} (±10 min)")
-            # Find nearest shower event to help diagnose
-            if shower_events:
-                nearest_shower = None
-                nearest_diff = float("inf")
-                for se in shower_events:
-                    shower_time = se.get("shower_on")
-                    if shower_time:
-                        diff_min = abs((shower_time - expected_shower_time).total_seconds() / 60.0)
-                        if diff_min < nearest_diff:
-                            nearest_diff = diff_min
-                            nearest_shower = se
+        # Match each CO2 event to its corresponding shower event to get test name
+        for event in events:
+            injection_time = event["injection_start"]
+            shower_idx = match_co2_to_shower_event(injection_time, shower_events)
+
+            if shower_idx is not None:
+                shower_event = shower_events[shower_idx]
+                event["test_name"] = shower_event.get("test_name")
+                event["water_temp"] = shower_event.get("water_temp")
+                event["time_of_day"] = shower_event.get("time_of_day")
+            else:
+                # Fallback: generate test name based on CO2 injection time
+                expected_shower_time = injection_time + timedelta(minutes=20)
+                water_temp = get_water_temperature_code(expected_shower_time)
+                time_of_day = get_time_of_day(expected_shower_time)
+                date_str = expected_shower_time.strftime("%m%d")
+                event["test_name"] = f"{date_str}_{water_temp}_{time_of_day}_R??"
+                event["water_temp"] = water_temp
+                event["time_of_day"] = time_of_day
+                event["is_unmatched"] = True
+
+                # Diagnostic: show why no match was found
+                print(f"\n  WARNING: No shower match for CO2 event #{event.get('event_number', '?')}")
+                print(f"    CO2 injection time: {injection_time.strftime('%Y-%m-%d %H:%M')}")
+                print(f"    Expected shower time: {expected_shower_time.strftime('%Y-%m-%d %H:%M')} (±10 min)")
+                # Find nearest shower event to help diagnose
+                if shower_events:
+                    nearest_shower = None
+                    nearest_diff = float("inf")
+                    for se in shower_events:
+                        shower_time = se.get("shower_on")
+                        if shower_time:
+                            diff_min = abs((shower_time - expected_shower_time).total_seconds() / 60.0)
+                            if diff_min < nearest_diff:
+                                nearest_diff = diff_min
+                                nearest_shower = se
                 if nearest_shower:
                     print(f"    Nearest shower event: {nearest_shower['shower_on'].strftime('%Y-%m-%d %H:%M')} "
                           f"({nearest_diff:.1f} min from expected)")
