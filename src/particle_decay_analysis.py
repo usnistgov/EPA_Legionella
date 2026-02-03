@@ -97,10 +97,6 @@ from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
 )
-from src.co2_decay_analysis import (  # noqa: E402
-    identify_injection_events,
-    load_co2_injection_log,
-)
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
@@ -1098,13 +1094,6 @@ def run_particle_analysis(
     # Load CO2 lambda results
     co2_results = load_co2_lambda_results()
 
-    # Load CO2 injection events for proper event matching
-    # (CO2 injection happens ~20 min before shower, needed for event_log.csv)
-    print("\nLoading CO2 injection events...")
-    co2_log = load_co2_injection_log()
-    co2_events = identify_injection_events(co2_log)
-    print(f"  Found {len(co2_events)} CO2 injection events")
-
     # Process events using the enhanced event management system
     # This handles:
     # - Date filtering (>= 2026-01-14)
@@ -1115,11 +1104,11 @@ def run_particle_analysis(
     print("\nProcessing events with event management system...")
     events, co2_events_processed, event_log = process_events_with_management(
         raw_events,
-        co2_events,  # CO2 events for proper matching in event_log
+        [],  # CO2 events (will be loaded from co2_results)
         shower_log,
         co2_results,
         output_dir,
-        create_synthetic=True,
+        create_synthetic=False,  # Disable synthetic events to avoid duplicates
     )
 
     # Match events with CO2 lambda values
