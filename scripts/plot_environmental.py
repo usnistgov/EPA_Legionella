@@ -90,6 +90,18 @@ SENSOR_DISPLAY_NAMES = {
     # Aranet4 Bedroom stays the same (no mapping needed)
 }
 
+# Canonical display order for sensors in plots (legends, box plots, bar charts)
+SENSOR_DISPLAY_ORDER = [
+    "Vaisala Bathroom",
+    "Vaisala Bedroom",
+    "Aranet4 Bedroom",
+    "QuantAQ Bedroom",
+    "Vaisala Livingroom",
+    "Aranet4 Livingroom",
+    "Aranet4 OutsideN",
+    "QuantAQ OutsideS",
+]
+
 
 def simplify_sensor_name(sensor_name: str) -> str:
     """
@@ -112,6 +124,37 @@ def simplify_sensor_name(sensor_name: str) -> str:
             break
     # Apply display name mapping if available
     return SENSOR_DISPLAY_NAMES.get(result, result)
+
+
+def _get_sensor_sort_key(sensor_name: str) -> int:
+    """
+    Get sort key for a sensor based on SENSOR_DISPLAY_ORDER.
+
+    Parameters:
+        sensor_name: Sensor name (internal or display format)
+
+    Returns:
+        Index in SENSOR_DISPLAY_ORDER, or a large number if not found
+    """
+    display_name = simplify_sensor_name(sensor_name)
+    try:
+        return SENSOR_DISPLAY_ORDER.index(display_name)
+    except ValueError:
+        # Sensor not in order list - put at end
+        return len(SENSOR_DISPLAY_ORDER)
+
+
+def sort_sensors_by_display_order(sensors: list) -> list:
+    """
+    Sort a list of sensor names according to SENSOR_DISPLAY_ORDER.
+
+    Parameters:
+        sensors: List of sensor names (internal or display format)
+
+    Returns:
+        Sorted list of sensor names
+    """
+    return sorted(sensors, key=_get_sensor_sort_key)
 
 
 def add_shower_markers(
@@ -220,7 +263,11 @@ def _plot_wind_data(
     speed_plotted = False
     direction_plotted = False
 
-    for sensor_name, df in data_dict.items():
+    # Sort sensors by canonical display order for consistent legend ordering
+    sorted_sensors = sort_sensors_by_display_order(list(data_dict.keys()))
+
+    for sensor_name in sorted_sensors:
+        df = data_dict[sensor_name]
         if df is None or df.empty or "datetime" not in df.columns:
             continue
 
@@ -295,7 +342,11 @@ def _plot_standard_data(
     """Plot standard (non-wind) environmental data. Returns True if data was plotted."""
     plotted_any = False
 
-    for i, (sensor_name, df) in enumerate(data_dict.items()):
+    # Sort sensors by canonical display order for consistent legend ordering
+    sorted_sensors = sort_sensors_by_display_order(list(data_dict.keys()))
+
+    for i, sensor_name in enumerate(sorted_sensors):
+        df = data_dict[sensor_name]
         if df is None or df.empty or "datetime" not in df.columns:
             continue
 
@@ -443,7 +494,7 @@ def plot_pre_post_comparison(
         for config_key in config_keys:
             all_sensors.update(config_grouped_data[config_key].get("pre", {}).keys())
             all_sensors.update(config_grouped_data[config_key].get("post", {}).keys())
-        sensors = sorted(list(all_sensors))
+        sensors = sort_sensors_by_display_order(list(all_sensors))
 
         if not sensors:
             fig, ax = create_figure(figsize=(10, 6))
@@ -530,7 +581,7 @@ def plot_pre_post_comparison(
         return fig
 
     # Original single-plot behavior
-    sensors = [s for s in pre_data.keys() if s in post_data]
+    sensors = sort_sensors_by_display_order([s for s in pre_data.keys() if s in post_data])
     if not sensors:
         fig, ax = create_figure(figsize=(10, 6))
         ax.text(
@@ -623,6 +674,10 @@ def plot_sensor_summary_bars(
         Matplotlib figure object
     """
     settings = _VAR_SETTINGS.get(variable_type, {"ylabel": "Value"})
+
+    # Sort the DataFrame by canonical sensor display order
+    sorted_index = sort_sensors_by_display_order(list(summary_data.index))
+    summary_data = summary_data.reindex(sorted_index)
 
     n_sensors = len(summary_data)
     fig, ax = create_figure(figsize=(max(10, n_sensors * 0.6), 6))
