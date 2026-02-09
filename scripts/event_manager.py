@@ -152,10 +152,8 @@ HOT_WATER_END_TIME = datetime(2026, 1, 22, 14, 0, 0)  # 2PM on Jan 22
 
 # Time of day boundaries (hour of day)
 TIME_OF_DAY_RANGES = {
-    "Morning": (5, 11),  # 5am - 11am
-    "Afternoon": (11, 17),  # 11am - 5pm
-    "Evening": (17, 21),  # 5pm - 9pm
-    "Night": (21, 5),  # 9pm - 5am (wraps around midnight)
+    "Day": (5, 17),  # 5am - 5pm
+    "Night": (17, 5),  # 5pm - 5am (wraps around midnight)
 }
 
 # Predefined exclusions: datetime -> reason
