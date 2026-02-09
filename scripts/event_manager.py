@@ -121,9 +121,11 @@ EXPERIMENT_START_DATE = datetime(2026, 1, 14, 0, 0, 0)
 # Water temperature transitions: (datetime, code)
 # Codes: "HW" (Hot Water), "CW" (Cold Water), "MW" (Mixed/Medium Water)
 WATER_TEMP_TRANSITIONS = [
-    (datetime(2026, 1, 14, 0, 0, 0), "HW"),  # Hot water from experiment start
-    (datetime(2026, 1, 22, 14, 0, 0), "CW"),  # Cold water from Jan 22 2PM
-    (datetime(2026, 2, 2, 17, 0, 0), "MW"),  # Mixed water from Feb 2 5PM
+    (datetime(2026, 1, 14, 0, 0, 0), "W48"),  # Hot water from experiment start
+    (datetime(2026, 1, 22, 14, 0, 0), "W11"),  # Cold water from Jan 22 2PM
+    (datetime(2026, 2, 2, 17, 0, 0), "W25"),  # Mixed water from Feb 2 5PM
+    (datetime(2026, 2, 5, 10, 0, 0), "W30"),  # Mixed water from Feb 5 10AM
+    (datetime(2026, 2, 9, 10, 0, 0), "W37"),  # Mixed water from Feb 9 10AM
 ]
 
 # Door position transitions: (datetime, position)
@@ -759,7 +761,9 @@ def create_event_log(
         n_missing_co2 = (~df["has_matching_co2"]).sum()
         n_synthetic_co2 = df["co2_is_synthetic"].sum()
         n_synthetic_shower = (
-            df["shower_is_synthetic"].sum() if "shower_is_synthetic" in df.columns else 0
+            df["shower_is_synthetic"].sum()
+            if "shower_is_synthetic" in df.columns
+            else 0
         )
         print(f"  Missing CO2 events: {n_missing_co2}")
         print(f"  Synthetic CO2 events: {n_synthetic_co2}")
@@ -845,7 +849,10 @@ def process_events_with_management(
                     # Use new registry function if available (with duration inference)
                     if _HAS_REGISTRY:
                         synthetic_co2 = create_synthetic_co2_event_v2(
-                            shower_event["shower_on"], next_co2_num, co2_events, prompt_user
+                            shower_event["shower_on"],
+                            next_co2_num,
+                            co2_events,
+                            prompt_user,
                         )
                     else:
                         synthetic_co2 = create_synthetic_co2_event(
