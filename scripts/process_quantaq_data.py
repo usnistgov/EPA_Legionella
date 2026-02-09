@@ -55,6 +55,7 @@ Date: 2026
 import ast
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -74,6 +75,143 @@ def get_quantaq_data_path() -> Path:
         Path: Directory path for QuantAQ data files.
     """
     return get_instrument_path("QuantAQ_MODULAIR_PM")
+
+
+# Device/location mapping (must match download script)
+DEVICE_NAMES = ["quantaq-outside", "quantaq-inside"]
+CHUNK_DATA_TYPES = ["raw", "final"]
+
+
+def get_chunks_path() -> Path:
+    """
+    Get the path to the chunks subdirectory.
+
+    Returns:
+        Path: Directory path for chunk files (QuantAQ/chunks/).
+    """
+    return get_quantaq_data_path() / "chunks"
+
+
+def find_chunk_files(
+    chunks_dir: Path,
+    device_name: str,
+    data_type: str,
+) -> List[Path]:
+    """
+    Find all chunk files for a given device and data type.
+
+    Args:
+        chunks_dir: Path to the chunks/ directory.
+        device_name: Device name (e.g., 'quantaq-outside').
+        data_type: Data type ('raw' or 'final').
+
+    Returns:
+        List of chunk file paths sorted by filename (chronological).
+    """
+    if not chunks_dir.exists():
+        return []
+
+    pattern = f"{device_name}-{data_type}-*.csv"
+    return sorted(chunks_dir.glob(pattern))
+
+
+def combine_chunks(
+    chunk_files: List[Path],
+    output_path: Path,
+) -> pd.DataFrame:
+    """
+    Concatenate chunk files, deduplicate by timestamp_local, and sort.
+
+    Args:
+        chunk_files: List of chunk CSV file paths to combine.
+        output_path: Path to save the combined CSV file.
+
+    Returns:
+        pd.DataFrame: The combined, deduplicated, sorted DataFrame.
+    """
+    if not chunk_files:
+        return pd.DataFrame()
+
+    print(f"    Combining {len(chunk_files)} chunk files...")
+
+    dfs = []
+    for chunk_path in chunk_files:
+        df = pd.read_csv(chunk_path)
+        print(f"      {chunk_path.name}: {len(df)} records")
+        dfs.append(df)
+
+    combined = pd.concat(dfs, ignore_index=True)
+    print(f"    Total records before dedup: {len(combined)}")
+
+    # Deduplicate by timestamp_local (keep first occurrence)
+    if "timestamp_local" in combined.columns:
+        combined = combined.drop_duplicates(subset=["timestamp_local"], keep="first")
+        combined = combined.sort_values("timestamp_local", ascending=True)
+        combined = combined.reset_index(drop=True)
+
+    print(f"    Total records after dedup: {len(combined)}")
+
+    # Save combined file
+    combined.to_csv(output_path, index=False)
+    print(f"    Saved combined file: {output_path.name}")
+
+    return combined
+
+
+def combine_all_chunks(data_path: Path) -> List[Tuple[Path, Path, str]]:
+    """
+    Combine all chunk files into per-device, per-type combined files.
+
+    For each device/type combination, concatenates all chunks into a single
+    file named {YYYYMMDD}-{device_name}-{data_type}.csv in the main
+    data directory.
+
+    Args:
+        data_path: Path to the QuantAQ data directory.
+
+    Returns:
+        List of (raw_path, final_path, base_name) tuples for downstream
+        processing, same format as find_matching_files returns.
+    """
+    chunks_dir = data_path / "chunks"
+
+    if not chunks_dir.exists():
+        print("No chunks/ directory found. Skipping chunk combination.")
+        return []
+
+    today_str = datetime.now().strftime("%Y%m%d")
+    combined_pairs = {}  # base_name -> {"raw": Path, "final": Path}
+
+    for device_name in DEVICE_NAMES:
+        base_name = f"{today_str}-{device_name}"
+        combined_pairs[base_name] = {}
+
+        for data_type in CHUNK_DATA_TYPES:
+            chunk_files = find_chunk_files(chunks_dir, device_name, data_type)
+
+            if not chunk_files:
+                print(f"  No chunks found for {device_name} {data_type}. Skipping.")
+                continue
+
+            output_filename = f"{today_str}-{device_name}-{data_type}.csv"
+            output_path = data_path / output_filename
+
+            print(f"\n  Combining {device_name} {data_type}:")
+            combine_chunks(chunk_files, output_path)
+
+            combined_pairs[base_name][data_type] = output_path
+
+    # Build matching pairs list for downstream processing
+    matching_pairs = []
+    for base_name, paths in combined_pairs.items():
+        if "raw" in paths and "final" in paths:
+            matching_pairs.append((paths["raw"], paths["final"], base_name))
+        elif "raw" in paths:
+            print(f"  Warning: {base_name} has raw but no final chunks.")
+        elif "final" in paths:
+            print(f"  Warning: {base_name} has final but no raw chunks.")
+
+    return matching_pairs
 
 
 def parse_dict_string(dict_str: str) -> dict:
@@ -411,7 +549,7 @@ def process_file_pair(raw_path: Path, final_path: Path, output_path: Path) -> bo
 
 def main():
     """
-    Main function to process all QuantAQ data files.
+    Main function to combine chunk files and process all QuantAQ data.
     """
     print("=" * 60)
     print("QuantAQ Data Processor")
@@ -433,9 +571,32 @@ def main():
 
     print()
 
-    # Find matching file pairs
-    print("Searching for raw/final file pairs...")
-    file_pairs = find_matching_files(data_path)
+    # ---- STEP 1: Combine chunk files ----
+    print("=" * 60)
+    print("STEP 1: Combine chunk files")
+    print("=" * 60)
+
+    chunk_pairs = combine_all_chunks(data_path)
+
+    if chunk_pairs:
+        print(f"\nCombined {len(chunk_pairs)} device pair(s) from chunks.")
+    else:
+        print("\nNo chunk files combined.")
+
+    print()
+
+    # ---- STEP 2: Find and process matching file pairs ----
+    print("=" * 60)
+    print("STEP 2: Process raw/final file pairs")
+    print("=" * 60)
+
+    # Use chunk_pairs if available, otherwise fall back to file scan
+    if chunk_pairs:
+        file_pairs = chunk_pairs
+        print(f"Using {len(file_pairs)} pair(s) from chunk combination.")
+    else:
+        print("Searching for raw/final file pairs...")
+        file_pairs = find_matching_files(data_path)
 
     if not file_pairs:
         print("No matching raw/final file pairs found.")
