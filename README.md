@@ -190,7 +190,7 @@ The complete data analysis pipeline follows this sequence:
    python scripts/event_registry.py --force
    ```
    This must be run **before** the analysis scripts so that events have consistent names
-   (see [Event Naming Convention](#event-naming-convention) below). Produces `event_log.csv` and `event_registry.csv.
+   (see [Event Naming Convention](#event-naming-convention) below). Produces `event_log.csv` and `event_registry.csv`.
 
 5. **CO2 Analysis**: Determine air change rates (λ) from CO2 decay
    ```bash
