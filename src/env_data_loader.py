@@ -309,8 +309,15 @@ def load_aranet_data(location: str, start_date, end_date) -> pd.DataFrame:
     base_path = get_instrument_path("Aranet4")
 
     location_config = config["locations"].get(location, {})
-    file_pattern = location_config.get("file_pattern", f"{location}_*_week.xlsx")
-    files = sorted(base_path.glob(file_pattern))
+    file_patterns = location_config.get(
+        "file_pattern", [f"{location}_*_all.xlsx", f"{location}_*_week.xlsx"]
+    )
+    if isinstance(file_patterns, str):
+        file_patterns = [file_patterns]
+    files_set = set()
+    for pattern in file_patterns:
+        files_set.update(base_path.glob(pattern))
+    files = sorted(files_set)
 
     if not files:
         return pd.DataFrame()

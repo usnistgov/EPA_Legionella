@@ -169,15 +169,22 @@ def load_all_aranet_files(location: str) -> pd.DataFrame:
     config = get_instrument_config("Aranet4")
     base_path = get_instrument_path("Aranet4")
 
-    # Get the file pattern for this location
+    # Get the file pattern(s) for this location
     location_config = config["locations"].get(location, {})
-    file_pattern = location_config.get("file_pattern", f"{location}_*_all.xlsx")
+    file_patterns = location_config.get(
+        "file_pattern", [f"{location}_*_all.xlsx", f"{location}_*_week.xlsx"]
+    )
+    if isinstance(file_patterns, str):
+        file_patterns = [file_patterns]
 
-    # Find all matching files
-    files = sorted(base_path.glob(file_pattern))
+    # Find all matching files across all patterns
+    files_set = set()
+    for pattern in file_patterns:
+        files_set.update(base_path.glob(pattern))
+    files = sorted(files_set)
 
     if not files:
-        print(f"  Warning: No files found for {location} with pattern {file_pattern}")
+        print(f"  Warning: No files found for {location} with patterns {file_patterns}")
         return pd.DataFrame()
 
     print(f"  Found {len(files)} file(s) for {location}")

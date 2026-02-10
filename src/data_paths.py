@@ -244,30 +244,32 @@ def get_all_instrument_files(
         List[Path]: List of all matching files sorted by name.
     """
     inst_config = get_instrument_config(instrument_name)
-    pattern = inst_config.get("file_pattern", "*.*")
+    patterns = inst_config.get("file_pattern", "*.*")
+    if isinstance(patterns, str):
+        patterns = [patterns]
 
-    files = []
+    files_set = set()
 
     if years is None:
         # Search base path and any year subdirectories
         base_path = get_instrument_path(instrument_name)
 
-        # Direct files in base path
         if base_path.exists():
-            files.extend(base_path.glob(pattern))
-
-        # Files in year subdirectories
-        if base_path.exists():
-            for year_dir in base_path.iterdir():
-                if year_dir.is_dir() and year_dir.name.isdigit():
-                    files.extend(year_dir.glob(pattern))
+            for pattern in patterns:
+                # Direct files in base path
+                files_set.update(base_path.glob(pattern))
+                # Files in year subdirectories
+                for year_dir in base_path.iterdir():
+                    if year_dir.is_dir() and year_dir.name.isdigit():
+                        files_set.update(year_dir.glob(pattern))
     else:
         for year in years:
             year_path = get_instrument_path(instrument_name, year)
             if year_path.exists():
-                files.extend(year_path.glob(pattern))
+                for pattern in patterns:
+                    files_set.update(year_path.glob(pattern))
 
-    return sorted(files)
+    return sorted(files_set)
 
 
 def get_common_file(file_key: str) -> Path:
