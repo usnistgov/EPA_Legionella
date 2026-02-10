@@ -187,10 +187,10 @@ The complete data analysis pipeline follows this sequence:
 
 4. **Event Management**: Run the event manager to match, name, and register events
    ```bash
-   python scripts/event_manager.py
+   python scripts/event_registry.py --force
    ```
    This must be run **before** the analysis scripts so that events have consistent names
-   (see [Event Naming Convention](#event-naming-convention) below). Produces `event_log.csv`.
+   (see [Event Naming Convention](#event-naming-convention) below). Produces `event_log.csv` and `event_registry.csv.
 
 5. **CO2 Analysis**: Determine air change rates (λ) from CO2 decay
    ```bash
@@ -198,16 +198,16 @@ The complete data analysis pipeline follows this sequence:
    python src/co2_decay_analysis.py --plot    # with visualization
    ```
 
-6. **Particle Analysis**: Calculate penetration, deposition, and emission rates (requires step 5 results)
-   ```bash
-   python src/particle_decay_analysis.py
-   python src/particle_decay_analysis.py --plot
-   ```
-
-7. **Environmental Analysis**: Characterize RH, temperature, and wind conditions
+6. **Environmental Analysis**: Characterize RH, temperature, and wind conditions
    ```bash
    python src/rh_temp_other_analysis.py
    python src/rh_temp_other_analysis.py --plot
+   ```
+
+7. **Particle Analysis**: Calculate penetration, deposition, and emission rates (requires step 5 results)
+   ```bash
+   python src/particle_decay_analysis.py
+   python src/particle_decay_analysis.py --plot
    ```
 
 Each analysis module produces CSV/Excel summaries and optional visualizations in the `output/` directory.
