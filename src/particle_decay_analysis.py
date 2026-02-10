@@ -98,8 +98,8 @@ from scripts.event_manager import (  # noqa: E402
     process_events_with_management,
 )
 from scripts.event_registry import (  # noqa: E402
-    load_event_registry,
     REGISTRY_FILENAME,
+    load_event_registry,
 )
 from src.data_paths import (  # noqa: E402
     get_common_file,
@@ -123,7 +123,7 @@ PARTICLE_BINS = {
 }
 
 # Physical parameters
-BEDROOM_VOLUME_M3 = 36.0  # Bedroom volume in cubic meters
+BEDROOM_VOLUME_M3 = 36.1  # Bedroom volume in cubic meters (36.10859771 m³ from CAD)
 CM3_PER_M3 = 1e6  # Conversion factor: cubic centimeters per cubic meter
 
 # Analysis timing parameters
@@ -471,7 +471,9 @@ def get_events_from_registry(output_dir: Path) -> tuple:
         )
 
         print(f"  Loaded {len(events)} events from registry")
-        n_with_lambda = sum(1 for e in events if not np.isnan(e.get("lambda_ach", np.nan)))
+        n_with_lambda = sum(
+            1 for e in events if not np.isnan(e.get("lambda_ach", np.nan))
+        )
         print(f"  Events with lambda values: {n_with_lambda}")
 
         return events, co2_results_df, True
@@ -932,7 +934,9 @@ def calculate_emission_rate(
     c_inside = np.asarray(shower_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(shower_data[col_outside].values, dtype=np.float64)
 
-    V = BEDROOM_VOLUME_M3 * CM3_PER_M3  # Convert m³ to cm³ for concentration units (#/cm³)
+    V = (
+        BEDROOM_VOLUME_M3 * CM3_PER_M3
+    )  # Convert m³ to cm³ for concentration units (#/cm³)
     dt_minutes = TIME_STEP_MINUTES  # minutes
 
     # Calculate E for each time step
