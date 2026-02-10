@@ -18,7 +18,7 @@ Key Functions:
 Plot Features:
     - Two-panel event plots (concentrations + linearized regression)
     - Color-coded particle size bins (0.35-3.0 µm)
-    - Shaded analysis windows (penetration and deposition periods)
+    - Shaded deposition analysis window
     - Shower ON/OFF markers with consistent styling
     - Log-scale concentration axis for wide dynamic range
     - Configuration-based subplot grouping
@@ -26,7 +26,7 @@ Plot Features:
 Methodology:
     1. Extract data window around shower event (2 hr before to 1 hr after deposition end)
     2. Plot particle concentrations for all 7 size bins
-    3. Shade penetration window (2h-1h pre-shower) and deposition window (2 hr post)
+    3. Shade deposition window (2 hr post-shower)
     4. Calculate linearized regression: y = -ln[(C(t) - C_ss)/(C_0 - C_ss)] vs t
     5. Display β (deposition rate), p (penetration), and E (emission) values
 
@@ -146,15 +146,7 @@ def plot_particle_decay_event(
                 alpha=alpha,
             )
 
-    # Add shaded windows for analysis periods
-    add_shaded_window(
-        ax1,
-        event["penetration_start"],
-        event["penetration_end"],
-        color=COLORS["pre_shower"],
-        label="Penetration window (2h-1h pre-shower)",
-        alpha=WINDOW_ALPHA,
-    )
+    # Add shaded window for deposition analysis period
     add_shaded_window(
         ax1,
         event["shower_off"],
@@ -418,20 +410,10 @@ def plot_penetration_summary(
 
         ax.set_xticks(x)
         ax.set_xticklabels(bin_labels, rotation=45, ha="right")
-        ax.set_ylim(0, 1.4)
-        ax.axhline(
-            y=0.7,
-            color="gray",
-            linestyle="--",
-            linewidth=1,
-            alpha=0.5,
-            label="Expected range",
-        )
-        ax.axhline(y=0.9, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+        ax.set_ylim(0, 1.1)
 
         ax.grid(True, alpha=0.3, axis="y")
         ax.tick_params(labelsize=FONT_SIZE_TICK)
-        ax.legend(fontsize=FONT_SIZE_LEGEND)
 
     if n_configs > 1:
         fig.suptitle(

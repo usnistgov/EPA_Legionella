@@ -19,7 +19,7 @@ Particle size bins analyzed (µm):
     - Bin 6: 2.3-3.0
 
 Key Metrics Calculated:
-    - p: Particle penetration factor (dimensionless, 0.7-0.9 expected)
+    - p: Particle penetration factor (dimensionless, 0-1 range)
     - β_deposition: Effective deposition loss rate (h⁻¹)
     - E: Shower emission rate (particles/minute)
     - λ: Air change rate from CO2 analysis (h⁻¹)
@@ -37,9 +37,16 @@ Methodology:
         ∂C/∂t = pλC_out - λC - β_deposition C + E/V
 
     1. Calculate penetration factor (p):
-       - Use window from 2h to 1h before shower starts (avoids fan running effect)
-       - p = C_inside / C_outside (averaged over window)
-       - Expected range: 0.7-0.9
+       - Use two averaging windows around each shower event (before and after)
+       - For 3am (Night) events:
+           Before: 9pm (day before) to 2am (day of)
+           After:  9am (day of) to 2pm (day of)
+       - For 3pm (Day) events:
+           Before: 9am (day of) to 2pm (day of)
+           After:  9pm (day of) to 2am (next day)
+       - p = C_inside / C_outside (averaged over each window, zeros excluded)
+       - Final p = average of before and after window p values
+       - Allowable range: 0-1 (values > 1 are capped at 1)
 
     2. Obtain air change rate (λ):
        - Load from CO2 decay analysis results
@@ -127,8 +134,6 @@ BEDROOM_VOLUME_M3 = 36.1  # Bedroom volume in cubic meters (36.10859771 m³ from
 CM3_PER_M3 = 1e6  # Conversion factor: cubic centimeters per cubic meter
 
 # Analysis timing parameters
-PENETRATION_WINDOW_START_HOURS = 2.0  # Hours before shower to START penetration window
-PENETRATION_WINDOW_END_HOURS = 1.0  # Hours before shower to END penetration window
 DEPOSITION_WINDOW_HOURS = 2.0  # Hours after shower for β calculation
 TIME_STEP_MINUTES = 1.0  # Time resolution for numerical calculations
 
@@ -136,8 +141,6 @@ TIME_STEP_MINUTES = 1.0  # Time resolution for numerical calculations
 ROLLING_WINDOW_MIN = 0  # Rolling average window in minutes (0 = no smoothing)
 
 # Validation thresholds
-MIN_PENETRATION = 0.3  # Minimum reasonable p value (reduced from 0.5)
-MAX_PENETRATION = 1.5  # Maximum reasonable p value (increased from 1.0)
 MAX_DEPOSITION_RATE = 15.0  # Maximum reasonable β (h⁻¹) (increased from 10.0)
 MIN_CONCENTRATION_RATIO = (
     1.05  # Minimum C_inside/C_outside during decay (reduced from 1.2)
@@ -380,11 +383,6 @@ def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
                 shower_off = shower_on + timedelta(minutes=10)
 
             # Calculate analysis windows
-            # Penetration window: 2h to 1h before shower (to avoid fan running effect)
-            penetration_start = shower_on - timedelta(
-                hours=PENETRATION_WINDOW_START_HOURS
-            )
-            penetration_end = shower_on - timedelta(hours=PENETRATION_WINDOW_END_HOURS)
             deposition_start = shower_off
             deposition_end = shower_off + timedelta(hours=DEPOSITION_WINDOW_HOURS)
 
@@ -395,8 +393,6 @@ def identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]:
                     "shower_off": shower_off,
                     "shower_duration_min": (shower_off - shower_on).total_seconds()
                     / 60,
-                    "penetration_start": penetration_start,
-                    "penetration_end": penetration_end,
                     "deposition_start": deposition_start,
                     "deposition_end": deposition_end,
                 }
@@ -445,12 +441,6 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "shower_duration_min": row.get("shower_duration_min", 0),
                     "lambda_ach": row.get("lambda_average_mean", np.nan),
                     "co2_event_idx": None,  # Not needed when using registry
-                    "penetration_start": pd.to_datetime(row.get("penetration_start"))
-                    if pd.notna(row.get("penetration_start"))
-                    else None,
-                    "penetration_end": pd.to_datetime(row.get("penetration_end"))
-                    if pd.notna(row.get("penetration_end"))
-                    else None,
                     "deposition_start": pd.to_datetime(row.get("deposition_start"))
                     if pd.notna(row.get("deposition_start"))
                     else None,
@@ -488,16 +478,63 @@ def get_events_from_registry(output_dir: Path) -> tuple:
 # =============================================================================
 
 
-def calculate_penetration_factor(
+def get_penetration_windows(
+    shower_on: datetime,
+    time_of_day: str,
+) -> List[tuple]:
+    """
+    Calculate penetration factor averaging windows based on shower time and time of day.
+
+    For Night/3am events:
+        Before: 9pm (day before) to 2am (day of)
+        After:  9am (day of) to 2pm (day of)
+
+    For Day/3pm events:
+        Before: 9am (day of) to 2pm (day of)
+        After:  9pm (day of) to 2am (next day)
+
+    Parameters:
+        shower_on (datetime): Shower start time
+        time_of_day (str): "Night" or "Day" (or legacy "Morning"/"Afternoon"/"Evening")
+
+    Returns:
+        List of (window_start, window_end) tuples for before and after windows
+    """
+    shower_date = shower_on.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Classify as night (3am-type) or day (3pm-type) event
+    is_night_event = time_of_day in ("Night",) or (
+        time_of_day == "" and shower_on.hour < 12
+    )
+
+    if is_night_event:
+        # 3am event: before = 9pm (day before) to 2am (day of)
+        #             after  = 9am (day of) to 2pm (day of)
+        before_start = shower_date - timedelta(hours=3)   # 9pm day before
+        before_end = shower_date + timedelta(hours=2)     # 2am day of
+        after_start = shower_date + timedelta(hours=9)    # 9am day of
+        after_end = shower_date + timedelta(hours=14)     # 2pm day of
+    else:
+        # 3pm event: before = 9am (day of) to 2pm (day of)
+        #             after  = 9pm (day of) to 2am (next day)
+        before_start = shower_date + timedelta(hours=9)   # 9am day of
+        before_end = shower_date + timedelta(hours=14)    # 2pm day of
+        after_start = shower_date + timedelta(hours=21)   # 9pm day of
+        after_end = shower_date + timedelta(hours=26)     # 2am next day
+
+    return [(before_start, before_end), (after_start, after_end)]
+
+
+def _calculate_p_for_window(
     particle_data: pd.DataFrame,
     window_start: datetime,
     window_end: datetime,
     bin_num: int,
 ) -> Dict:
     """
-    Calculate penetration factor (p) for a particle bin.
+    Calculate penetration factor (p) for a single window.
 
-    p = C_inside / C_outside averaged over the pre-shower window.
+    p = C_inside / C_outside averaged over the window, excluding zero values.
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -506,7 +543,7 @@ def calculate_penetration_factor(
         bin_num (int): Particle bin number (0-6)
 
     Returns:
-        Dict: Dictionary with p value and statistics
+        Dict with p_mean, p_std, n_points, and optional skip_reason
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -522,8 +559,6 @@ def calculate_penetration_factor(
         return {
             "p_mean": np.nan,
             "p_std": np.nan,
-            "c_inside_mean": np.nan,
-            "c_outside_mean": np.nan,
             "n_points": len(window_data),
             "skip_reason": f"Insufficient data: {len(window_data)} points (minimum {MIN_POINTS_PENETRATION} required)",
         }
@@ -531,7 +566,7 @@ def calculate_penetration_factor(
     c_inside = np.asarray(window_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(window_data[col_outside].values, dtype=np.float64)
 
-    # Remove invalid points
+    # Remove invalid points: exclude zeros and NaNs
     valid_mask = (
         (c_inside > 0)
         & (c_outside > 0)
@@ -543,9 +578,7 @@ def calculate_penetration_factor(
         return {
             "p_mean": np.nan,
             "p_std": np.nan,
-            "c_inside_mean": np.nan,
-            "c_outside_mean": np.nan,
-            "n_points": np.sum(valid_mask),
+            "n_points": int(np.sum(valid_mask)),
             "skip_reason": f"Insufficient valid points: {np.sum(valid_mask)} (minimum {MIN_POINTS_PENETRATION} required)",
         }
 
@@ -555,35 +588,71 @@ def calculate_penetration_factor(
     # Calculate p for each point
     p_values = c_inside_valid / c_outside_valid
 
-    # Filter unreasonable p values
-    reasonable_mask = (p_values >= MIN_PENETRATION) & (p_values <= MAX_PENETRATION)
+    return {
+        "p_mean": float(np.mean(p_values)),
+        "p_std": float(np.std(p_values)),
+        "n_points": len(p_values),
+    }
 
-    if np.sum(reasonable_mask) < MIN_POINTS_PENETRATION:
-        # Calculate stats on raw p values for diagnostic info
-        p_min, p_max = p_values.min(), p_values.max()
-        p_median = np.median(p_values)
+
+def calculate_penetration_factor(
+    particle_data: pd.DataFrame,
+    shower_on: datetime,
+    time_of_day: str,
+    bin_num: int,
+) -> Dict:
+    """
+    Calculate penetration factor (p) for a particle bin using before/after windows.
+
+    p = average of C_inside / C_outside from the before and after windows.
+    Zero concentration values are excluded. Values above 1 are capped at 1.
+
+    Parameters:
+        particle_data (pd.DataFrame): DataFrame with particle concentrations
+        shower_on (datetime): Shower start time
+        time_of_day (str): "Night" or "Day" time classification
+        bin_num (int): Particle bin number (0-6)
+
+    Returns:
+        Dict: Dictionary with p value and statistics
+    """
+    windows = get_penetration_windows(shower_on, time_of_day)
+
+    window_p_values = []
+    total_points = 0
+    skip_reasons = []
+
+    for i, (w_start, w_end) in enumerate(windows):
+        label = "before" if i == 0 else "after"
+        result = _calculate_p_for_window(particle_data, w_start, w_end, bin_num)
+
+        if not np.isnan(result.get("p_mean", np.nan)):
+            window_p_values.append(result["p_mean"])
+            total_points += result["n_points"]
+        else:
+            skip_reasons.append(f"{label}: {result.get('skip_reason', 'Unknown')}")
+
+    if not window_p_values:
         return {
             "p_mean": np.nan,
             "p_std": np.nan,
-            "c_inside_mean": float(np.mean(c_inside_valid)),
-            "c_outside_mean": float(np.mean(c_outside_valid)),
-            "n_points": np.sum(reasonable_mask),
-            "skip_reason": (
-                f"Insufficient reasonable p values: {np.sum(reasonable_mask)} "
-                f"(min {MIN_POINTS_PENETRATION} required). "
-                f"p range: {p_min:.3f}-{p_max:.3f}, median: {p_median:.3f}, "
-                f"valid range: {MIN_PENETRATION}-{MAX_PENETRATION}"
-            ),
+            "c_inside_mean": np.nan,
+            "c_outside_mean": np.nan,
+            "n_points": total_points,
+            "skip_reason": "; ".join(skip_reasons),
         }
 
-    p_reasonable = p_values[reasonable_mask]
+    # Average across available windows, then cap at 1
+    p_avg = float(np.mean(window_p_values))
+    p_capped = min(p_avg, 1.0)
 
     return {
-        "p_mean": float(np.mean(p_reasonable)),
-        "p_std": float(np.std(p_reasonable)),
-        "c_inside_mean": float(np.mean(c_inside_valid)),
-        "c_outside_mean": float(np.mean(c_outside_valid)),
-        "n_points": len(p_reasonable),
+        "p_mean": p_capped,
+        "p_std": float(np.std(window_p_values)) if len(window_p_values) > 1 else 0.0,
+        "c_inside_mean": np.nan,
+        "c_outside_mean": np.nan,
+        "n_points": total_points,
+        "n_windows": len(window_p_values),
     }
 
 
@@ -1025,12 +1094,14 @@ def analyze_event_all_bins(
         "co2_event_idx": event.get("co2_event_idx", None),
     }
 
+    time_of_day = event.get("time_of_day", "")
+
     for bin_num in PARTICLE_BINS.keys():
-        # Calculate penetration factor
+        # Calculate penetration factor using before/after windows
         p_result = calculate_penetration_factor(
             particle_data,
-            event["penetration_start"],
-            event["penetration_end"],
+            event["shower_on"],
+            time_of_day,
             bin_num,
         )
 
@@ -1149,12 +1220,9 @@ def run_particle_analysis(
     print("=" * 80)
     print(f"Bedroom volume: {BEDROOM_VOLUME_M3} m^3")
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
-    print(
-        f"Penetration window: {PENETRATION_WINDOW_START_HOURS}h to {PENETRATION_WINDOW_END_HOURS}h before shower"
-    )
+    print("Penetration factor: averaged before/after windows (p capped at 1)")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
     print("\nValidation thresholds:")
-    print(f"  Penetration factor (p): {MIN_PENETRATION} - {MAX_PENETRATION}")
     print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
     print(f"  Min concentration ratio: {MIN_CONCENTRATION_RATIO}")
     print(
