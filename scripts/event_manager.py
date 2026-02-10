@@ -21,19 +21,17 @@ Naming Convention Format:
     Components:
     - MMDD: Month and day (e.g., 0114 for January 14)
     - TempCode: HW (Hot Water) or CW (Cold Water)
-    - TimeOfDay: Morning, Afternoon, Evening, or Night
+    - TimeOfDay: Day or Night
     - RNN: Replicate number (R01, R02, etc.)
 
     Examples:
-    - 0114_HW_Morning_R01
-    - 0122_CW_Afternoon_R03
-    - 0125_CW_Evening_R01
+    - 0114_HW_Day_R01
+    - 0122_CW_Night_R03
+    - 0125_CW_Day_R01
 
 Time of Day Categories:
-    - Morning: 5am - 11am
-    - Afternoon: 11am - 5pm
-    - Evening: 5pm - 9pm
-    - Night: 9pm - 5am
+    - Day: 5am - 5pm
+    - Night: 5pm - 5am
 
 Test Parameters:
     - Water Temperature: Hot (Test start), Cold (Started 2026-01-22 14:00), Mixed (Started 2026-02-02 17:00)
@@ -179,18 +177,13 @@ def get_time_of_day(dt: datetime) -> str:
         dt: Datetime to categorize
 
     Returns:
-        String: "Morning", "Afternoon", "Evening", or "Night"
+        String: "Day" or "Night"
     """
     hour = dt.hour
+    day_start, day_end = TIME_OF_DAY_RANGES["Day"]
 
-    if TIME_OF_DAY_RANGES["Morning"][0] <= hour < TIME_OF_DAY_RANGES["Morning"][1]:
-        return "Morning"
-    elif (
-        TIME_OF_DAY_RANGES["Afternoon"][0] <= hour < TIME_OF_DAY_RANGES["Afternoon"][1]
-    ):
-        return "Afternoon"
-    elif TIME_OF_DAY_RANGES["Evening"][0] <= hour < TIME_OF_DAY_RANGES["Evening"][1]:
-        return "Evening"
+    if day_start <= hour < day_end:
+        return "Day"
     else:
         return "Night"
 
@@ -385,13 +378,13 @@ def generate_test_name(
     Parameters:
         shower_time: Datetime of shower start
         water_temp: "HW", "CW", or "MW"
-        time_of_day: "Morning", "Afternoon", "Evening", or "Night"
+        time_of_day: "Day" or "Night"
         replicate_num: Replicate number (1-indexed)
         fan_status: Whether bath fan ran during test (default False)
         door_position: "Open", "Closed", or "Partial" (default "Closed")
 
     Returns:
-        String: Test name (e.g., "0114_HW_Closed_Morning_R01")
+        String: Test name (e.g., "0114_HW_Closed_Day_R01")
     """
     # Format date as MMDD
     date_str = shower_time.strftime("%m%d")

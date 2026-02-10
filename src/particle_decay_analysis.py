@@ -38,10 +38,10 @@ Methodology:
 
     1. Calculate penetration factor (p):
        - Use two averaging windows around each shower event (before and after)
-       - For 3am (Night) events:
+       - For Night events:
            Before: 9pm (day before) to 2am (day of)
            After:  9am (day of) to 2pm (day of)
-       - For 3pm (Day) events:
+       - For Day events:
            Before: 9am (day of) to 2pm (day of)
            After:  9pm (day of) to 2am (next day)
        - p = C_inside / C_outside (averaged over each window, zeros excluded)
@@ -485,25 +485,25 @@ def get_penetration_windows(
     """
     Calculate penetration factor averaging windows based on shower time and time of day.
 
-    For Night/3am events:
+    For Night events:
         Before: 9pm (day before) to 2am (day of)
         After:  9am (day of) to 2pm (day of)
 
-    For Day/3pm events:
+    For Day events:
         Before: 9am (day of) to 2pm (day of)
         After:  9pm (day of) to 2am (next day)
 
     Parameters:
         shower_on (datetime): Shower start time
-        time_of_day (str): "Night" or "Day" (or legacy "Morning"/"Afternoon"/"Evening")
+        time_of_day (str): "Night" or "Day"
 
     Returns:
         List of (window_start, window_end) tuples for before and after windows
     """
     shower_date = shower_on.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Classify as night (3am-type) or day (3pm-type) event
-    is_night_event = time_of_day in ("Night",) or (
+    # Classify as night or day event
+    is_night_event = time_of_day == "Night" or (
         time_of_day == "" and shower_on.hour < 12
     )
 
@@ -610,7 +610,7 @@ def calculate_penetration_factor(
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
         shower_on (datetime): Shower start time
-        time_of_day (str): "Night" or "Day" time classification
+        time_of_day (str): "Day" or "Night" time classification
         bin_num (int): Particle bin number (0-6)
 
     Returns:
