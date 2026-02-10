@@ -25,17 +25,17 @@ NIST_EPA_Legionella/
 ├── data_config.template.json         # Configuration template
 ├── epa_mh.yml                        # Conda environment specification
 │
-├── src/                              # Source modules
-│   ├── __init__.py                   # Package initialization
-│   ├── data_paths.py                 # Portable data access utilities
-│   ├── env_data_loader.py            # Environmental sensor data loader
-│   ├── co2_decay_analysis.py         # CO2 decay & air-change rate analysis
-│   ├── particle_decay_analysis.py    # Particle penetration & emission analysis
+├── src/                              # Core analysis modules
+│   ├── __init__.py                   # Package initialization (re-exports data_paths)
+│   ├── data_paths.py                 # Portable data access via data_config.json
+│   ├── env_data_loader.py            # Unified environmental sensor data loader
+│   ├── co2_decay_analysis.py         # CO2 decay & air-change rate (λ) analysis
+│   ├── particle_decay_analysis.py    # Particle penetration, deposition & emission analysis
 │   ├── rh_temp_other_analysis.py     # RH, temperature & wind analysis
 │   └── deprecated/                   # Deprecated/archived code
 │       └── co2_decay_analysis.py     # Previous version of CO2 analysis
 │
-├── scripts/                          # Executable scripts
+├── scripts/                          # Executable scripts and utilities
 │   │
 │   │ # Data Download & Processing
 │   ├── download_quantaq_data.py      # Download QuantAQ sensor data from API
@@ -43,25 +43,22 @@ NIST_EPA_Legionella/
 │   ├── quantaq_utils.py              # QuantAQ API client utilities
 │   │
 │   │ # Log Processing
-│   ├── process_co2_log.py            # Consolidate CO2 injection logs
-│   ├── process_shower_log.py         # Consolidate shower event logs
-│   ├── fix_log_files.py              # Fix corrupted log file formatting
-│   ├── analyze_log_files.py          # Diagnose log file issues
+│   ├── process_co2_log.py            # Consolidate daily CO2 injection logs → state-change log
+│   ├── process_shower_log.py         # Consolidate daily shower logs → state-change log
+│   ├── fix_log_files.py              # Repair corrupted/empty log files
+│   ├── analyze_log_files.py          # Diagnose log file issues (unmatched events, etc.)
 │   │
 │   │ # Event Management
-│   ├── event_manager.py              # Event filtering, naming, configuration
-│   ├── event_matching.py             # Match CO2 injections to shower events
-│   ├── event_registry.py             # Unified event registry with synthetic events
+│   ├── event_manager.py              # Event filtering, naming (MMDD_Temp_ToD_RNN), logging
+│   ├── event_matching.py             # Match CO2 injections to shower events by timing
+│   ├── event_registry.py             # Unified event registry with synthetic event creation
 │   │
 │   │ # Visualization
 │   ├── plot_style.py                 # Consistent matplotlib styling constants
 │   ├── plot_co2.py                   # CO2 decay visualization functions
 │   ├── plot_particle.py              # Particle decay visualization functions
 │   ├── plot_environmental.py         # RH, temperature, wind visualization
-│   ├── plot_utils.py                 # Main plotting entry point (re-exports)
-│   │
-│   │ # Examples
-│   └── example_data_access.py        # Example usage of data utilities
+│   └── plot_utils.py                 # Central plotting re-exports (imports all plot_* modules)
 │
 ├── testing/                          # Testing and exploratory scripts
 │   └── co2 plot.py                   # Aranet4 CO2 plotting script
@@ -70,7 +67,8 @@ NIST_EPA_Legionella/
     ├── Aranet_Datasheet_TDSPC003_Aranet4_PRO_1.pdf
     ├── aranet4_user_manual_v25_web.pdf
     ├── Data Analysis.docx            # Data analysis planning notes
-    ├── data_analysis_checklist.xlsx  # Task tracking for analysis milestones
+    ├── data_analysis_checklist.xlsx   # Task tracking for analysis milestones
+    ├── IAQMH_instruments             # Instrument reference information
     └── python_script_style_prompt.txt # Coding style guidelines
 ```
 
@@ -126,8 +124,6 @@ file = get_instrument_file("Aranet4", "2026-01-15")
 files = get_instrument_files_for_date_range("QuantAQ", "2026-01-05", "2026-01-15")
 ```
 
-See `scripts/example_data_access.py` for more usage examples.
-
 ### QuantAQ Data Pipeline
 
 1. **Download data** from the QuantAQ API:
@@ -172,14 +168,71 @@ These can be imported and used by analysis modules or run independently for cust
 
 The complete data analysis pipeline follows this sequence:
 
-1. **Data Collection**: Download sensor data using [scripts/download_quantaq_data.py](scripts/download_quantaq_data.py)
-2. **Data Processing**: Process and merge raw sensor data using [scripts/process_quantaq_data.py](scripts/process_quantaq_data.py)
-3. **Event Logging**: Ensure CO2 injection and shower event logs are processed
-4. **CO2 Analysis**: Run [src/co2_decay_analysis.py](src/co2_decay_analysis.py) to determine air change rates (λ)
-5. **Particle Analysis**: Run [src/particle_decay_analysis.py](src/particle_decay_analysis.py) to calculate penetration, deposition, and emission
-6. **Environmental Analysis**: Run [src/rh_temp_other_analysis.py](src/rh_temp_other_analysis.py) to characterize RH, temperature, and wind conditions
+1. **Data Collection**: Download sensor data from the QuantAQ API
+   ```bash
+   python scripts/download_quantaq_data.py
+   ```
 
-Each analysis module produces CSV summaries and optional visualizations in the `output/` directory.
+2. **Data Processing**: Process and merge raw QuantAQ sensor data
+   ```bash
+   python scripts/process_quantaq_data.py
+   ```
+
+3. **Log Processing**: Consolidate daily 1-second log files into state-change logs
+   ```bash
+   python scripts/process_co2_log.py
+   python scripts/process_shower_log.py
+   ```
+   These scripts reduce ~86,400 records/day down to ~4-10 state-change records per day.
+
+4. **Event Management**: Run the event manager to match, name, and register events
+   ```bash
+   python scripts/event_manager.py
+   ```
+   This must be run **before** the analysis scripts so that events have consistent names
+   (see [Event Naming Convention](#event-naming-convention) below). Produces `event_log.csv`.
+
+5. **CO2 Analysis**: Determine air change rates (λ) from CO2 decay
+   ```bash
+   python src/co2_decay_analysis.py
+   python src/co2_decay_analysis.py --plot    # with visualization
+   ```
+
+6. **Particle Analysis**: Calculate penetration, deposition, and emission rates (requires step 5 results)
+   ```bash
+   python src/particle_decay_analysis.py
+   python src/particle_decay_analysis.py --plot
+   ```
+
+7. **Environmental Analysis**: Characterize RH, temperature, and wind conditions
+   ```bash
+   python src/rh_temp_other_analysis.py
+   python src/rh_temp_other_analysis.py --plot
+   ```
+
+Each analysis module produces CSV/Excel summaries and optional visualizations in the `output/` directory.
+
+## Event Naming Convention
+
+Events are named using a structured format generated by `scripts/event_manager.py`. This naming convention must be applied (step 4 in the workflow above) **before** running the analysis scripts.
+
+**Format:** `MMDD_TempCode_TimeOfDay_RNN`
+
+| Component | Description | Values |
+|-----------|-------------|--------|
+| `MMDD` | Month and day of the event | e.g., `0114` for January 14 |
+| `TempCode` | Water temperature setting | `HW` (Hot Water), `CW` (Cold Water), `Mixed` |
+| `TimeOfDay` | Time classification | `Day` (5 AM - 5 PM), `Night` (5 PM - 5 AM) |
+| `RNN` | Replicate number | `R01`, `R02`, `R03`, etc. |
+
+**Examples:**
+- `0114_HW_Day_R01` - January 14, hot water, daytime, replicate 1
+- `0122_CW_Night_R03` - January 22, cold water, nighttime, replicate 3
+
+**Test Parameter Timeline:**
+- Hot water: From experiment start (2026-01-14)
+- Cold water: Starting 2026-01-22 14:00
+- Mixed: Starting 2026-02-02 17:00
 
 ## Data Analysis Modules
 
@@ -276,8 +329,10 @@ python src/rh_temp_other_analysis.py --plot
 
 Key packages (see `epa_mh.yml` for complete list):
 - pandas, numpy - Data manipulation
+- scipy - Statistical analysis (linear regression for decay fitting)
 - matplotlib - Publication-quality figure generation
 - bokeh - Interactive visualization
 - requests - API communication
+- python-dotenv - Environment variable management (.env file loading)
 - pyyaml - Configuration management
 - openpyxl - Excel file I/O
