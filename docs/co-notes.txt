@@ -1,0 +1,6 @@
+Onset	Hobo temp/RH logger	 UX100-011	10355906	MH master bath
+Onset	Hobo temp/RH logger	 UX100-011A	21904272	MH master bed
+Onset	Hobo temp/RH logger	 TRH2	UX100-011	20244190	MH master C
+Onset	Hobo temp/RH logger	 UX100-011A	21904275	 	MH master D
+Onset	Hobo temp/RH logger	 RH4	UX100-011	20244192	MH master E
+Onset	Hobo temp/RH logger	 RH3	UX100-011	20244191	MH master F
