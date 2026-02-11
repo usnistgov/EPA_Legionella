@@ -72,18 +72,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.event_manager import (  # noqa: E402
     EXPERIMENT_START_DATE,
-    is_event_excluded,
-    filter_events_by_date,
     assign_test_names,
-    get_water_temperature_code,
-    get_time_of_day,
+    filter_events_by_date,
     get_test_configuration,
+    get_time_of_day,
+    get_water_temperature_code,
+    is_event_excluded,
     sort_config_keys_by_water_temp,
 )
 from scripts.event_matching import match_co2_to_shower_event  # noqa: E402
 from scripts.event_registry import (  # noqa: E402
-    load_event_registry,
     REGISTRY_FILENAME,
+    load_event_registry,
 )
 from scripts.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
@@ -272,7 +272,7 @@ def load_and_merge_co2_data() -> pd.DataFrame:
         if col in merged.columns:
             merged[col] = (
                 merged[col]
-                .rolling(window=ROLLING_WINDOW_MIN, center=True, min_periods=1)
+                .rolling(window=ROLLING_WINDOW_MIN, center=False, min_periods=1)
                 .mean()
             )
 
@@ -872,9 +872,15 @@ def run_co2_decay_analysis(
                 event["is_unmatched"] = True
 
                 # Diagnostic: show why no match was found
-                print(f"\n  WARNING: No shower match for CO2 event #{event.get('event_number', '?')}")
-                print(f"    CO2 injection time: {injection_time.strftime('%Y-%m-%d %H:%M')}")
-                print(f"    Expected shower time: {expected_shower_time.strftime('%Y-%m-%d %H:%M')} (±10 min)")
+                print(
+                    f"\n  WARNING: No shower match for CO2 event #{event.get('event_number', '?')}"
+                )
+                print(
+                    f"    CO2 injection time: {injection_time.strftime('%Y-%m-%d %H:%M')}"
+                )
+                print(
+                    f"    Expected shower time: {expected_shower_time.strftime('%Y-%m-%d %H:%M')} (±10 min)"
+                )
                 # Find nearest shower event to help diagnose
                 if shower_events:
                     nearest_shower = None
@@ -882,13 +888,18 @@ def run_co2_decay_analysis(
                     for se in shower_events:
                         shower_time = se.get("shower_on")
                         if shower_time:
-                            diff_min = abs((shower_time - expected_shower_time).total_seconds() / 60.0)
+                            diff_min = abs(
+                                (shower_time - expected_shower_time).total_seconds()
+                                / 60.0
+                            )
                             if diff_min < nearest_diff:
                                 nearest_diff = diff_min
                                 nearest_shower = se
                 if nearest_shower:
-                    print(f"    Nearest shower event: {nearest_shower['shower_on'].strftime('%Y-%m-%d %H:%M')} "
-                          f"({nearest_diff:.1f} min from expected)")
+                    print(
+                        f"    Nearest shower event: {nearest_shower['shower_on'].strftime('%Y-%m-%d %H:%M')} "
+                        f"({nearest_diff:.1f} min from expected)"
+                    )
                     print(f"    Assigned fallback name: {event['test_name']}")
 
     # Analyze each event
@@ -928,7 +939,9 @@ def run_co2_decay_analysis(
                 "injection_start": injection_time,
                 "decay_start": event["decay_start"],
                 "decay_end": event["decay_end"],
-                "decay_duration_hours": event.get("decay_duration_hours", DECAY_DURATION_HOURS),
+                "decay_duration_hours": event.get(
+                    "decay_duration_hours", DECAY_DURATION_HOURS
+                ),
                 "lambda_average_mean": np.nan,
                 "lambda_average_std": np.nan,
                 "lambda_average_r_squared": np.nan,
@@ -953,9 +966,7 @@ def run_co2_decay_analysis(
             else ""
         )
         print(
-            f"  {test_name}: "
-            f"{injection_time.strftime('%Y-%m-%d %H:%M')}"
-            f"{duration_info}"
+            f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}{duration_info}"
         )
 
         result = analyze_injection_event(co2_data, event, alpha, beta)
@@ -977,8 +988,11 @@ def run_co2_decay_analysis(
             if generate_plots:
                 # Format filename: event_01-0114_hw_morning_co2_decay.png
                 from scripts.plot_style import format_test_name_for_filename
+
                 formatted_name = format_test_name_for_filename(test_name)
-                plot_path = plot_dir / f"event_{event_num:02d}-{formatted_name}_co2_decay.png"
+                plot_path = (
+                    plot_dir / f"event_{event_num:02d}-{formatted_name}_co2_decay.png"
+                )
                 plot_co2_decay_event_analytical(
                     co2_data=co2_data,
                     event=event,
@@ -1072,8 +1086,16 @@ def run_co2_decay_analysis(
             door_pos = parts[1].replace("Door", "") if len(parts) > 1 else ""
             fan_status = parts[2].replace("Fan", "") if len(parts) > 2 else ""
         else:
-            water_temp = config_df["water_temp"].iloc[0] if "water_temp" in config_df.columns and len(config_df) > 0 else ""
-            door_pos = config_df["door_position"].iloc[0] if "door_position" in config_df.columns and len(config_df) > 0 else ""
+            water_temp = (
+                config_df["water_temp"].iloc[0]
+                if "water_temp" in config_df.columns and len(config_df) > 0
+                else ""
+            )
+            door_pos = (
+                config_df["door_position"].iloc[0]
+                if "door_position" in config_df.columns and len(config_df) > 0
+                else ""
+            )
             fan_status = ""
 
         summary = {
@@ -1096,7 +1118,9 @@ def run_co2_decay_analysis(
             valid_values = config_df[col].dropna()
             if len(valid_values) > 0:
                 valid_r2 = config_df.loc[valid_values.index, r2_col]
-                summary[f"lambda_{mode}_overall_mean (h-1)"] = float(valid_values.mean())
+                summary[f"lambda_{mode}_overall_mean (h-1)"] = float(
+                    valid_values.mean()
+                )
                 summary[f"lambda_{mode}_overall_std (h-1)"] = float(valid_values.std())
                 summary[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
             else:
@@ -1127,8 +1151,12 @@ def run_co2_decay_analysis(
             valid_values = results_df[col].dropna()
             if len(valid_values) > 0:
                 valid_r2 = results_df.loc[valid_values.index, r2_col]
-                summary_all[f"lambda_{mode}_overall_mean (h-1)"] = float(valid_values.mean())
-                summary_all[f"lambda_{mode}_overall_std (h-1)"] = float(valid_values.std())
+                summary_all[f"lambda_{mode}_overall_mean (h-1)"] = float(
+                    valid_values.mean()
+                )
+                summary_all[f"lambda_{mode}_overall_std (h-1)"] = float(
+                    valid_values.std()
+                )
                 summary_all[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
             else:
                 summary_all[f"lambda_{mode}_overall_mean (h-1)"] = np.nan
