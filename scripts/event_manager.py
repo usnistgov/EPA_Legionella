@@ -103,7 +103,7 @@ def _ensure_registry_imports():
 # =============================================================================
 
 # Experiment start date - data before this is excluded
-EXPERIMENT_START_DATE = datetime(2026, 1, 14, 0, 0, 0)
+EXPERIMENT_START_DATE = datetime(2026, 1, 15, 15, 0, 0)
 
 # =============================================================================
 # Test Configuration System
@@ -124,6 +124,7 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 2, 17, 0, 0), "W25"),  # Mixed water from Feb 2 5PM
     (datetime(2026, 2, 5, 10, 0, 0), "W30"),  # Mixed water from Feb 5 10AM
     (datetime(2026, 2, 9, 10, 0, 0), "W37"),  # Mixed water from Feb 9 10AM
+    (datetime(2026, 2, 11, 8, 0, 0), "W23"),  # Mixed water from Feb 11 8AM
 ]
 
 # Door position transitions: (datetime, position)
