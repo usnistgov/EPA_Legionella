@@ -170,6 +170,51 @@ EXPECTED_CO2_BEFORE_SHOWER = 20
 # =============================================================================
 
 
+def get_water_temp_sort_key(config_key: str) -> float:
+    """
+    Extract numeric water temperature from config_key for sorting.
+
+    Extracts the numeric value from the water temperature code (e.g., "W48" -> 48)
+    in the config_key string. Used to sort configurations from coldest to hottest.
+
+    Parameters:
+        config_key: Configuration key (e.g., "W48_DoorOpen_FanOff") or water temp
+                    code (e.g., "W48")
+
+    Returns:
+        Numeric sort key (water temperature in °C). Unknown values sort last.
+    """
+    # Handle "All" or empty strings
+    if not config_key or config_key == "All":
+        return float("inf")
+
+    # Extract the water temp component (first part before _Door or first part)
+    parts = config_key.split("_")
+    water_temp = parts[0]
+
+    # Extract numeric value from water temp code (e.g., "W48" -> 48)
+    if water_temp.startswith("W") and len(water_temp) > 1:
+        try:
+            return float(water_temp[1:])
+        except ValueError:
+            pass
+
+    return float("inf")
+
+
+def sort_config_keys_by_water_temp(config_keys: list) -> list:
+    """
+    Sort configuration keys by water temperature from coldest to hottest.
+
+    Parameters:
+        config_keys: List of config_key strings (e.g., ["W48_DoorOpen_FanOff", "W11_DoorOpen_FanOff"])
+
+    Returns:
+        Sorted list of config_keys
+    """
+    return sorted(config_keys, key=get_water_temp_sort_key)
+
+
 def get_time_of_day(dt: datetime) -> str:
     """
     Determine time of day category based on hour.

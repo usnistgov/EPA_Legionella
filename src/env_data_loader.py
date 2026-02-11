@@ -41,6 +41,7 @@ Supported Instruments:
     - Aranet4: CO2, RH, Temperature (Entry, Bedroom, Outside)
     - QuantAQ MODULAIR-PM: RH, Temperature (Inside, Outside)
     - Vaisala HMP155/HMP45A: RH, Temperature (via DAQ)
+    - HOBO UX100: RH, Temperature (Bathroom, Doorway, Bedroom)
     - AIO2: Wind speed and direction
 
 Author: Nathan Lima
@@ -173,6 +174,80 @@ SENSOR_CONFIG = {
         "instrument": "Vaisala_HMP45A",
         "location": "DAQ",
         "column": "T_MBa_M5_C1",
+        "variable_type": "temperature",
+    },
+    # HOBO UX100 RH sensors
+    "HOBO Bathroom1 RH": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_D",
+        "column": "rh_pct",
+        "variable_type": "rh",
+    },
+    "HOBO Bathroom2 RH": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_Bath",
+        "column": "rh_pct",
+        "variable_type": "rh",
+    },
+    "HOBO Bath/Bed RH": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_E",
+        "column": "rh_pct",
+        "variable_type": "rh",
+    },
+    "HOBO Bedroom1 RH": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_Bed",
+        "column": "rh_pct",
+        "variable_type": "rh",
+    },
+    "HOBO Bedroom2 RH": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_F",
+        "column": "rh_pct",
+        "variable_type": "rh",
+    },
+    "HOBO Bedroom3 RH": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_C",
+        "column": "rh_pct",
+        "variable_type": "rh",
+    },
+    # HOBO UX100 Temperature sensors
+    "HOBO Bathroom1 Temp": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_D",
+        "column": "temp_c",
+        "variable_type": "temperature",
+    },
+    "HOBO Bathroom2 Temp": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_Bath",
+        "column": "temp_c",
+        "variable_type": "temperature",
+    },
+    "HOBO Bath/Bed Temp": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_E",
+        "column": "temp_c",
+        "variable_type": "temperature",
+    },
+    "HOBO Bedroom1 Temp": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_Bed",
+        "column": "temp_c",
+        "variable_type": "temperature",
+    },
+    "HOBO Bedroom2 Temp": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_F",
+        "column": "temp_c",
+        "variable_type": "temperature",
+    },
+    "HOBO Bedroom3 Temp": {
+        "instrument": "HOBO_UX100",
+        "location": "MB_C",
+        "column": "temp_c",
         "variable_type": "temperature",
     },
     # AIO2 Wind sensors
@@ -496,6 +571,84 @@ def load_aio2_data(start_date, end_date) -> pd.DataFrame:
     return combined.reset_index(drop=True)
 
 
+def load_hobo_data(location: str, start_date, end_date) -> pd.DataFrame:
+    """
+    Load HOBO UX100 data for a specific sensor location and date range.
+
+    Combines all CSV files matching the sensor's file suffixes, converts
+    temperature from °F to °C, removes duplicates, and sorts chronologically.
+
+    Args:
+        location: Sensor location key (e.g., 'MB_D', 'MB_Bath', 'MB_E')
+        start_date: Start date for data
+        end_date: End date for data
+
+    Returns:
+        DataFrame with datetime, temp_c, and rh_pct columns
+    """
+    config = get_instrument_config("HOBO_UX100")
+    base_path = get_instrument_path("HOBO_UX100")
+
+    location_config = config["locations"].get(location, {})
+    file_suffixes = location_config.get("file_suffixes", [location])
+
+    # Find all CSV files matching any of the suffixes for this sensor
+    files = []
+    for suffix in file_suffixes:
+        pattern = f"*_{suffix}.csv"
+        files.extend(base_path.glob(pattern))
+    files = sorted(set(files))
+
+    if not files:
+        return pd.DataFrame()
+
+    all_data = []
+    for filepath in files:
+        try:
+            # Row 0 is the plot title line, row 1 is the header
+            df = pd.read_csv(filepath, skiprows=1)
+
+            if len(df.columns) < 4:
+                continue
+
+            # Rename columns by position (headers vary by serial number)
+            col_names = list(df.columns)
+            df = df.rename(columns={
+                col_names[0]: "row_num",
+                col_names[1]: "datetime_str",
+                col_names[2]: "temp_f",
+                col_names[3]: "rh_pct",
+            })
+
+            # Keep only the columns we need
+            df = df[["datetime_str", "temp_f", "rh_pct"]].copy()
+
+            # Parse datetime (format: MM/DD/YY HH:MM:SS AM/PM)
+            df["datetime"] = pd.to_datetime(
+                df["datetime_str"], format="%m/%d/%y %I:%M:%S %p"
+            )
+
+            # Convert temperature from °F to °C
+            df["temp_c"] = (df["temp_f"].astype(float) - 32) * 5 / 9
+            df["rh_pct"] = df["rh_pct"].astype(float)
+
+            # Filter to requested date range
+            mask = (df["datetime"] >= start_date) & (df["datetime"] <= end_date)
+            df = df[mask]
+
+            if len(df) > 0:
+                all_data.append(df[["datetime", "temp_c", "rh_pct"]])
+        except Exception as e:
+            print(f"    Warning: Error loading {filepath.name}: {str(e)[:50]}")
+
+    if not all_data:
+        return pd.DataFrame()
+
+    combined = pd.concat(all_data, ignore_index=True)
+    combined = combined.drop_duplicates(subset=["datetime"]).sort_values("datetime")
+    return combined.reset_index(drop=True)
+
+
 def load_sensor_data(
     sensor_name: str, config: Dict, start_date: datetime, end_date: datetime
 ) -> Optional[pd.DataFrame]:
@@ -522,6 +675,8 @@ def load_sensor_data(
             df = load_quantaq_data(location, start_date, end_date)
         elif instrument in ["Vaisala_HMP155", "Vaisala_HMP45A"]:
             df = load_daq_data(start_date, end_date)
+        elif instrument == "HOBO_UX100":
+            df = load_hobo_data(location, start_date, end_date)
         elif instrument == "AIO2":
             df = load_aio2_data(start_date, end_date)
         else:

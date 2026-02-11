@@ -78,6 +78,7 @@ from scripts.event_manager import (  # noqa: E402
     get_water_temperature_code,
     get_time_of_day,
     get_test_configuration,
+    sort_config_keys_by_water_temp,
 )
 from scripts.event_matching import match_co2_to_shower_event  # noqa: E402
 from scripts.event_registry import (  # noqa: E402
@@ -1049,9 +1050,11 @@ def run_co2_decay_analysis(
     # Save detailed summary - one row per configuration
     summary_rows = []
 
-    # Get unique configurations
+    # Get unique configurations (sorted by water temperature: coldest to hottest)
     if "config_key" in results_df.columns:
-        config_keys = results_df["config_key"].dropna().unique()
+        config_keys = sort_config_keys_by_water_temp(
+            list(results_df["config_key"].dropna().unique())
+        )
     else:
         config_keys = ["All"]  # Fallback if no config_key column
 

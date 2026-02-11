@@ -76,7 +76,7 @@ COLORS = {
     "wind_direction": "#17becf",  # Cyan
 }
 
-# Extended color list for multi-sensor plots
+# Extended color list for multi-sensor plots (16 distinct colorblind-friendly colors)
 SENSOR_COLORS = [
     "#1f77b4",  # Blue
     "#ff7f0e",  # Orange
@@ -88,6 +88,12 @@ SENSOR_COLORS = [
     "#7f7f7f",  # Gray
     "#bcbd22",  # Yellow-green
     "#17becf",  # Cyan
+    "#393b79",  # Dark indigo
+    "#637939",  # Olive green
+    "#e7ba52",  # Gold
+    "#ad494a",  # Dark rose
+    "#7b4173",  # Plum
+    "#ce6dbd",  # Orchid
 ]
 
 # Configuration-based colors for grouping by test conditions

@@ -66,6 +66,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
+    sort_config_keys_by_water_temp,
 )
 from scripts.event_registry import (  # noqa: E402
     load_event_registry,
@@ -99,7 +100,13 @@ _SENSOR_DATA_CACHE: Dict[str, pd.DataFrame] = {}
 # This order is used for bar charts and boxplots
 SENSOR_DISPLAY_ORDER = [
     "Vaisala MBa",
+    "HOBO Bathroom1",
+    "HOBO Bathroom2",
+    "HOBO Bath/Bed",
     "Vaisala Bed1",
+    "HOBO Bedroom1",
+    "HOBO Bedroom2",
+    "HOBO Bedroom3",
     "Aranet4 Bedroom",
     "QuantAQ Inside",
     "Vaisala Liv",
@@ -659,10 +666,9 @@ def generate_comparison_plots(
     has_config = len(events) > 0 and "config_key" in events[0]
     config_keys = []
     if has_config:
-        config_keys = list(
-            set(e.get("config_key", "") for e in events if e.get("config_key"))
+        config_keys = sort_config_keys_by_water_temp(
+            [k for k in set(e.get("config_key", "") for e in events if e.get("config_key")) if k]
         )
-        config_keys = [k for k in config_keys if k]  # Remove empty strings
 
     for var_type in ["rh", "temperature", "wind_speed", "wind_direction"]:
         sensors = [

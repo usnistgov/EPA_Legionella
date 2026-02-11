@@ -51,6 +51,7 @@ import pandas as pd
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 
+from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
     COLORS,
     CONFIG_KEY_COLORS,
@@ -81,7 +82,13 @@ _SENSOR_NAME_SUFFIXES = [" RH", " Temp", " Speed", " Direction"]
 # Mapping from internal sensor names to display names for plots
 SENSOR_DISPLAY_NAMES = {
     "Vaisala MBa": "Vaisala Bathroom",
+    "HOBO Bathroom1": "HOBO Bathroom1",
+    "HOBO Bathroom2": "HOBO Bathroom2",
+    "HOBO Bath/Bed": "HOBO Bath/Bed",
     "Vaisala Bed1": "Vaisala Bedroom",
+    "HOBO Bedroom1": "HOBO Bedroom1",
+    "HOBO Bedroom2": "HOBO Bedroom2",
+    "HOBO Bedroom3": "HOBO Bedroom3",
     "QuantAQ Inside": "QuantAQ Bedroom",
     "Vaisala Liv": "Vaisala Livingroom",
     "Aranet4 Entry": "Aranet4 Livingroom",
@@ -93,7 +100,13 @@ SENSOR_DISPLAY_NAMES = {
 # Canonical display order for sensors in plots (legends, box plots, bar charts)
 SENSOR_DISPLAY_ORDER = [
     "Vaisala Bathroom",
+    "HOBO Bathroom1",
+    "HOBO Bathroom2",
+    "HOBO Bath/Bed",
     "Vaisala Bedroom",
+    "HOBO Bedroom1",
+    "HOBO Bedroom2",
+    "HOBO Bedroom3",
     "Aranet4 Bedroom",
     "QuantAQ Bedroom",
     "Vaisala Livingroom",
@@ -486,7 +499,9 @@ def plot_pre_post_comparison(
 
     # If config_grouped_data is provided, use subplots
     if config_grouped_data and len(config_grouped_data) > 1:
-        config_keys = list(config_grouped_data.keys())
+        config_keys = sort_config_keys_by_water_temp(
+            list(config_grouped_data.keys())
+        )
         n_configs = len(config_keys)
 
         # Determine sensors from all configurations

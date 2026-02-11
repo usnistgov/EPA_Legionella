@@ -48,6 +48,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
     COLORS,
     CONFIG_KEY_COLORS,
@@ -324,7 +325,9 @@ def plot_penetration_summary(
     # Check if we have configuration data for subplots
     has_config = "config_key" in results_df.columns
     if has_config:
-        config_keys = results_df["config_key"].dropna().unique()
+        config_keys = sort_config_keys_by_water_temp(
+            list(results_df["config_key"].dropna().unique())
+        )
         n_configs = len(config_keys)
     else:
         config_keys = ["All"]
@@ -451,7 +454,9 @@ def plot_deposition_summary(
     # Check if we have configuration data for subplots
     has_config = "config_key" in results_df.columns
     if has_config:
-        config_keys = results_df["config_key"].dropna().unique()
+        config_keys = sort_config_keys_by_water_temp(
+            list(results_df["config_key"].dropna().unique())
+        )
         n_configs = len(config_keys)
     else:
         config_keys = ["All"]
@@ -576,7 +581,9 @@ def plot_emission_summary(
     # Check if we have configuration data for subplots
     has_config = "config_key" in results_df.columns
     if has_config:
-        config_keys = results_df["config_key"].dropna().unique()
+        config_keys = sort_config_keys_by_water_temp(
+            list(results_df["config_key"].dropna().unique())
+        )
         n_configs = len(config_keys)
     else:
         config_keys = ["All"]
