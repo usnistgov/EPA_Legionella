@@ -54,9 +54,10 @@ Methodology:
 
     3. Calculate deposition rate (β_deposition) when E=0:
        - Use 2-hour window after shower ends
+       -Start time from peak concentration within the window to end of window
        - Solve numerically for each time step:
          β_deposition = 1/Δt - λ - C_t(i+1)/(C_t Δt) + (pλC_out,t)/C_t
-       - Average β over the 2-hour window
+       - Average β over the window
 
     4. Calculate emission rate (E) during shower:
        - Use shower ON to OFF period from log
@@ -510,17 +511,17 @@ def get_penetration_windows(
     if is_night_event:
         # 3am event: before = 9pm (day before) to 2am (day of)
         #             after  = 9am (day of) to 2pm (day of)
-        before_start = shower_date - timedelta(hours=3)   # 9pm day before
-        before_end = shower_date + timedelta(hours=2)     # 2am day of
-        after_start = shower_date + timedelta(hours=9)    # 9am day of
-        after_end = shower_date + timedelta(hours=14)     # 2pm day of
+        before_start = shower_date - timedelta(hours=3)  # 9pm day before
+        before_end = shower_date + timedelta(hours=2)  # 2am day of
+        after_start = shower_date + timedelta(hours=9)  # 9am day of
+        after_end = shower_date + timedelta(hours=14)  # 2pm day of
     else:
         # 3pm event: before = 9am (day of) to 2pm (day of)
         #             after  = 9pm (day of) to 2am (next day)
-        before_start = shower_date + timedelta(hours=9)   # 9am day of
-        before_end = shower_date + timedelta(hours=14)    # 2pm day of
-        after_start = shower_date + timedelta(hours=21)   # 9pm day of
-        after_end = shower_date + timedelta(hours=26)     # 2am next day
+        before_start = shower_date + timedelta(hours=9)  # 9am day of
+        before_end = shower_date + timedelta(hours=14)  # 2pm day of
+        after_start = shower_date + timedelta(hours=21)  # 9pm day of
+        after_end = shower_date + timedelta(hours=26)  # 2am next day
 
     return [(before_start, before_end), (after_start, after_end)]
 
