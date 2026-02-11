@@ -575,8 +575,9 @@ def load_hobo_data(location: str, start_date, end_date) -> pd.DataFrame:
     """
     Load HOBO UX100 data for a specific sensor location and date range.
 
-    Combines all CSV files matching the sensor's file suffixes, converts
-    temperature from °F to °C, removes duplicates, and sorts chronologically.
+    Combines all CSV files matching the sensor's file suffixes, applies
+    measurement offsets (in °F for temp, additive), converts temperature
+    from °F to °C, removes duplicates, and sorts chronologically.
 
     Args:
         location: Sensor location key (e.g., 'MB_D', 'MB_Bath', 'MB_E')
@@ -591,6 +592,11 @@ def load_hobo_data(location: str, start_date, end_date) -> pd.DataFrame:
 
     location_config = config["locations"].get(location, {})
     file_suffixes = location_config.get("file_suffixes", [location])
+
+    # Get measurement offsets (applied as: corrected = raw + offset)
+    offsets = location_config.get("offsets", {})
+    temp_f_offset = offsets.get("temp_f", 0.0)
+    rh_offset = offsets.get("rh", 0.0)
 
     # Find all CSV files matching any of the suffixes for this sensor
     files = []
@@ -628,9 +634,12 @@ def load_hobo_data(location: str, start_date, end_date) -> pd.DataFrame:
                 df["datetime_str"], format="%m/%d/%y %I:%M:%S %p"
             )
 
-            # Convert temperature from °F to °C
-            df["temp_c"] = (df["temp_f"].astype(float) - 32) * 5 / 9
-            df["rh_pct"] = df["rh_pct"].astype(float)
+            # Apply measurement offsets (corrected = raw + offset)
+            df["temp_f"] = df["temp_f"].astype(float) + temp_f_offset
+            df["rh_pct"] = df["rh_pct"].astype(float) + rh_offset
+
+            # Convert temperature from °F to °C (after offset applied)
+            df["temp_c"] = (df["temp_f"] - 32) * 5 / 9
 
             # Filter to requested date range
             mask = (df["datetime"] >= start_date) & (df["datetime"] <= end_date)
