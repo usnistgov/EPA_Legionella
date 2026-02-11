@@ -367,3 +367,142 @@ Wind Direction (°):
 ============================================================
 ANALYSIS COMPLETE
 ============================================================
+
+
+    "HOBO_UX100": {
+      "base_path": "HOBOs",
+      "file_pattern": "??????_MB_*.csv",
+      "has_year_subdirs": false,
+      "description": "HOBO UX100 Temp/RH Data Loggers",
+      "manufacturer": "Onset Computer Corporation",
+      "output": "USB 2.0 download",
+      "connection": "USB (standalone data logger)",
+      "datetime_columns": ["Date Time, GMT-05:00"],
+      "variables": ["temp_c", "rh_pct"],
+      "locations": {
+        "MB_D": {
+          "description": "HOBO Bathroom1 (MH master D) - Bathroom",
+          "display_name": "HOBO Bathroom1",
+          "model": "UX100-011A",
+          "serial_number": "21904275",
+          "room": "Bathroom",
+          "file_suffixes": ["MB_D", "MB_G"],
+          "offsets": {
+            "temp_f": -0.04,
+            "rh": -0.55
+          }
+        },
+        "MB_Bath": {
+          "description": "HOBO Bathroom2 (MH master bath) - Bathroom",
+          "display_name": "HOBO Bathroom2",
+          "model": "UX100-011",
+          "serial_number": "10355906",
+          "room": "Bathroom",
+          "file_suffixes": ["MB_Bath"],
+          "offsets": {
+            "temp_f": 0.13,
+            "rh": 0.57
+          }
+        },
+        "MB_E": {
+          "description": "HOBO Bath/Bed (MH master E) - Doorway between bath and bedroom",
+          "display_name": "HOBO Bath/Bed",
+          "model": "UX100-011",
+          "serial_number": "20244192",
+          "room": "Doorway",
+          "file_suffixes": ["MB_E"],
+          "offsets": {
+            "temp_f": -0.12,
+            "rh": 0.50
+          }
+        },
+        "MB_Bed": {
+          "description": "HOBO Bedroom1 (MH master bed) - Bedroom",
+          "display_name": "HOBO Bedroom1",
+          "model": "UX100-011A",
+          "serial_number": "21904272",
+          "room": "Bedroom",
+          "file_suffixes": ["MB_Bed"],
+          "offsets": {
+            "temp_f": -0.23,
+            "rh": -0.47
+          }
+        },
+        "MB_F": {
+          "description": "HOBO Bedroom2 (MH master F) - Bedroom",
+          "display_name": "HOBO Bedroom2",
+          "model": "UX100-011",
+          "room": "Bedroom",
+          "file_suffixes": ["MB_F"],
+          "offsets": {
+            "temp_f": 0.24,
+            "rh": -0.11
+          }
+        },
+        "MB_C": {
+          "description": "HOBO Bedroom3 (MH master C) - Bedroom",
+          "display_name": "HOBO Bedroom3",
+          "model": "UX100-011",
+          "room": "Bedroom",
+          "file_suffixes": ["MB_C"],
+          "offsets": {
+            "temp_f": 0.03,
+            "rh": 0.05
+          }
+        }
+      },
+      "status": "ACTIVE",
+      "models": {
+        "UX100-011A": {
+          "description": "HOBO UX100-011A Temp/RH 2.5% Data Logger",
+          "sensors": ["MB_D", "MB_Bed"],
+          "specifications": {
+            "temperature_range": "-20 to 70°C (-4 to 158°F)",
+            "temperature_accuracy": "±0.21°C from 0 to 50°C",
+            "temperature_resolution": "0.024°C at 25°C",
+            "temperature_response_time": "4 minutes in air moving 1 m/s",
+            "temperature_drift": "<0.1°C per year",
+            "relative_humidity_range": "1-95% (non-condensing)",
+            "relative_humidity_accuracy": "±2.5% from 10-90% typical, ±3.5% max including hysteresis at 25°C",
+            "relative_humidity_resolution": "0.01% at 25°C",
+            "relative_humidity_response_time": "10 seconds to 90% in 1 m/s airflow",
+            "relative_humidity_drift": "<1% per year typical",
+            "logging_rate": "1 second to 18 hours, 12 minutes, 15 seconds",
+            "memory": "128 KB (84,650 measurements max)",
+            "battery": "One 3V CR2032 lithium (user-replaceable)",
+            "battery_life": "1 year typical (1-min logging, 15-sec sampling interval)"
+          }
+        },
+        "UX100-011": {
+          "description": "HOBO UX100-011 Temp/RH 2.5% Data Logger (discontinued)",
+          "sensors": ["MB_Bath", "MB_C", "MB_E", "MB_F"],
+          "specifications": {
+            "temperature_range": "-20 to 70°C (-4 to 158°F)",
+            "temperature_accuracy": "±0.21°C from 0 to 50°C",
+            "temperature_resolution": "0.024°C at 25°C",
+            "temperature_response_time": "4 minutes in air moving 1 m/s",
+            "temperature_drift": "<0.1°C per year",
+            "relative_humidity_range": "1-95% (non-condensing)",
+            "relative_humidity_accuracy": "±2.5% from 10-90% typical, ±3.5% max including hysteresis at 25°C",
+            "relative_humidity_resolution": "0.05% at 25°C",
+            "relative_humidity_response_time": "11 seconds to 90% in 1 m/s airflow",
+            "relative_humidity_drift": "<1% per year typical",
+            "logging_rate": "1 second to 18 hours, 12 minutes, 15 seconds",
+            "memory": "128 KB (84,650 measurements max)",
+            "battery": "One 3V CR2032 lithium (user-replaceable)",
+            "battery_life": "1 year typical (1-min logging, 15-sec sampling interval)"
+          }
+        }
+      },
+      "notes": [
+        "Standalone USB data loggers for indoor temperature and relative humidity.",
+        "Data exported as CSV via HOBOware software.",
+        "Raw temperature data in °F - converted to °C during processing.",
+        "Six loggers deployed: 2 in bathroom, 1 in doorway, 3 in bedroom.",
+        "UX100-011A (MH master D, MH master bed) has higher RH resolution than UX100-011.",
+        "MB_G files are early exports of MH master D (same S/N 21904275), combined with MB_D.",
+        "Measurement offsets (additive, corrected = raw + offset) applied during loading.",
+        "Temp offsets are in °F (applied before °F to °C conversion). RH offsets are in % RH."
+      ]
+    }
+    },
