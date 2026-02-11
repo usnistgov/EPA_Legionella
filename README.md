@@ -194,14 +194,12 @@ The complete data analysis pipeline follows this sequence:
 
 5. **CO2 Analysis**: Determine air change rates (λ) from CO2 decay
    ```bash
-   python src/co2_decay_analysis.py
-   python src/co2_decay_analysis.py --plot    # with visualization
+   python src/co2_decay_analysis.py [-h] [--alpha ALPHA] [--beta BETA] [--output-dir OUTPUT_DIR] [--no-plot]
    ```
 
 6. **Environmental Analysis**: Characterize RH, temperature, and wind conditions
    ```bash
-   python src/rh_temp_other_analysis.py
-   python src/rh_temp_other_analysis.py --plot
+   python src/rh_temp_other_analysis.py [-h] [--output-dir OUTPUT_DIR] [--no-plots] [--max-plot-events MAX_PLOT_EVENTS] [--events EVENTS]
    ```
 
 7. **Particle Analysis**: Calculate penetration, deposition, and emission rates (requires step 5 results)

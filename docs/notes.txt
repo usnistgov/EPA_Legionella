@@ -1,0 +1,369 @@
+python rh_temp_other_analysis.py
+============================================================
+Relative Humidity, Temperature & Wind Analysis
+============================================================
+
+Loading events from registry: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\event_registry.csv
+  Loaded 64 events from registry
+  Using unified event registry for consistent event numbering
+Processed 64 events for analysis
+
+Pre-loading sensor data for 2026-01-15 to 2026-02-11...
+    Warning: Error loading HOBO Bathroom1 RH: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bathroom2 RH: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bath/Bed RH: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bedroom1 RH: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bedroom2 RH: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bedroom3 RH: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bathroom1 Temp: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bathroom2 Temp: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bath/Bed Temp: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bedroom1 Temp: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bedroom2 Temp: "Unknown instrument: HOBO_UX100. Available instrum
+    Warning: Error loading HOBO Bedroom3 Temp: "Unknown instrument: HOBO_UX100. Available instrum
+  Loaded 18 sensors into cache
+
+Analyzing 64 shower events...
+
+  0115_W48_Closed_Day_R01 (2026-01-15 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0115_W48_Closed_Night_R01 (2026-01-15 21:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0116_W48_Closed_Night_R01 (2026-01-16 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0116_W48_Closed_Day_R01 (2026-01-16 09:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0116_W48_Closed_Day_R02 (2026-01-16 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0117_W48_Closed_Night_R01 (2026-01-17 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0117_W48_Closed_Day_R01 (2026-01-17 09:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0117_W48_Closed_Day_R02 (2026-01-17 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0118_W48_Closed_Night_R01 (2026-01-18 03:00): duration: 10.0 min
+    Using data from 14 sensors
+
+  0118_W48_Closed_Day_R01 (2026-01-18 09:00): duration: 10.0 min
+    Using data from 14 sensors
+
+  0118_W48_Closed_Day_R02 (2026-01-18 15:00): duration: 10.0 min
+    Using data from 14 sensors
+
+  0119_W48_Closed_Night_R01 (2026-01-19 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0119_W48_Closed_Day_R01 (2026-01-19 09:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0119_W48_Closed_Day_R02 (2026-01-19 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0120_W48_Closed_Night_R01 (2026-01-20 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0120_W48_Closed_Day_R01 (2026-01-20 09:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0120_W48_Closed_Day_R02 (2026-01-20 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0121_W48_Closed_Night_R01 (2026-01-21 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0121_W48_Closed_Day_R01 (2026-01-21 09:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0121_W48_Closed_Day_R02 (2026-01-21 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0122_W11_Closed_Day_R01: Skipped (excluded: Tour in house during test)
+
+  0123_W11_Closed_Night_R01 (2026-01-23 03:00): duration: 10.0 min
+    Using data from 12 sensors
+
+  0123_W11_Closed_Day_R01 (2026-01-23 15:00): duration: 10.0 min
+    Using data from 12 sensors
+
+  0124_W11_Closed_Night_R01 (2026-01-24 03:00): duration: 10.0 min
+    Using data from 12 sensors
+
+  0124_W11_Closed_Day_R01 (2026-01-24 15:00): duration: 10.0 min
+    Using data from 12 sensors
+
+  0125_W11_Closed_Night_R01 (2026-01-25 03:00): duration: 10.0 min
+    Using data from 8 sensors
+
+  0125_W11_Closed_Day_R01 (2026-01-25 15:00): duration: 10.0 min
+    Using data from 8 sensors
+
+  0126_W11_Closed_Night_R01 (2026-01-26 03:00): duration: 10.0 min
+    Using data from 12 sensors
+
+  0126_W11_Closed_Day_R01 (2026-01-26 15:00): duration: 10.0 min
+    Using data from 12 sensors
+
+  0127_W11_Closed_Night_R01 (2026-01-27 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0127_W11_Closed_Day_R01 (2026-01-27 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0128_W11_Closed_Night_R01 (2026-01-28 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0128_W11_Closed_Day_R01 (2026-01-28 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0129_W11_Closed_Night_R01 (2026-01-29 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0129_W11_Closed_Day_R01: Skipped (excluded: People in house)
+
+  0130_W11_Closed_Night_R01 (2026-01-30 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0130_W11_Closed_Day_R01 (2026-01-30 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0131_W11_Closed_Night_R01 (2026-01-31 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0131_W11_Closed_Day_R01 (2026-01-31 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0201_W11_Closed_Night_R01 (2026-02-01 03:00): duration: 10.0 min
+    Using data from 14 sensors
+
+  0201_W11_Closed_Day_R01 (2026-02-01 15:00): duration: 10.0 min
+    Using data from 14 sensors
+
+  0202_W11_Closed_Night_R01 (2026-02-02 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0202_W11_Closed_Day_R01 (2026-02-02 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0202_W25_Closed_Night_R01 (2026-02-02 17:31): duration: 24.0 min
+    Using data from 18 sensors
+
+  0202_W25_Closed_Night_R02 (2026-02-02 17:56): duration: 3.3 min
+    Using data from 18 sensors
+
+  0203_W25_Closed_Night_R01 (2026-02-03 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0203_W25_Closed_Day_R01 (2026-02-03 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0204_W25_Closed_Night_R01 (2026-02-04 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0204_W25_Closed_Day_R01 (2026-02-04 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0205_W25_Closed_Night_R01 (2026-02-05 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0205_W25_Closed_Day_R01 (2026-02-05 09:51): duration: 16.0 min
+    Using data from 18 sensors
+
+  0205_W30_Closed_Day_R01 (2026-02-05 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0206_W30_Closed_Night_R01 (2026-02-06 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0206_W30_Closed_Day_R01 (2026-02-06 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0207_W30_Closed_Night_R01 (2026-02-07 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0207_W30_Closed_Day_R01 (2026-02-07 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0208_W30_Closed_Night_R01 (2026-02-08 03:00): duration: 10.0 min
+    Using data from 14 sensors
+
+  0208_W30_Closed_Day_R01 (2026-02-08 15:00): duration: 10.0 min
+    Using data from 14 sensors
+
+  0209_W30_Closed_Night_R01 (2026-02-09 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0209_W30_Closed_Day_R01 (2026-02-09 09:23): duration: 16.6 min
+    Using data from 18 sensors
+
+  0209_W37_Closed_Day_R01 (2026-02-09 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0210_W37_Closed_Night_R01 (2026-02-10 03:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0210_W37_Closed_Day_R01 (2026-02-10 15:00): duration: 10.0 min
+    Using data from 18 sensors
+
+  0211_W37_Closed_Night_R01 (2026-02-11 03:00): duration: 10.0 min
+    Using data from 14 sensors
+
+============================================================
+Saving Results
+============================================================
+Results saved to: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\rh_temp_wind_summary.xlsx
+
+Generating time series plots for all 64 events...
+  0115_W48_Closed_Day_R01: 2026-01-15 15:00
+  0115_W48_Closed_Night_R01: 2026-01-15 21:00
+  0116_W48_Closed_Night_R01: 2026-01-16 03:00
+  0116_W48_Closed_Day_R01: 2026-01-16 09:00
+  0116_W48_Closed_Day_R02: 2026-01-16 15:00
+  0117_W48_Closed_Night_R01: 2026-01-17 03:00
+  0117_W48_Closed_Day_R01: 2026-01-17 09:00
+  0117_W48_Closed_Day_R02: 2026-01-17 15:00
+  0118_W48_Closed_Night_R01: 2026-01-18 03:00
+  0118_W48_Closed_Day_R01: 2026-01-18 09:00
+  0118_W48_Closed_Day_R02: 2026-01-18 15:00
+  0119_W48_Closed_Night_R01: 2026-01-19 03:00
+  0119_W48_Closed_Day_R01: 2026-01-19 09:00
+  0119_W48_Closed_Day_R02: 2026-01-19 15:00
+  0120_W48_Closed_Night_R01: 2026-01-20 03:00
+  0120_W48_Closed_Day_R01: 2026-01-20 09:00
+  0120_W48_Closed_Day_R02: 2026-01-20 15:00
+  0121_W48_Closed_Night_R01: 2026-01-21 03:00
+  0121_W48_Closed_Day_R01: 2026-01-21 09:00
+  0121_W48_Closed_Day_R02: 2026-01-21 15:00
+  0122_W11_Closed_Day_R01: 2026-01-22 15:00
+  0123_W11_Closed_Night_R01: 2026-01-23 03:00
+  0123_W11_Closed_Day_R01: 2026-01-23 15:00
+  0124_W11_Closed_Night_R01: 2026-01-24 03:00
+  0124_W11_Closed_Day_R01: 2026-01-24 15:00
+  0125_W11_Closed_Night_R01: 2026-01-25 03:00
+  0125_W11_Closed_Day_R01: 2026-01-25 15:00
+  0126_W11_Closed_Night_R01: 2026-01-26 03:00
+  0126_W11_Closed_Day_R01: 2026-01-26 15:00
+  0127_W11_Closed_Night_R01: 2026-01-27 03:00
+  0127_W11_Closed_Day_R01: 2026-01-27 15:00
+  0128_W11_Closed_Night_R01: 2026-01-28 03:00
+  0128_W11_Closed_Day_R01: 2026-01-28 15:00
+  0129_W11_Closed_Night_R01: 2026-01-29 03:00
+  0129_W11_Closed_Day_R01: 2026-01-29 15:00
+  0130_W11_Closed_Night_R01: 2026-01-30 03:00
+  0130_W11_Closed_Day_R01: 2026-01-30 15:00
+  0131_W11_Closed_Night_R01: 2026-01-31 03:00
+  0131_W11_Closed_Day_R01: 2026-01-31 15:00
+  0201_W11_Closed_Night_R01: 2026-02-01 03:00
+  0201_W11_Closed_Day_R01: 2026-02-01 15:00
+  0202_W11_Closed_Night_R01: 2026-02-02 03:00
+  0202_W11_Closed_Day_R01: 2026-02-02 15:00
+  0202_W25_Closed_Night_R01: 2026-02-02 17:31
+  0202_W25_Closed_Night_R02: 2026-02-02 17:56
+  0203_W25_Closed_Night_R01: 2026-02-03 03:00
+  0203_W25_Closed_Day_R01: 2026-02-03 15:00
+  0204_W25_Closed_Night_R01: 2026-02-04 03:00
+  0204_W25_Closed_Day_R01: 2026-02-04 15:00
+  0205_W25_Closed_Night_R01: 2026-02-05 03:00
+  0205_W25_Closed_Day_R01: 2026-02-05 09:51
+  0205_W30_Closed_Day_R01: 2026-02-05 15:00
+  0206_W30_Closed_Night_R01: 2026-02-06 03:00
+  0206_W30_Closed_Day_R01: 2026-02-06 15:00
+  0207_W30_Closed_Night_R01: 2026-02-07 03:00
+  0207_W30_Closed_Day_R01: 2026-02-07 15:00
+  0208_W30_Closed_Night_R01: 2026-02-08 03:00
+  0208_W30_Closed_Day_R01: 2026-02-08 15:00
+  0209_W30_Closed_Night_R01: 2026-02-09 03:00
+  0209_W30_Closed_Day_R01: 2026-02-09 09:23
+  0209_W37_Closed_Day_R01: 2026-02-09 15:00
+  0210_W37_Closed_Night_R01: 2026-02-10 03:00
+  0210_W37_Closed_Day_R01: 2026-02-10 15:00
+  0211_W37_Closed_Night_R01: 2026-02-11 03:00
+
+Generating comparison plots...
+  Saved: rh_pre_post_boxplot.png
+  Saved: temperature_pre_post_boxplot.png
+  Saved: wind_speed_pre_post_boxplot.png
+  Saved: wind_direction_pre_post_boxplot.png
+
+Plots saved to: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\plots
+
+============================================================
+Summary Statistics
+============================================================
+
+Relative Humidity (%):
+----------------------------------------
+  Vaisala MBa RH:
+    Pre:  27.99 ± 1.05 (max: 30.73)
+    Post: 41.96 ± 6.23 (max: 59.37, range: 27.34)
+  Vaisala Bed1 RH:
+    Pre:  27.95 ± 0.28 (max: 28.69)
+    Post: 40.01 ± 4.36 (max: 52.66, range: 18.79)
+  Aranet4 Bedroom RH:
+    Pre:  31.39 ± 0.24 (max: 31.65)
+    Post: 38.79 ± 1.70 (max: 40.91, range: 7.11)
+  QuantAQ Inside RH:
+    Pre:  25.88 ± 0.19 (max: 26.20)
+    Post: 33.68 ± 2.46 (max: 38.26, range: 9.44)
+  Vaisala Liv RH:
+    Pre:  18.03 ± 0.40 (max: 18.75)
+    Post: 18.63 ± 0.52 (max: 19.67, range: 2.33)
+  Aranet4 Entry RH:
+    Pre:  19.97 ± 0.21 (max: 20.24)
+    Post: 20.49 ± 0.35 (max: 20.94, range: 1.06)
+  Aranet4 Outside RH:
+    Pre:  46.51 ± 0.98 (max: 48.11)
+    Post: 48.30 ± 2.68 (max: 53.61, range: 9.72)
+  QuantAQ Outside RH:
+    Pre:  39.99 ± 0.91 (max: 41.84)
+    Post: 40.97 ± 2.29 (max: 45.66, range: 8.59)
+
+Temperature (°C):
+----------------------------------------
+  Vaisala MBa Temp:
+    Pre:  15.01 ± 0.68 (max: 17.20)
+    Post: 15.30 ± 0.70 (max: 17.84, range: 5.15)
+  Vaisala Bed1 Temp:
+    Pre:  15.63 ± 0.12 (max: 15.98)
+    Post: 15.78 ± 0.15 (max: 16.23, range: 0.85)
+  Aranet4 Bedroom Temp:
+    Pre:  15.68 ± 0.06 (max: 15.77)
+    Post: 15.86 ± 0.08 (max: 15.96, range: 0.28)
+  QuantAQ Inside Temp:
+    Pre:  18.09 ± 0.03 (max: 18.14)
+    Post: 18.30 ± 0.08 (max: 18.40, range: 0.30)
+  Vaisala Liv Temp:
+    Pre:  21.22 ± 0.45 (max: 22.17)
+    Post: 21.26 ± 0.49 (max: 22.42, range: 2.04)
+  Aranet4 Entry Temp:
+    Pre:  21.16 ± 0.24 (max: 21.53)
+    Post: 21.20 ± 0.27 (max: 21.71, range: 0.93)
+  Aranet4 Outside Temp:
+    Pre:  -2.01 ± 0.24 (max: -1.64)
+    Post: -2.64 ± 0.90 (max: -1.17, range: 3.04)
+  QuantAQ Outside Temp:
+    Pre:  -0.57 ± 0.20 (max: -0.23)
+    Post: -0.77 ± 0.83 (max: 0.41, range: 2.75)
+
+Wind Speed (m/s):
+----------------------------------------
+  AIO2 Wind Speed:
+    Pre:  2.76 ± 0.92 (max: 5.97)
+    Post: 2.51 ± 1.05 (max: 7.11, range: 6.81)
+
+Wind Direction (°):
+----------------------------------------
+  AIO2 Wind Direction:
+    Pre:  240.57 ± 55.31 (max: 341.05)
+    Post: 248.54 ± 56.70 (max: 348.76, range: 325.82)
+
+============================================================
+ANALYSIS COMPLETE
+============================================================
