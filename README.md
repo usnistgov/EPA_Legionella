@@ -204,8 +204,7 @@ The complete data analysis pipeline follows this sequence:
 
 7. **Particle Analysis**: Calculate penetration, deposition, and emission rates (requires step 5 results)
    ```bash
-   python src/particle_decay_analysis.py
-   python src/particle_decay_analysis.py --plot
+   python src/particle_decay_analysis.py [-h] [--output-dir OUTPUT_DIR] [--no-plot]
    ```
 
 Each analysis module produces CSV/Excel summaries and optional visualizations in the `output/` directory.
