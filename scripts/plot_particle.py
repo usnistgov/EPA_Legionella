@@ -147,28 +147,33 @@ def plot_particle_decay_event(
                 alpha=alpha,
             )
 
-            # Plot Ct prediction if available
+            # Plot Ct prediction (decay only, starting at peak)
             ct_datetimes = result.get(f"bin{bin_num}_ct_datetimes", [])
             ct_predicted = result.get(f"bin{bin_num}_ct_predicted", [])
-            if len(ct_datetimes) > 0 and len(ct_predicted) > 0:
+            peak_time = result.get(f"bin{bin_num}_peak_time")
+            if len(ct_datetimes) > 0 and len(ct_predicted) > 0 and peak_time is not None:
                 ct_times = pd.to_datetime(ct_datetimes)
-                ax1.plot(
-                    ct_times,
-                    ct_predicted,
-                    color=color,
-                    linewidth=LINE_WIDTH_FIT,
-                    linestyle="--",
-                    alpha=0.8,
-                )
+                peak_ts = pd.Timestamp(peak_time)
+                decay_mask = ct_times >= peak_ts
+                if decay_mask.any():
+                    ax1.plot(
+                        ct_times[decay_mask],
+                        np.array(ct_predicted)[decay_mask],
+                        color=color,
+                        linewidth=LINE_WIDTH_FIT,
+                        linestyle="--",
+                        alpha=0.8,
+                    )
 
-    # Add single legend entry for predicted lines
+    # Add single legend entry for predicted decay lines
     has_predictions = any(
         len(result.get(f"bin{bn}_ct_predicted", [])) > 0
+        and result.get(f"bin{bn}_peak_time") is not None
         for bn in particle_bins.keys()
     )
     if has_predictions:
         ax1.plot([], [], color="gray", linestyle="--", linewidth=LINE_WIDTH_FIT,
-                 label="Predicted (Euler)")
+                 label="Predicted Decay")
 
     # Add shaded window for deposition analysis period
     add_shaded_window(
