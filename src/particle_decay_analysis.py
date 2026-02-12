@@ -295,9 +295,13 @@ def analyze_event_all_bins(
             )
             results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
             results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
+            results[f"bin{bin_num}_decay_datetimes"] = ct_result.get("decay_datetimes", [])
+            results[f"bin{bin_num}_decay_predicted"] = ct_result.get("decay_predicted", [])
         else:
             results[f"bin{bin_num}_ct_datetimes"] = []
             results[f"bin{bin_num}_ct_predicted"] = []
+            results[f"bin{bin_num}_decay_datetimes"] = []
+            results[f"bin{bin_num}_decay_predicted"] = []
 
     return results
 

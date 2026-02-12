@@ -758,7 +758,41 @@ def calculate_ct_prediction(
         if predicted[i + 1] < 0:
             predicted[i + 1] = 0.0
 
+    # Decay-only simulation: starts from measured peak at peak_time, E=0
+    peak_ts = pd.Timestamp(peak_time)
+    decay_mask = pd.to_datetime(datetimes) >= peak_ts
+    decay_indices = np.where(decay_mask)[0]
+
+    decay_datetimes = []
+    decay_predicted = []
+
+    if len(decay_indices) > 1:
+        start_idx = decay_indices[0]
+        c_peak_measured = c_inside[start_idx]
+        if not np.isnan(c_peak_measured):
+            n_decay = len(decay_indices)
+            decay_pred = np.zeros(n_decay)
+            decay_pred[0] = c_peak_measured
+
+            for j in range(n_decay - 1):
+                data_idx = decay_indices[j]
+                c_t = decay_pred[j]
+                c_out_t = c_outside[data_idx] if not np.isnan(c_outside[data_idx]) else 0.0
+
+                dCdt = (
+                    p * lambda_ach * c_out_t
+                    - c_t * (lambda_ach + beta)
+                )
+                decay_pred[j + 1] = c_t + dt_hours * dCdt
+                if decay_pred[j + 1] < 0:
+                    decay_pred[j + 1] = 0.0
+
+            decay_datetimes = datetimes[decay_mask]
+            decay_predicted = decay_pred
+
     return {
         "datetimes": datetimes,
         "predicted_ct": predicted,
+        "decay_datetimes": decay_datetimes,
+        "decay_predicted": decay_predicted,
     }
