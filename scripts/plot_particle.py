@@ -166,8 +166,14 @@ def plot_particle_decay_event(
         for bn in particle_bins.keys()
     )
     if has_predictions:
-        ax1.plot([], [], color="gray", linestyle="--", linewidth=LINE_WIDTH_FIT,
-                 label="Predicted Decay")
+        ax1.plot(
+            [],
+            [],
+            color="gray",
+            linestyle="--",
+            linewidth=LINE_WIDTH_FIT,
+            label="Predicted Decay",
+        )
 
     # Add shaded window for deposition analysis period
     add_shaded_window(
@@ -233,7 +239,7 @@ def plot_particle_decay_event(
     )
     ax1.set_yscale("log")
     # Set reasonable y-axis limits for log scale
-    ax1.set_ylim(bottom=0.01)  # Minimum value for log scale
+    ax1.set_ylim(bottom=0.001)  # Minimum value for log scale
     ax1.grid(True, alpha=0.3, which="both")
     ax1.tick_params(labelsize=FONT_SIZE_TICK)
     format_datetime_axis(ax1)
@@ -358,9 +364,7 @@ def plot_penetration_summary(
     # Create figure with subplots
     if n_configs > 1:
         fig, axes = plt.subplots(
-            n_configs, 1,
-            figsize=(12, 5 * n_configs),
-            squeeze=False
+            n_configs, 1, figsize=(12, 5 * n_configs), squeeze=False
         )
         axes = axes.flatten()
     else:
@@ -487,9 +491,7 @@ def plot_deposition_summary(
     # Create figure with subplots
     if n_configs > 1:
         fig, axes = plt.subplots(
-            n_configs, 1,
-            figsize=(12, 5 * n_configs),
-            squeeze=False
+            n_configs, 1, figsize=(12, 5 * n_configs), squeeze=False
         )
         axes = axes.flatten()
     else:
@@ -614,9 +616,7 @@ def plot_emission_summary(
     # Create figure with subplots
     if n_configs > 1:
         fig, axes = plt.subplots(
-            n_configs, 1,
-            figsize=(12, 5 * n_configs),
-            squeeze=False
+            n_configs, 1, figsize=(12, 5 * n_configs), squeeze=False
         )
         axes = axes.flatten()
     else:
