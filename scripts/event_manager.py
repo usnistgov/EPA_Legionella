@@ -16,18 +16,19 @@ Key Features:
     - Comprehensive event_log.csv for tracking all events and issues
 
 Naming Convention Format:
-    MMDD_TempCode_TimeOfDay_RNN
+    MMDD_TempCode_DoorPos_TimeOfDay_RNN
 
     Components:
     - MMDD: Month and day (e.g., 0114 for January 14)
-    - TempCode: HW (Hot Water) or CW (Cold Water)
+    - TempCode: Water temperature code (e.g., W48, W11, W25)
+    - DoorPos: Door position (Open, Closed, or Partial)
     - TimeOfDay: Day or Night
     - RNN: Replicate number (R01, R02, etc.)
 
     Examples:
-    - 0114_HW_Day_R01
-    - 0122_CW_Night_R03
-    - 0125_CW_Day_R01
+    - 0115_W48_Open_Day_R01
+    - 0122_W11_Open_Night_R03
+    - 0203_W25_Open_Day_R01
 
 Time of Day Categories:
     - Day: 5am - 5pm
@@ -318,10 +319,10 @@ def get_test_configuration(dt: datetime) -> Dict[str, str]:
 
     Returns:
         Dictionary with configuration keys:
-            - water_temp: "HW", "CW", or "MW"
+            - water_temp: Temperature code (e.g., "W48", "W11", "W25")
             - door_position: "Open", "Closed", or "Partial"
             - planned_fan: "On" or "Off"
-            - config_key: Combined key for grouping (e.g., "HW_DoorClosed_FanOff")
+            - config_key: Combined key for grouping (e.g., "W48_DoorOpen_FanOff")
     """
     water_temp = get_water_temperature_code(dt)
     door_pos = get_door_position(dt)
@@ -414,7 +415,7 @@ def generate_test_name(
     time_of_day: str,
     replicate_num: int,
     fan_status: bool = False,
-    door_position: str = "Closed",
+    door_position: str = "Open",
 ) -> str:
     """
     Generate a test condition name following the naming convention.
@@ -423,14 +424,14 @@ def generate_test_name(
 
     Parameters:
         shower_time: Datetime of shower start
-        water_temp: "HW", "CW", or "MW"
+        water_temp: Water temperature code (e.g., "W48", "W11", "W25")
         time_of_day: "Day" or "Night"
         replicate_num: Replicate number (1-indexed)
         fan_status: Whether bath fan ran during test (default False)
-        door_position: "Open", "Closed", or "Partial" (default "Closed")
+        door_position: "Open", "Closed", or "Partial" (default "Open")
 
     Returns:
-        String: Test name (e.g., "0114_HW_Closed_Day_R01")
+        String: Test name (e.g., "0115_W48_Open_Day_R01")
     """
     # Format date as MMDD
     date_str = shower_time.strftime("%m%d")
@@ -916,12 +917,14 @@ def process_events_with_management(
                     # Assign test name to synthetic shower
                     shower_time = synthetic_shower["shower_on"]
                     water_temp = get_water_temperature_code(shower_time)
+                    door_pos = get_door_position(shower_time)
                     time_of_day = get_time_of_day(shower_time)
                     date_str = shower_time.strftime("%m%d")
                     synthetic_shower["test_name"] = (
-                        f"{date_str}_{water_temp}_{time_of_day}_R??"
+                        f"{date_str}_{water_temp}_{door_pos}_{time_of_day}_R??"
                     )
                     synthetic_shower["water_temp"] = water_temp
+                    synthetic_shower["door_position"] = door_pos
                     synthetic_shower["time_of_day"] = time_of_day
                     synthetic_shower["fan_during_test"] = False
 

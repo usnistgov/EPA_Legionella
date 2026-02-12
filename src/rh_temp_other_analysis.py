@@ -37,12 +37,13 @@ Methodology:
 
 Output Files:
     - rh_temp_wind_summary.xlsx: Multi-sheet workbook with all statistics
-    - plots/event_XX_rh_timeseries.png: RH time series per event
-    - plots/event_XX_temp_timeseries.png: Temperature time series per event
-    - plots/event_XX_wind_timeseries.png: Wind data time series per event
+    - plots/event_NN-MMDD_temp_door_tod_rh_timeseries.png: RH time series per event
+    - plots/event_NN-MMDD_temp_door_tod_temperature_timeseries.png: Temp per event
+    - plots/event_NN-MMDD_temp_door_tod_wind_timeseries.png: Wind per event
     - plots/rh_pre_post_boxplot.png: Pre/post RH comparison
-    - plots/temp_pre_post_boxplot.png: Pre/post temperature comparison
-    - plots/wind_pre_post_boxplot.png: Pre/post wind comparison
+    - plots/temperature_pre_post_boxplot.png: Pre/post temperature comparison
+    - plots/wind_speed_pre_post_boxplot.png: Pre/post wind speed comparison
+    - plots/wind_direction_pre_post_boxplot.png: Pre/post wind direction comparison
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -625,7 +626,7 @@ def generate_time_series_plots(
                     data_dict[sensor_name] = data
 
             if data_dict:
-                # Format filename: event_01-0114_hw_morning_rh_timeseries.png
+                # Format filename: event_01-0115_w48_open_day_rh_timeseries.png
                 from scripts.plot_style import format_test_name_for_filename
 
                 formatted_name = format_test_name_for_filename(test_name)

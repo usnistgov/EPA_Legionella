@@ -32,9 +32,9 @@ Methodology:
     5. Shade analysis windows for baseline and response periods
 
 Output Files:
-    - Time series: {test_name}_rh.png, {test_name}_temperature.png, {test_name}_wind.png
-    - Comparisons: rh_pre_post_comparison.png, temperature_pre_post_comparison.png
-    - Summaries: rh_sensor_summary.png, temperature_sensor_summary.png
+    - Time series: event_NN-MMDD_temp_door_tod_{vartype}_timeseries.png
+    - Comparisons: {vartype}_pre_post_boxplot.png
+    - Summaries: {vartype}_pre_shower_summary.png, {vartype}_post_shower_summary.png
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -413,7 +413,7 @@ def plot_environmental_time_series(
         variable_type: Type of variable ('rh', 'temperature', or 'wind')
         output_path: Path to save figure (optional)
         event_number: Event number for title
-        test_name: Test name for title (e.g., "0114_HW_Morning_R01")
+        test_name: Test name for title (e.g., "0115_W48_Open_Day_R01")
         hours_before: Hours before shower ON to include
         hours_after: Hours after shower OFF to include
         show_windows: If True, shade pre/post analysis windows

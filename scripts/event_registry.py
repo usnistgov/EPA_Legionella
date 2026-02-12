@@ -40,6 +40,7 @@ from scripts.event_manager import (
     check_fan_during_test,
     filter_events_by_date,
     generate_test_name,
+    get_door_position,
     get_time_of_day,
     get_water_temperature_code,
     is_event_excluded,
@@ -472,6 +473,7 @@ def build_unified_event_registry(
 
         # Determine test parameters
         water_temp = get_water_temperature_code(shower_time)
+        door_position = get_door_position(shower_time)
         time_of_day = get_time_of_day(shower_time)
 
         # Check fan status (can't check for synthetic events without real log data)
@@ -480,9 +482,9 @@ def build_unified_event_registry(
         else:
             fan_status = check_fan_during_test(shower_time, shower_off, shower_log)
 
-        # Create condition key
+        # Create condition key (must match assign_test_names in event_manager.py)
         date_str = shower_time.strftime("%m%d")
-        condition_key = f"{date_str}_{water_temp}_{time_of_day}"
+        condition_key = f"{date_str}_{water_temp}_{door_position}_{time_of_day}"
         if fan_status:
             condition_key += "_Fan"
 
@@ -492,12 +494,14 @@ def build_unified_event_registry(
 
         # Generate test name
         test_name = generate_test_name(
-            shower_time, water_temp, time_of_day, replicate_num, fan_status
+            shower_time, water_temp, time_of_day, replicate_num, fan_status,
+            door_position,
         )
 
         # Add metadata to event
         event["test_name"] = test_name
         event["water_temp"] = water_temp
+        event["door_position"] = door_position
         event["time_of_day"] = time_of_day
         event["fan_during_test"] = fan_status
         event["replicate_num"] = replicate_num
@@ -527,10 +531,12 @@ def build_unified_event_registry(
                 minutes=EXPECTED_CO2_BEFORE_SHOWER
             )
             water_temp = get_water_temperature_code(expected_shower)
+            door_pos = get_door_position(expected_shower)
             time_of_day = get_time_of_day(expected_shower)
             date_str = expected_shower.strftime("%m%d")
-            co2_event["test_name"] = f"{date_str}_{water_temp}_{time_of_day}_R??"
+            co2_event["test_name"] = f"{date_str}_{water_temp}_{door_pos}_{time_of_day}_R??"
             co2_event["water_temp"] = water_temp
+            co2_event["door_position"] = door_pos
             co2_event["time_of_day"] = time_of_day
             co2_event["matched_shower_idx"] = None
 
