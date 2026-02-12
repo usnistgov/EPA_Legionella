@@ -123,7 +123,11 @@ def remove_old_combined_files(
             date_prefix = filepath.name.split("-")[0]
 
             # Remove if date prefix is not today and is a valid 8-digit date
-            if date_prefix != today_str and date_prefix.isdigit() and len(date_prefix) == 8:
+            if (
+                date_prefix != today_str
+                and date_prefix.isdigit()
+                and len(date_prefix) == 8
+            ):
                 filepath.unlink()
                 print(f"  Removed old file: {filepath.name}")
                 removed.append(filepath)
@@ -541,14 +545,17 @@ def apply_rolling_average(
     # Identify numeric columns (exclude timestamp and metadata)
     non_numeric_cols = ["timestamp_local", "timestamp", "sn", "operating_state", "flag"]
     numeric_cols = [
-        col for col in df.columns
+        col
+        for col in df.columns
         if col not in non_numeric_cols and pd.api.types.is_numeric_dtype(df[col])
     ]
 
-    print(f"  Applying rolling average (window={window}) to {len(numeric_cols)} numeric columns...")
+    print(
+        f"  Applying rolling average (window={window}) to {len(numeric_cols)} numeric columns..."
+    )
 
     for col in numeric_cols:
-        df[col] = df[col].rolling(window=window, center=False, min_periods=1).mean()
+        df[col] = df[col].rolling(window=window, center=True, min_periods=1).mean()
 
     return df
 
