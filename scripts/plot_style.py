@@ -326,11 +326,11 @@ def format_test_name_for_filename(test_name: str) -> str:
 
     Removes replicate number and converts to lowercase with underscores.
     Also sanitizes invalid filename characters.
-    Example: "0114_HW_Morning_R01" -> "0114_hw_morning"
-    Example: "0114_HW_Night_R??" -> "0114_hw_night"
+    Example: "0115_W48_Open_Day_R01" -> "0115_w48_open_day"
+    Example: "0123_W11_Open_Night_R??" -> "0123_w11_open_night"
 
     Parameters:
-        test_name: Original test name (e.g., "0114_HW_Morning_R01")
+        test_name: Original test name (e.g., "0115_W48_Open_Day_R01")
 
     Returns:
         Formatted filename string (lowercase, underscores, no replicate)
@@ -349,10 +349,10 @@ def format_test_name_for_title(test_name: str) -> str:
     Format test name for use in figure titles.
 
     Removes replicate number and converts to proper case with spaces.
-    Example: "0114_HW_Morning_R01" -> "0114 HW Morning"
+    Example: "0115_W48_Open_Day_R01" -> "0115 W48 Open Day"
 
     Parameters:
-        test_name: Original test name (e.g., "0114_HW_Morning_R01")
+        test_name: Original test name (e.g., "0115_W48_Open_Day_R01")
 
     Returns:
         Formatted title string (proper case, spaces, no replicate)
