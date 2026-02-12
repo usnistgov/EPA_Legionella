@@ -147,6 +147,29 @@ def plot_particle_decay_event(
                 alpha=alpha,
             )
 
+            # Plot Ct prediction if available
+            ct_datetimes = result.get(f"bin{bin_num}_ct_datetimes", [])
+            ct_predicted = result.get(f"bin{bin_num}_ct_predicted", [])
+            if len(ct_datetimes) > 0 and len(ct_predicted) > 0:
+                ct_times = pd.to_datetime(ct_datetimes)
+                ax1.plot(
+                    ct_times,
+                    ct_predicted,
+                    color=color,
+                    linewidth=LINE_WIDTH_FIT,
+                    linestyle="--",
+                    alpha=0.8,
+                )
+
+    # Add single legend entry for predicted lines
+    has_predictions = any(
+        len(result.get(f"bin{bn}_ct_predicted", [])) > 0
+        for bn in particle_bins.keys()
+    )
+    if has_predictions:
+        ax1.plot([], [], color="gray", linestyle="--", linewidth=LINE_WIDTH_FIT,
+                 label="Predicted (Euler)")
+
     # Add shaded window for deposition analysis period
     add_shaded_window(
         ax1,

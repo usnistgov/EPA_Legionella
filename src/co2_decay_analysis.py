@@ -108,15 +108,6 @@ DEFAULT_BETA = 0.5  # Fraction from entry zone (α + β = 1)
 DECAY_START_OFFSET_MIN = -10  # Start 10 min before the hour (at :50)
 DECAY_DURATION_HOURS = 2  # Default decay analysis duration (hours)
 
-# Custom decay durations for specific events (event_number: duration_hours)
-# Event numbers are 1-indexed (i.e., the first event is event 1)
-CUSTOM_DECAY_DURATIONS = {
-    5: 1.75,  # Event 5 uses 1.75 hours instead of default 2 hours
-    # Add more custom durations as needed:
-    # 7: 1.5,
-    # 10: 2.5,
-}
-
 # Rolling average parameters
 ROLLING_WINDOW_MIN = 6  # Rolling average window (minutes)
 
@@ -439,11 +430,7 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
                 minutes=DECAY_START_OFFSET_MIN
             )
 
-            # Use custom decay duration if specified for this event, otherwise use default
-            decay_duration = CUSTOM_DECAY_DURATIONS.get(
-                event_number, DECAY_DURATION_HOURS
-            )
-            decay_end = decay_start + timedelta(hours=decay_duration)
+            decay_end = decay_start + timedelta(hours=DECAY_DURATION_HOURS)
 
             events.append(
                 {
@@ -453,7 +440,7 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
                     "fan_off": fan_off,
                     "decay_start": decay_start,
                     "decay_end": decay_end,
-                    "decay_duration_hours": decay_duration,
+                    "decay_duration_hours": DECAY_DURATION_HOURS,
                 }
             )
 
@@ -959,14 +946,8 @@ def run_co2_decay_analysis(
             results.append(result)
             continue
 
-        decay_duration = event.get("decay_duration_hours", DECAY_DURATION_HOURS)
-        duration_info = (
-            f" [custom: {decay_duration}h]"
-            if event_num in CUSTOM_DECAY_DURATIONS
-            else ""
-        )
         print(
-            f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}{duration_info}"
+            f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}"
         )
 
         result = analyze_injection_event(co2_data, event, alpha, beta)

@@ -184,6 +184,55 @@ def find_existing_chunks(
     return existing
 
 
+def remove_stale_partial_chunks(
+    chunks_dir: Path,
+    device_name: str,
+    data_type: str,
+    chunk_start: str,
+    chunk_end: str,
+) -> list:
+    """
+    Remove stale chunk files that share the same start date but have an
+    older (different) end date.
+
+    When the current (partial) week chunk is re-downloaded each day, the
+    end date advances. This removes yesterday's superseded file.
+
+    Args:
+        chunks_dir: Path to the chunks/ subdirectory.
+        device_name: Device name (e.g., 'quantaq-outside').
+        data_type: Data type ('raw' or 'final').
+        chunk_start: Start date of the new chunk (YYYY-MM-DD).
+        chunk_end: End date of the new chunk (YYYY-MM-DD).
+
+    Returns:
+        List of Path objects that were removed.
+    """
+    if not chunks_dir.exists():
+        return []
+
+    start_compact = chunk_start.replace("-", "")
+    end_compact = chunk_end.replace("-", "")
+
+    # Match files with same device, type, and start date but any end date
+    pattern = f"{device_name}-{data_type}-{start_compact}-*.csv"
+    removed = []
+
+    for filepath in chunks_dir.glob(pattern):
+        # Extract the end date from the filename
+        stem = filepath.stem
+        parts = stem.split("-")
+        if len(parts) >= 5:
+            file_end = parts[-1]
+            # Remove if end date differs from current chunk's end date
+            if file_end != end_compact:
+                filepath.unlink()
+                print(f"    Removed stale chunk: {filepath.name}")
+                removed.append(filepath)
+
+    return removed
+
+
 class QuantAQDownloader:
     """
     Class to download data from QuantAQ API with pagination support.
@@ -552,6 +601,13 @@ class QuantAQDownloader:
                     df, device_name, data_type, chunk_start, chunk_end
                 )
                 saved_paths.append(path)
+
+                # Remove stale partial chunks with same start but older end date
+                if is_current_chunk:
+                    remove_stale_partial_chunks(
+                        chunks_dir, device_name, data_type,
+                        chunk_start, chunk_end,
+                    )
             else:
                 print(f"    No data for this chunk.")
 

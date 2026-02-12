@@ -81,6 +81,9 @@ def get_quantaq_data_path() -> Path:
 DEVICE_NAMES = ["quantaq-outside", "quantaq-inside"]
 CHUNK_DATA_TYPES = ["raw", "final"]
 
+# Rolling average window (number of data points)
+ROLLING_WINDOW_MIN = 5
+
 
 def get_chunks_path() -> Path:
     """
@@ -90,6 +93,42 @@ def get_chunks_path() -> Path:
         Path: Directory path for chunk files (QuantAQ/chunks/).
     """
     return get_quantaq_data_path() / "chunks"
+
+
+def remove_old_combined_files(
+    data_path: Path,
+    device_name: str,
+    today_str: str,
+) -> list:
+    """
+    Remove combined files from previous runs that are superseded by today's files.
+
+    Each run creates files like {YYYYMMDD}-{device_name}-raw.csv,
+    {YYYYMMDD}-{device_name}-final.csv, and {YYYYMMDD}-{device_name}-processed.csv.
+    Previous runs left files with older date prefixes that should be removed.
+
+    Args:
+        data_path: Path to the QuantAQ data directory.
+        device_name: Device name (e.g., 'quantaq-outside').
+        today_str: Today's date as YYYYMMDD string.
+
+    Returns:
+        List of Path objects that were removed.
+    """
+    removed = []
+
+    for suffix in ["raw", "final", "processed"]:
+        pattern = f"*-{device_name}-{suffix}.csv"
+        for filepath in data_path.glob(pattern):
+            date_prefix = filepath.name.split("-")[0]
+
+            # Remove if date prefix is not today and is a valid 8-digit date
+            if date_prefix != today_str and date_prefix.isdigit() and len(date_prefix) == 8:
+                filepath.unlink()
+                print(f"  Removed old file: {filepath.name}")
+                removed.append(filepath)
+
+    return removed
 
 
 def find_chunk_files(
@@ -181,6 +220,12 @@ def combine_all_chunks(data_path: Path) -> List[Tuple[Path, Path, str]]:
 
     today_str = datetime.now().strftime("%Y%m%d")
     combined_pairs = {}  # base_name -> {"raw": Path, "final": Path}
+
+    # Remove old combined files from previous runs
+    for device_name in DEVICE_NAMES:
+        removed = remove_old_combined_files(data_path, device_name, today_str)
+        if removed:
+            print(f"  Cleaned up {len(removed)} old file(s) for {device_name}")
 
     for device_name in DEVICE_NAMES:
         base_name = f"{today_str}-{device_name}"
@@ -473,6 +518,41 @@ def merge_raw_and_final(raw_df: pd.DataFrame, final_df: pd.DataFrame) -> pd.Data
     return merged
 
 
+def apply_rolling_average(
+    df: pd.DataFrame,
+    window: int = ROLLING_WINDOW_MIN,
+) -> pd.DataFrame:
+    """
+    Apply rolling average to all numeric columns in the processed data.
+
+    Non-numeric columns (timestamps, serial number, operating state, etc.)
+    are preserved unchanged.
+
+    Args:
+        df: Processed DataFrame with merged raw and final data.
+        window: Rolling window size in number of data points.
+
+    Returns:
+        pd.DataFrame: DataFrame with rolling average applied to numeric columns.
+    """
+    if window <= 1:
+        return df
+
+    # Identify numeric columns (exclude timestamp and metadata)
+    non_numeric_cols = ["timestamp_local", "timestamp", "sn", "operating_state", "flag"]
+    numeric_cols = [
+        col for col in df.columns
+        if col not in non_numeric_cols and pd.api.types.is_numeric_dtype(df[col])
+    ]
+
+    print(f"  Applying rolling average (window={window}) to {len(numeric_cols)} numeric columns...")
+
+    for col in numeric_cols:
+        df[col] = df[col].rolling(window=window, center=False, min_periods=1).mean()
+
+    return df
+
+
 def find_matching_files(data_path: Path) -> List[Tuple[Path, Path, str]]:
     """
     Find matching raw and final file pairs in the data directory.
@@ -533,6 +613,8 @@ def process_file_pair(raw_path: Path, final_path: Path, output_path: Path) -> bo
         print("  Merging raw and final data (outer join)...")
         merged = merge_raw_and_final(processed_raw, processed_final)
         print(f"    Merged records: {len(merged)}")
+
+        merged = apply_rolling_average(merged)
 
         print(f"  Saving to: {output_path.name}")
         merged.to_csv(output_path, index=False)
