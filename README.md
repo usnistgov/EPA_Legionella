@@ -184,7 +184,6 @@ The complete data analysis pipeline follows this sequence:
    python scripts/process_co2_log.py
    python scripts/process_shower_log.py
    ```
-   These scripts reduce ~86,400 records/day down to ~4-10 state-change records per day.
 
 4. **Event Management**: Run the event manager to match, name, and register events
    ```bash
