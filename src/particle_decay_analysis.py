@@ -191,21 +191,15 @@ def analyze_event_all_bins(
 
         # Skip further calculations if p is invalid
         if np.isnan(p_result.get("p_mean", np.nan)):
-            results[f"bin{bin_num}_beta_mean"] = np.nan
+            results[f"bin{bin_num}_beta"] = np.nan
             results[f"bin{bin_num}_beta_std"] = np.nan
             results[f"bin{bin_num}_beta_r_squared"] = np.nan
-            results[f"bin{bin_num}_beta_fit"] = np.nan
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
             results[f"bin{bin_num}_skip_reason"] = p_result.get(
                 "skip_reason", "Unknown"
             )
-            # Store empty fit data for plotting
-            results[f"bin{bin_num}_fit_t_values"] = []
-            results[f"bin{bin_num}_fit_y_values"] = []
-            results[f"bin{bin_num}_fit_slope"] = np.nan
-            results[f"bin{bin_num}_fit_intercept"] = 0.0
             results[f"bin{bin_num}_c_steady_state"] = np.nan
             results[f"bin{bin_num}_peak_time"] = None
             continue
@@ -222,31 +216,18 @@ def analyze_event_all_bins(
             lambda_ach,
         )
 
-        results[f"bin{bin_num}_beta_mean"] = beta_result.get("beta_mean", np.nan)
+        results[f"bin{bin_num}_beta"] = beta_result.get("beta", np.nan)
         results[f"bin{bin_num}_beta_std"] = beta_result.get("beta_std", np.nan)
         results[f"bin{bin_num}_beta_r_squared"] = beta_result.get(
             "beta_r_squared", np.nan
         )
-        results[f"bin{bin_num}_beta_fit"] = beta_result.get(
-            "beta_fit", np.nan
-        )  # From linearized regression
-
-        # Store fit data for plotting (even if beta is valid, we want the data)
-        results[f"bin{bin_num}_fit_t_values"] = beta_result.get("_t_values", [])
-        results[f"bin{bin_num}_fit_y_values"] = beta_result.get("_y_values", [])
-        results[f"bin{bin_num}_fit_slope"] = beta_result.get(
-            "_fit_slope", np.nan
-        )  # Actual regression slope
-        results[f"bin{bin_num}_fit_intercept"] = beta_result.get(
-            "_fit_intercept", 0.0
-        )  # Regression intercept
         results[f"bin{bin_num}_c_steady_state"] = beta_result.get(
             "c_steady_state", np.nan
         )
         results[f"bin{bin_num}_peak_time"] = beta_result.get("peak_time", None)
 
         # Skip emission calculation if beta is invalid
-        if np.isnan(beta_result.get("beta_mean", np.nan)):
+        if np.isnan(beta_result.get("beta", np.nan)):
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
@@ -255,7 +236,7 @@ def analyze_event_all_bins(
             )
             continue
 
-        beta_mean = beta_result["beta_mean"]
+        beta_val = beta_result["beta"]
 
         # Use peak_time from deposition calculation as E window endpoint
         peak_time = beta_result.get("peak_time")
@@ -270,7 +251,7 @@ def analyze_event_all_bins(
             bin_num,
             p_mean,
             lambda_ach,
-            beta_mean,
+            beta_val,
         )
 
         results[f"bin{bin_num}_E_mean"] = E_result.get("E_mean", np.nan)
@@ -280,7 +261,7 @@ def analyze_event_all_bins(
 
         # Calculate Ct prediction (forward Euler simulation)
         E_mean_val = E_result.get("E_mean", np.nan)
-        if not np.isnan(E_mean_val) and not np.isnan(beta_mean):
+        if not np.isnan(E_mean_val) and not np.isnan(beta_val):
             ct_result = calculate_ct_prediction(
                 particle_data,
                 event["shower_on"],
@@ -289,7 +270,7 @@ def analyze_event_all_bins(
                 bin_num,
                 p_mean,
                 lambda_ach,
-                beta_mean,
+                beta_val,
                 E_mean_val,
                 peak_time,
             )
@@ -540,7 +521,7 @@ def _print_overall_summary(results_df: pd.DataFrame, results: list) -> None:
     for bin_num, bin_info in PARTICLE_BINS.items():
         bin_name = bin_info["name"]
         p_col = f"bin{bin_num}_p_mean"
-        beta_col = f"bin{bin_num}_beta_mean"
+        beta_col = f"bin{bin_num}_beta"
         E_col = f"bin{bin_num}_E_mean"
 
         valid_p = results_df[p_col].dropna()
@@ -579,9 +560,8 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
     for bin_num in PARTICLE_BINS.keys():
         column_rename[f"bin{bin_num}_p_mean"] = f"bin{bin_num}_p_mean (-)"
         column_rename[f"bin{bin_num}_p_std"] = f"bin{bin_num}_p_std (-)"
-        column_rename[f"bin{bin_num}_beta_mean"] = f"bin{bin_num}_beta_mean (h-1)"
+        column_rename[f"bin{bin_num}_beta"] = f"bin{bin_num}_beta (h-1)"
         column_rename[f"bin{bin_num}_beta_std"] = f"bin{bin_num}_beta_std (h-1)"
-        column_rename[f"bin{bin_num}_beta_fit"] = f"bin{bin_num}_beta_fit (h-1)"
         column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
         column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
         column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
@@ -597,7 +577,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
             f"bin{i}_p_mean (-)" for i in PARTICLE_BINS.keys()
         ]
         beta_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_beta_mean (h-1)" for i in PARTICLE_BINS.keys()
+            f"bin{i}_beta (h-1)" for i in PARTICLE_BINS.keys()
         ]
         beta_r2_cols = ["event_number", "shower_on"] + [
             f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()

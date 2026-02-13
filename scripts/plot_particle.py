@@ -16,7 +16,7 @@ Key Functions:
     - plot_size_distribution_summary: Multi-panel summary of all metrics
 
 Plot Features:
-    - Two-panel event plots (concentrations + linearized regression)
+    - Single-panel event plots with concentrations and curve-fit decay predictions
     - Color-coded particle size bins (0.35-3.0 µm)
     - Shaded deposition analysis window
     - Shower ON/OFF markers with consistent styling
@@ -27,7 +27,7 @@ Methodology:
     1. Extract data window around shower event (2 hr before to 1 hr after deposition end)
     2. Plot particle concentrations for all 7 size bins
     3. Shade deposition window (2 hr post-shower)
-    4. Calculate linearized regression: y = -ln[(C(t) - C_ss)/(C_0 - C_ss)] vs t
+    4. Overlay curve-fit decay predictions (dashed lines)
     5. Display β (deposition rate), p (penetration), and E (emission) values
 
 Output Files:
@@ -51,7 +51,6 @@ import pandas as pd
 from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
     COLORS,
-    CONFIG_KEY_COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
     FONT_SIZE_TICK,
@@ -59,8 +58,6 @@ from scripts.plot_style import (
     LINE_WIDTH_DATA,
     LINE_WIDTH_FIT,
     SENSOR_COLORS,
-    SHOWER_OFF_STYLE,
-    SHOWER_ON_STYLE,
     TITLE_FONTWEIGHT,
     WINDOW_ALPHA,
     add_shaded_window,
@@ -88,9 +85,8 @@ def plot_particle_decay_event(
     """
     Plot particle concentration decay for a single event showing all bins.
 
-    Creates a two-panel figure similar to CO2 decay plots:
-    - Top panel: Particle concentrations
-    - Bottom panel: Linearized regression plot for all bins
+    Creates a single-panel figure with particle concentrations and curve-fit
+    decay predictions overlaid as dashed lines.
 
     Parameters:
         particle_data: DataFrame with particle concentrations
@@ -116,23 +112,22 @@ def plot_particle_decay_event(
         print(f"    Warning: No data for event {event_number}")
         return
 
-    # Create two-panel figure (like CO2 plots)
-    fig, axes = create_figure(nrows=2, ncols=1, figsize=(12, 10), height_ratios=[2, 1])
-    ax1, ax2 = axes  # type: ignore[misc]
+    # Create single-panel figure
+    fig, ax1 = create_figure(figsize=(12, 6))
 
     lambda_ach = result.get("lambda_ach", np.nan)
 
     # =========================================================================
-    # Top panel: Particle concentrations
+    # Particle concentrations with decay predictions
     # =========================================================================
     for bin_num, bin_info in particle_bins.items():
         col_inside = f"{bin_info['column']}_inside"
         color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
 
         if col_inside in plot_data.columns:
-            # Check if this bin has valid decay results (use beta_mean for consistency with bottom panel)
-            beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
-            is_valid = not np.isnan(beta_mean)
+            # Check if this bin has valid decay results
+            beta_val = result.get(f"bin{bin_num}_beta", np.nan)
+            is_valid = not np.isnan(beta_val)
             linestyle = "-" if is_valid else "--"
             alpha = 0.9 if is_valid else 0.4
 
@@ -189,7 +184,7 @@ def plot_particle_decay_event(
     add_shower_on_marker(ax1, event["shower_on"], label="Shower ON")
     add_shower_off_marker(ax1, event["shower_off"], label="Shower OFF")
 
-    # Top panel formatting
+    # Axis formatting
     ax1.set_ylabel("Particle Concentration (#/cm³)", fontsize=FONT_SIZE_LABEL)
 
     # Use consistent title formatting
@@ -207,11 +202,11 @@ def plot_particle_decay_event(
     # Add results text box with summary
     textstr = f"λ = {lambda_ach:.4f} h⁻¹\n\n"
 
-    # Count valid bins and build beta summary (use beta_mean for consistency)
+    # Count valid bins and build beta summary
     valid_bins = 0
     beta_values = []
     for bin_num in particle_bins.keys():
-        beta_val = result.get(f"bin{bin_num}_beta_mean", np.nan)
+        beta_val = result.get(f"bin{bin_num}_beta", np.nan)
         if not np.isnan(beta_val):
             valid_bins += 1
             r2_val = result.get(f"bin{bin_num}_beta_r_squared", np.nan)
@@ -243,87 +238,6 @@ def plot_particle_decay_event(
     ax1.grid(True, alpha=0.3, which="both")
     ax1.tick_params(labelsize=FONT_SIZE_TICK)
     format_datetime_axis(ax1)
-
-    # =========================================================================
-    # Bottom panel: Linearized regression plot
-    # =========================================================================
-    has_regression_data = False
-
-    for bin_num, bin_info in particle_bins.items():
-        color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
-
-        # Get fit data from results
-        t_values = result.get(f"bin{bin_num}_fit_t_values", [])
-        y_values = result.get(f"bin{bin_num}_fit_y_values", [])
-        beta_mean = result.get(f"bin{bin_num}_beta_mean", np.nan)
-        beta_fit = result.get(f"bin{bin_num}_beta_fit", np.nan)  # β from linearized fit
-        fit_slope = result.get(
-            f"bin{bin_num}_fit_slope", np.nan
-        )  # Actual regression slope
-        fit_intercept = result.get(
-            f"bin{bin_num}_fit_intercept", 0.0
-        )  # Regression intercept
-        r_squared = result.get(f"bin{bin_num}_beta_r_squared", np.nan)
-
-        if t_values and y_values and not np.isnan(beta_mean):
-            has_regression_data = True
-            t_arr = np.array(t_values)
-            y_arr = np.array(y_values)
-
-            # Plot scatter points
-            ax2.scatter(
-                t_arr,
-                y_arr,
-                color=color,
-                alpha=0.4,
-                s=8,
-            )
-
-            # Plot regression line using actual fit slope and intercept
-            if len(t_arr) > 0 and not np.isnan(fit_slope):
-                t_line = np.array([0, t_arr.max()])
-                # Use actual regression: y = slope * t + intercept
-                y_line = fit_slope * t_line + fit_intercept
-
-                # Use beta_fit (from regression) for label if available, else beta_mean
-                beta_display = beta_fit if not np.isnan(beta_fit) else beta_mean
-                label = f"Bin {bin_num}: beta={beta_display:.2f} h^-1"
-                if not np.isnan(r_squared):
-                    label += f" (R2={r_squared:.3f})"
-
-                ax2.plot(
-                    t_line,
-                    y_line,
-                    color=color,
-                    linewidth=LINE_WIDTH_FIT,
-                    label=label,
-                )
-
-    if has_regression_data:
-        ax2.set_xlabel("Time since decay start (hours)", fontsize=FONT_SIZE_LABEL)
-        ax2.set_ylabel(
-            "$-\\ln[(C(t) - C_{ss}) / (C_0 - C_{ss})]$", fontsize=FONT_SIZE_LABEL
-        )
-        ax2.legend(loc="upper left", fontsize=FONT_SIZE_LEGEND - 1, ncol=2)
-        ax2.set_xlim(left=0)
-        ax2.set_ylim(bottom=0)
-        ax2.grid(True, alpha=0.3)
-    else:
-        ax2.text(
-            0.5,
-            0.5,
-            "Insufficient data for linearized regression",
-            ha="center",
-            va="center",
-            transform=ax2.transAxes,
-            fontsize=FONT_SIZE_LABEL,
-        )
-        ax2.set_xlabel("Time since decay start (hours)", fontsize=FONT_SIZE_LABEL)
-        ax2.set_ylabel(
-            "$-\\ln[(C(t) - C_{ss}) / (C_0 - C_{ss})]$", fontsize=FONT_SIZE_LABEL
-        )
-
-    ax2.tick_params(labelsize=FONT_SIZE_TICK)
 
     plt.tight_layout()
     save_figure(fig, output_path)
@@ -514,7 +428,7 @@ def plot_deposition_summary(
         beta_means = []
         beta_stds = []
         for bin_num in bin_nums:
-            col = f"bin{bin_num}_beta_mean"
+            col = f"bin{bin_num}_beta"
             if col in config_df.columns:
                 valid_values = config_df[col].dropna()
                 beta_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
@@ -769,7 +683,7 @@ def plot_size_distribution_summary(
     beta_means = []
     beta_stds = []
     for bin_num in bin_nums:
-        col = f"bin{bin_num}_beta_mean"
+        col = f"bin{bin_num}_beta"
         valid_values = results_df[col].dropna()
         beta_means.append(valid_values.mean() if len(valid_values) > 0 else np.nan)
         beta_stds.append(valid_values.std() if len(valid_values) > 0 else np.nan)

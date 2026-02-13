@@ -10,7 +10,7 @@ for the particle decay study without any I/O or event management logic.
 
 Key Calculations:
     - Penetration factor (p): C_inside / C_outside ratio
-    - Deposition rate (beta): Numerical solution from decay data
+    - Deposition rate (beta): Nonlinear curve fit to decay data
     - Emission rate (E): Mass balance during shower-to-peak period
     - Ct prediction: Forward Euler simulation of indoor concentration
 
@@ -63,7 +63,6 @@ MIN_POINTS_DEPOSITION = (
     10  # Minimum points for deposition calculation
 )
 MIN_POINTS_EMISSION = 3  # Minimum points for emission calculation
-MIN_VALID_BETA = 5  # Minimum valid β values required
 
 
 # =============================================================================
@@ -254,112 +253,6 @@ def calculate_penetration_factor(
 # =============================================================================
 
 
-def _calculate_linearized_fit(
-    c_inside: np.ndarray,
-    c_outside: np.ndarray,
-    datetimes: np.ndarray,
-    p: float,
-    lambda_ach: float,
-    beta_numerical: float,
-) -> Dict:
-    """
-    Calculate linearized regression fit for particle decay.
-
-    Uses the linearized form: y = -ln[(C(t) - C_ss) / (C_0 - C_ss)] = (λ + β) * t
-    where C_ss = pλC_out_avg / (λ + β) is the steady-state concentration.
-
-    Parameters:
-        c_inside: Inside concentration array
-        c_outside: Outside concentration array
-        datetimes: Datetime array
-        p: Penetration factor
-        lambda_ach: Air change rate (h⁻¹)
-        beta_numerical: Numerically calculated β (h⁻¹)
-
-    Returns:
-        Dict with fit parameters: beta_fit, r_squared, _t_values, _y_values, c_steady_state
-    """
-    from scipy import stats
-
-    # Calculate steady-state concentration using numerical β
-    c_outside_mean = float(np.nanmean(c_outside))
-    total_loss_rate = lambda_ach + beta_numerical
-
-    if total_loss_rate <= 0:
-        return {
-            "beta_fit": np.nan,
-            "r_squared": np.nan,
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": np.nan,
-        }
-
-    c_steady_state = (p * lambda_ach * c_outside_mean) / total_loss_rate
-
-    # Get initial concentration
-    c_0 = c_inside[0]
-    delta_c_0 = c_0 - c_steady_state
-
-    if delta_c_0 <= 0:
-        return {
-            "beta_fit": np.nan,
-            "r_squared": np.nan,
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": c_steady_state,
-        }
-
-    # Calculate time in hours from start
-    t0 = datetimes[0]
-    t_hours = (datetimes - t0).astype("timedelta64[s]").astype(float) / 3600.0
-
-    # Calculate linearized y values: y = -ln[(C(t) - C_ss) / (C_0 - C_ss)]
-    t_values = []
-    y_values = []
-
-    for i in range(len(c_inside)):
-        c_t = c_inside[i]
-        if np.isnan(c_t) or c_t <= c_steady_state:
-            continue
-
-        delta_c_t = c_t - c_steady_state
-        ratio = delta_c_t / delta_c_0
-
-        if ratio > 0 and ratio <= 1:
-            y = -np.log(ratio)
-            t_values.append(t_hours[i])
-            y_values.append(y)
-
-    if len(t_values) < 5:
-        return {
-            "beta_fit": np.nan,
-            "r_squared": np.nan,
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": c_steady_state,
-        }
-
-    # Linear regression: y = slope * t + intercept
-    t_arr = np.array(t_values)
-    y_arr = np.array(y_values)
-
-    slope, intercept, r_value, p_value, std_err = stats.linregress(t_arr, y_arr)
-    r_squared = r_value**2
-
-    # slope = λ + β, so β_fit = slope - λ
-    beta_fit = slope - lambda_ach
-
-    return {
-        "beta_fit": float(beta_fit) if beta_fit >= 0 else np.nan,
-        "r_squared": float(r_squared),
-        "_t_values": t_values,
-        "_y_values": y_values,
-        "c_steady_state": float(c_steady_state),
-        "_slope": float(slope),
-        "_intercept": float(intercept),
-    }
-
-
 def calculate_deposition_rate(
     particle_data: pd.DataFrame,
     window_start: datetime,
@@ -369,15 +262,13 @@ def calculate_deposition_rate(
     lambda_ach: float,
 ) -> Dict:
     """
-    Calculate deposition rate (β_deposition) using numerical approach and linearized fit.
+    Calculate deposition rate (beta) using nonlinear curve fitting.
 
-    The decay calculation starts from the peak concentration within the deposition
-    window (not from window_start), as the peak may occur after shower_off.
+    Fits the analytical decay model to measured concentration data:
+        C(t) = C_ss + (C_0 - C_ss) * exp(-(lambda + beta) * t)
+    where C_ss = p * lambda * C_out_avg / (lambda + beta).
 
-    Numerical method solves: β_deposition = 1/Δt - λ - C_t(i+1)/(C_t Δt) + (pλC_out,t)/C_t
-
-    Also performs linearized regression fit for plotting:
-    y = -ln[(C(t) - C_ss) / (C_0 - C_ss)] = (λ + β) * t
+    beta is the only fit parameter, determined via scipy.optimize.curve_fit.
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -385,14 +276,25 @@ def calculate_deposition_rate(
         window_end (datetime): End of deposition window
         bin_num (int): Particle bin number (0-6)
         p (float): Penetration factor
-        lambda_ach (float): Air change rate (h⁻¹)
+        lambda_ach (float): Air change rate (h-1)
 
     Returns:
-        Dict: Dictionary with β statistics, R², fit data for plotting, and peak_time
+        Dict: Dictionary with beta, beta_std, R-squared, C_ss, peak_time
     """
+    from scipy.optimize import curve_fit
+
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
     col_outside = f"{bin_info['column']}_outside"
+
+    _nan_result = {
+        "beta": np.nan,
+        "beta_std": np.nan,
+        "beta_r_squared": np.nan,
+        "n_points": 0,
+        "c_steady_state": np.nan,
+        "peak_time": None,
+    }
 
     # Filter to full deposition window first
     mask = (particle_data["datetime"] >= window_start) & (
@@ -402,16 +304,12 @@ def calculate_deposition_rate(
 
     if len(window_data) < MIN_POINTS_DEPOSITION:
         return {
-            "beta_mean": np.nan,
-            "beta_std": np.nan,
-            "beta_median": np.nan,
-            "beta_r_squared": np.nan,
+            **_nan_result,
             "n_points": len(window_data),
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": np.nan,
-            "peak_time": None,
-            "skip_reason": f"Insufficient data: {len(window_data)} points (minimum {MIN_POINTS_DEPOSITION} required)",
+            "skip_reason": (
+                f"Insufficient data: {len(window_data)} points "
+                f"(minimum {MIN_POINTS_DEPOSITION} required)"
+            ),
         }
 
     # Find peak concentration within the deposition window for this bin
@@ -421,15 +319,7 @@ def calculate_deposition_rate(
     valid_mask = ~np.isnan(c_inside_full)
     if not np.any(valid_mask):
         return {
-            "beta_mean": np.nan,
-            "beta_std": np.nan,
-            "beta_median": np.nan,
-            "beta_r_squared": np.nan,
-            "n_points": 0,
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": np.nan,
-            "peak_time": None,
+            **_nan_result,
             "skip_reason": "No valid concentration data in window",
         }
 
@@ -442,16 +332,13 @@ def calculate_deposition_rate(
 
     if len(decay_data) < MIN_POINTS_DEPOSITION:
         return {
-            "beta_mean": np.nan,
-            "beta_std": np.nan,
-            "beta_median": np.nan,
-            "beta_r_squared": np.nan,
+            **_nan_result,
             "n_points": len(decay_data),
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": np.nan,
             "peak_time": peak_time,
-            "skip_reason": f"Insufficient data after peak: {len(decay_data)} points (minimum {MIN_POINTS_DEPOSITION} required)",
+            "skip_reason": (
+                f"Insufficient data after peak: {len(decay_data)} points "
+                f"(minimum {MIN_POINTS_DEPOSITION} required)"
+            ),
         }
 
     c_inside = np.asarray(decay_data[col_inside].values, dtype=np.float64)
@@ -459,18 +346,11 @@ def calculate_deposition_rate(
     datetimes = decay_data["datetime"].values
 
     # Check for sufficient concentration difference (now using peak concentration)
-    c_outside_mean = np.mean(c_outside)
+    c_outside_mean = float(np.nanmean(c_outside))
     c_ratio = c_inside[0] / c_outside_mean if c_outside_mean > 0 else 0
     if c_ratio < MIN_CONCENTRATION_RATIO:
         return {
-            "beta_mean": np.nan,
-            "beta_std": np.nan,
-            "beta_median": np.nan,
-            "beta_r_squared": np.nan,
-            "n_points": 0,
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": np.nan,
+            **_nan_result,
             "peak_time": peak_time,
             "skip_reason": (
                 f"Insufficient concentration ratio at peak: {c_ratio:.3f} "
@@ -479,70 +359,79 @@ def calculate_deposition_rate(
             ),
         }
 
-    # Calculate β for each time step (numerical method) starting from peak
-    dt_hours = TIME_STEP_MINUTES / 60.0  # Convert to hours
-    beta_values = []
-
-    for i in range(len(c_inside) - 1):
-        c_t = c_inside[i]
-        c_t_next = c_inside[i + 1]
-        c_out_t = c_outside[i]
-
-        # Skip invalid points
-        if c_t <= 0 or np.isnan(c_t) or np.isnan(c_t_next) or np.isnan(c_out_t):
-            continue
-
-        # Calculate β_deposition
-        # β = 1/Δt - λ - C_t(i+1)/(C_t Δt) + (pλC_out,t)/C_t
-        term1 = 1.0 / dt_hours
-        term2 = -lambda_ach
-        term3 = -c_t_next / (c_t * dt_hours)
-        term4 = (p * lambda_ach * c_out_t) / c_t
-
-        beta = term1 + term2 + term3 + term4
-
-        # Filter unreasonable values
-        if 0 <= beta <= MAX_DEPOSITION_RATE:
-            beta_values.append(beta)
-
-    if len(beta_values) < MIN_VALID_BETA:
+    # Filter out NaN values for curve fitting
+    valid = ~np.isnan(c_inside) & ~np.isnan(c_outside)
+    if np.sum(valid) < MIN_POINTS_DEPOSITION:
         return {
-            "beta_mean": np.nan,
-            "beta_std": np.nan,
-            "beta_median": np.nan,
-            "beta_r_squared": np.nan,
-            "n_points": len(beta_values),
-            "_t_values": [],
-            "_y_values": [],
-            "c_steady_state": np.nan,
+            **_nan_result,
+            "n_points": int(np.sum(valid)),
             "peak_time": peak_time,
             "skip_reason": (
-                f"Insufficient valid β values: {len(beta_values)} "
-                f"(minimum {MIN_VALID_BETA} required)"
+                f"Insufficient valid points: {np.sum(valid)} "
+                f"(minimum {MIN_POINTS_DEPOSITION} required)"
             ),
         }
 
-    beta_mean = float(np.mean(beta_values))
+    c_inside_valid = c_inside[valid]
+    datetimes_valid = datetimes[valid]
 
-    # Calculate linearized fit for plotting and R² (using data from peak onward)
-    fit_result = _calculate_linearized_fit(
-        c_inside, c_outside, datetimes, p, lambda_ach, beta_mean
+    # Compute time in hours from peak
+    t0 = datetimes_valid[0]
+    t_hours = (
+        (datetimes_valid - t0).astype("timedelta64[s]").astype(float) / 3600.0
+    )
+
+    # Initial concentration and average outdoor concentration
+    c_0 = float(c_inside_valid[0])
+    c_out_avg = c_outside_mean
+
+    # Analytical decay model: C(t; beta) = C_ss + (C_0 - C_ss) * exp(-(lam+beta)*t)
+    # where C_ss = p * lam * C_out_avg / (lam + beta)
+    def decay_model(t, beta):
+        total_loss = lambda_ach + beta
+        c_ss = p * lambda_ach * c_out_avg / total_loss if total_loss > 0 else 0.0
+        return c_ss + (c_0 - c_ss) * np.exp(-total_loss * t)
+
+    # Fit beta using nonlinear least squares
+    try:
+        popt, pcov = curve_fit(
+            decay_model,
+            t_hours,
+            c_inside_valid,
+            p0=[1.0],
+            bounds=([0.0], [MAX_DEPOSITION_RATE]),
+            maxfev=10000,
+        )
+        beta_val = float(popt[0])
+        beta_std_val = (
+            float(np.sqrt(pcov[0, 0])) if pcov[0, 0] >= 0 else np.nan
+        )
+    except (RuntimeError, ValueError) as e:
+        return {
+            **_nan_result,
+            "n_points": len(c_inside_valid),
+            "peak_time": peak_time,
+            "skip_reason": f"Curve fit failed: {e}",
+        }
+
+    # Compute R-squared
+    c_predicted = decay_model(t_hours, beta_val)
+    ss_res = float(np.sum((c_inside_valid - c_predicted) ** 2))
+    ss_tot = float(np.sum((c_inside_valid - np.mean(c_inside_valid)) ** 2))
+    r_squared = 1.0 - ss_res / ss_tot if ss_tot > 0 else np.nan
+
+    # Compute steady-state concentration
+    total_loss = lambda_ach + beta_val
+    c_steady_state = (
+        p * lambda_ach * c_out_avg / total_loss if total_loss > 0 else 0.0
     )
 
     return {
-        "beta_mean": beta_mean,
-        "beta_std": float(np.std(beta_values)),
-        "beta_median": float(np.median(beta_values)),
-        "beta_r_squared": fit_result.get("r_squared", np.nan),
-        "beta_fit": fit_result.get("beta_fit", np.nan),  # β from linearized regression
-        "_fit_slope": fit_result.get("_slope", np.nan),  # Actual slope from regression
-        "_fit_intercept": fit_result.get(
-            "_intercept", 0.0
-        ),  # Intercept from regression
-        "n_points": len(beta_values),
-        "_t_values": fit_result.get("_t_values", []),
-        "_y_values": fit_result.get("_y_values", []),
-        "c_steady_state": fit_result.get("c_steady_state", np.nan),
+        "beta": beta_val,
+        "beta_std": beta_std_val,
+        "beta_r_squared": r_squared,
+        "n_points": len(c_inside_valid),
+        "c_steady_state": float(c_steady_state),
         "peak_time": peak_time,
     }
 
