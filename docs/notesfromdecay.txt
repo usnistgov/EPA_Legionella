@@ -1,0 +1,107 @@
+Two Decay Calculation Methods
+The scripts calculate the deposition rate (β) two different ways, and also run two separate Euler simulations. Here's what each produces and where it's used:
+
+Method 1: Numerical (Time-Step) β
+Calculation (particle_calculations.py:482-506):
+Solves the mass balance at each 1-minute time step from peak to 2 hours post-shower:
+
+
+β = 1/Δt - λ - C(i+1)/(C(i)·Δt) + (p·λ·C_out)/C(i)
+Then averages all valid β values.
+
+Outputs produced: beta_mean, beta_std, beta_median
+
+Where it's used:
+
+Output	Type
+deposition_summary.png bar chart	Plot - bar heights are beta_mean averaged across events per bin
+size_distribution_summary.png panel (b)	Plot - error bar chart of beta_mean vs particle size
+particle_analysis_summary.xlsx → beta_deposition sheet	Table - beta_mean per event per bin
+particle_analysis_summary.xlsx → all_results sheet	Table - beta_mean, beta_std columns
+Feeds into emission rate (E) calculation	Internal - β is a required input for the E mass balance
+Feeds into both Euler simulations	Internal - β is used in the forward Euler C(i)·(λ + β) term
+Method 2: Linearized Regression β
+Calculation (particle_calculations.py:257-360):
+Transforms the decay data into a linearized form:
+
+
+y = -ln[(C(t) - C_ss) / (C_0 - C_ss)]  vs  t
+where C_ss = p·λ·C_out_avg / (λ + β_numerical). Performs linear regression; the slope = (λ + β), so β_fit = slope - λ. Also computes R².
+
+Outputs produced: beta_fit, beta_r_squared, _t_values, _y_values, _fit_slope, _fit_intercept, c_steady_state
+
+Where it's used:
+
+Output	Type
+Individual event plots → bottom panel	Plot - scatter of linearized (t, y) points + regression line for each bin
+Individual event plots → bottom panel legend labels	Plot - shows β_fit value and R² per bin
+particle_analysis_summary.xlsx → beta_r_squared sheet	Table - R² per event per bin
+particle_analysis_summary.xlsx → all_results sheet	Table - beta_fit, beta_r_squared columns
+Euler Simulation 1: Full Prediction (Emission + Decay)
+Calculation (particle_calculations.py:668-756):
+Forward Euler from shower ON to 2 hr post-shower. Uses E = E_mean up to peak, then E = 0.
+
+Outputs produced: ct_datetimes, ct_predicted
+
+Where it's used: Nowhere currently. The results are computed and stored in the results dict (particle_decay_analysis.py:296-297) but are never consumed by any plot or table. Per your commit history (d4080fe), the rising emission phase was intentionally removed from plots.
+
+Euler Simulation 2: Decay-Only Prediction
+Calculation (particle_calculations.py:761-791):
+Forward Euler starting from the measured concentration at peak time with E = 0 throughout. Anchored to actual data rather than the full simulation.
+
+Outputs produced: decay_datetimes, decay_predicted
+
+Where it's used:
+
+Output	Type
+Individual event plots → top panel	Plot - dashed lines overlaid on measured concentration, one per bin, labeled "Predicted Decay"
+Key Distinction
+The numerical β (beta_mean) is the primary workhorse: it drives all downstream calculations (E, both Euler sims) and is what appears in the summary bar charts and Excel deposition sheet.
+The linearized regression β (beta_fit) is a secondary/validation metric: it provides goodness-of-fit (R²) and a visual confirmation via the regression plot in the bottom panel of each event figure. Notably, beta_fit is not used for any downstream computation.
+The full Euler simulation is computed but produces orphaned data — nothing reads ct_datetimes/ct_predicted.
+
+Here's the diagnosis. The actual numbers for event 20 are damning:
+
+
+lambda = 0.9698 h⁻¹
+
+Bin  beta_mean(num)  fit_slope  slope-lambda   beta_fit   R²
+ 0        0.502       0.443      -0.527          NaN     0.931
+ 1        1.365       0.566      -0.404          NaN     0.957
+ 2        1.851       0.718      -0.252          NaN     0.941
+ 3        3.116       0.770      -0.200          NaN     0.932
+ 4        3.275       0.726      -0.244          NaN     0.922
+ 5        4.170       0.983       0.013         0.013    0.852
+ 6        6.809       0.961      -0.008          NaN     0.805
+The Problem: Three linked issues
+1. The numerical β is massively inflated (the root cause)
+
+The per-step formula β = [C(i)-C(i+1)] / [C(i)·Δt] - λ + p·λ·C_out/C(i) computes β at each minute. Noise in the concentration data creates both positive and negative β estimates. But the filter at particle_calculations.py:505 keeps only 0 ≤ β ≤ 15 — all negative values are discarded. This is a positive-selection bias: when the true β is small (near zero), roughly half the noisy estimates are negative and get thrown away, so the mean of the remaining positive-only values is always inflated.
+
+The regression slopes tell the truth: total loss rates of 0.44–0.98 h⁻¹. With λ = 0.97, that means β is essentially 0 for most bins (ventilation alone explains the decay). But the numerical method reports β = 0.5–6.8 h⁻¹.
+
+2. The inflated β corrupts the linearized regression's C_ss
+
+The linearized transform at particle_calculations.py:297 computes C_ss = p·λ·C_out / (λ + β_numerical). With inflated β_numerical, C_ss becomes artificially small (near zero). This means the transform degenerates to y ≈ -ln[C(t)/C₀], which is a simple log-ratio. It still looks like a nice line (hence good R²), but the slope no longer equals (λ+β) — it's just the raw apparent decay rate. Since that raw rate < λ for 6 of 7 bins, beta_fit = slope - λ is negative → set to NaN.
+
+3. The Euler uses the inflated β_mean
+
+At particle_decay_analysis.py:292, beta_mean is passed to the Euler. The inflated β makes the model's source-vs-loss balance wrong: the predicted curve approaches a distorted C_ss instead of following the straight exponential decay the data actually shows.
+
+The bottom panel "looks good" but is misleading
+The regression lines are drawn using the actual _fit_slope and _fit_intercept, and the R² is genuine for the simplified log-ratio transform. But the legend label falls back to beta_mean (numerical) when beta_fit is NaN (line 283 of plot_particle.py), so the β values shown in the legend are the inflated numerical values, not the regression values.
+
+Proposed Fix
+The cleanest solution is to replace the numerical per-step β with a direct nonlinear curve fit of:
+
+
+C(t) = C_ss + (C₀ - C_ss) · exp(-(λ + β) · t)
+using scipy.optimize.curve_fit with β as the fit parameter and C_ss derived from the fit. This:
+
+Eliminates the positive-selection bias entirely
+Gives a β that, by construction, produces an Euler prediction matching the data
+Provides R² and confidence intervals directly
+Still uses the same mass balance physics
+The numerical per-step method could be kept as a secondary/diagnostic output, but should not drive the Euler or downstream E calculations.
+
+Want me to implement this fix?
