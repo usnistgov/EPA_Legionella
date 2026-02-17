@@ -495,8 +495,8 @@ def calculate_emission_rate(
     dt_minutes = TIME_STEP_MINUTES  # minutes
 
     # Calculate E for each time step
-    E_values_all = []   # All valid E values (for trapezoidal E_total)
-    E_values = []       # Positive E values only (for mean/std/median)
+    E_values_all = []  # All valid E values (for trapezoidal E_total)
+    E_values = []  # Positive E values only (for mean/std/median)
 
     # Convert λ and β from h⁻¹ to min⁻¹ once
     lambda_per_min = lambda_ach / 60.0
