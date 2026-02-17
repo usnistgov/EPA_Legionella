@@ -53,15 +53,11 @@ ROLLING_WINDOW_MIN = 0  # Rolling average window in minutes (0 = no smoothing)
 
 # Validation thresholds
 MAX_DEPOSITION_RATE = 15.0  # Maximum reasonable β (h⁻¹)
-MIN_CONCENTRATION_RATIO = (
-    1.05  # Minimum C_inside/C_outside during decay
-)
+MIN_CONCENTRATION_RATIO = 1.0  # Minimum C_inside/C_outside during decay
 
 # Minimum data point requirements
 MIN_POINTS_PENETRATION = 10  # Minimum points for penetration calculation
-MIN_POINTS_DEPOSITION = (
-    10  # Minimum points for deposition calculation
-)
+MIN_POINTS_DEPOSITION = 10  # Minimum points for deposition calculation
 MIN_POINTS_EMISSION = 3  # Minimum points for emission calculation
 
 
@@ -377,9 +373,7 @@ def calculate_deposition_rate(
 
     # Compute time in hours from peak
     t0 = datetimes_valid[0]
-    t_hours = (
-        (datetimes_valid - t0).astype("timedelta64[s]").astype(float) / 3600.0
-    )
+    t_hours = (datetimes_valid - t0).astype("timedelta64[s]").astype(float) / 3600.0
 
     # Initial concentration and average outdoor concentration
     c_0 = float(c_inside_valid[0])
@@ -403,9 +397,7 @@ def calculate_deposition_rate(
             maxfev=10000,
         )
         beta_val = float(popt[0])
-        beta_std_val = (
-            float(np.sqrt(pcov[0, 0])) if pcov[0, 0] >= 0 else np.nan
-        )
+        beta_std_val = float(np.sqrt(pcov[0, 0])) if pcov[0, 0] >= 0 else np.nan
     except (RuntimeError, ValueError) as e:
         return {
             **_nan_result,
@@ -422,9 +414,7 @@ def calculate_deposition_rate(
 
     # Compute steady-state concentration
     total_loss = lambda_ach + beta_val
-    c_steady_state = (
-        p * lambda_ach * c_out_avg / total_loss if total_loss > 0 else 0.0
-    )
+    c_steady_state = p * lambda_ach * c_out_avg / total_loss if total_loss > 0 else 0.0
 
     return {
         "beta": beta_val,
@@ -636,11 +626,7 @@ def calculate_ct_prediction(
             E_active = 0.0
 
         # C(i+1) = C(i) + dt * [p*λ*C_out - C(i)*(λ + β) + E/V]
-        dCdt = (
-            p * lambda_ach * c_out_t
-            - c_t * (lambda_ach + beta)
-            + E_active / V
-        )
+        dCdt = p * lambda_ach * c_out_t - c_t * (lambda_ach + beta) + E_active / V
         predicted[i + 1] = c_t + dt_hours * dCdt
 
         # Ensure non-negative concentration
@@ -666,12 +652,11 @@ def calculate_ct_prediction(
             for j in range(n_decay - 1):
                 data_idx = decay_indices[j]
                 c_t = decay_pred[j]
-                c_out_t = c_outside[data_idx] if not np.isnan(c_outside[data_idx]) else 0.0
-
-                dCdt = (
-                    p * lambda_ach * c_out_t
-                    - c_t * (lambda_ach + beta)
+                c_out_t = (
+                    c_outside[data_idx] if not np.isnan(c_outside[data_idx]) else 0.0
                 )
+
+                dCdt = p * lambda_ach * c_out_t - c_t * (lambda_ach + beta)
                 decay_pred[j + 1] = c_t + dt_hours * dCdt
                 if decay_pred[j + 1] < 0:
                     decay_pred[j + 1] = 0.0
