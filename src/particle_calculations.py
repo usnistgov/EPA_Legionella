@@ -24,6 +24,7 @@ from typing import Dict, List
 
 import numpy as np
 import pandas as pd
+from scipy.integrate import trapezoid
 
 # =============================================================================
 # Configuration Constants
@@ -540,7 +541,7 @@ def calculate_emission_rate(
     # Calculate total emission using trapezoidal rule:
     # E_total = Δt × Σ(E_t + E_t(i+1)) / 2
     if len(E_values_all) >= 2:
-        E_total = float(np.trapz(E_values_all) * dt_minutes)
+        E_total = float(trapezoid(E_values_all) * dt_minutes)
     else:
         E_total = float(E_values_all[0] * dt_minutes) if E_values_all else 0.0
 
