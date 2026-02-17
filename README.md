@@ -86,7 +86,7 @@ NIST_EPA_Legionella/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/NathanL-CodeBase/NIST_EPA_Legionella.git
+   git clone https://github.com/usnistgov/NIST_EPA_Legionella.git
    cd NIST_EPA_Legionella
    ```
 
@@ -345,11 +345,11 @@ Key packages (see `epa_mh.yml` for complete list):
 
 ## Contact
 
-- **PI:** [TODO: Full Name]
-- **NIST Organizational Unit:** [TODO: e.g., Engineering Laboratory]
-- **Division:** [TODO: e.g., Energy and Environment Technology Division]
-- **Group:** [TODO: e.g., Indoor Air Quality Group]
-- **Email:** [TODO: name@nist.gov]
+- **PI:** Dustin G. Poppendieck
+- **NIST Organizational Unit:** Engineering Laboratory
+- **Division:** Building Energy & Environment Division
+- **Group:** Indoor Air Quality and Ventilation Group
+- **Email:** dustin.poppendieck@nist.gov
 
 ## Citation
 
@@ -357,7 +357,7 @@ If you use this software, please cite it as:
 
 ```bibtex
 @software{nist_epa_legionella,
-  author       = {[TODO: Author Name(s)]},
+  author       = {Nathan M. Lima},
   title        = {NIST-EPA Legionella Study Analysis Tools},
   year         = {2026},
   publisher    = {National Institute of Standards and Technology},
