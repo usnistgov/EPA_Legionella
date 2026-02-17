@@ -1,1 +1,7 @@
-ssh-keygen -t ed25519 -C "your-work-email@nist.gov" -f "C:\Users\nml\.ssh\id_work"
+# Swap personal repo remote to SSH
+git remote set-url origin git@github.com:NathanL-CodeBase/NIST_EPA_Legionella.git
+
+# Add work org repo as second remote (replace with your actual org and repo names)
+git remote add work git@github.com:WorkOrgName/WorkRepoName.git
+
+git remote -v
