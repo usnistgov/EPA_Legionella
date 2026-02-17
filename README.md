@@ -20,6 +20,9 @@ NIST_EPA_Legionella/
 │   └── settings.json
 ├── .env                              # Environment variables (API keys for QuantAQ, gitignored)
 ├── .gitignore
+├── CODEMETA.yaml                     # NIST Software Portal metadata
+├── CODEOWNERS                        # Repository ownership for PR reviews
+├── LICENSE.md                        # NIST software licensing statement
 ├── README.md
 ├── data_config.json                  # Active configuration (gitignored)
 ├── data_config.template.json         # Configuration template
@@ -339,3 +342,62 @@ Key packages (see `epa_mh.yml` for complete list):
 - python-dotenv - Environment variable management (.env file loading)
 - pyyaml - Configuration management
 - openpyxl - Excel file I/O
+
+## Contact
+
+- **PI:** [TODO: Full Name]
+- **NIST Organizational Unit:** [TODO: e.g., Engineering Laboratory]
+- **Division:** [TODO: e.g., Energy and Environment Technology Division]
+- **Group:** [TODO: e.g., Indoor Air Quality Group]
+- **Email:** [TODO: name@nist.gov]
+
+## Citation
+
+If you use this software, please cite it as:
+
+```bibtex
+@software{nist_epa_legionella,
+  author       = {[TODO: Author Name(s)]},
+  title        = {NIST-EPA Legionella Study Analysis Tools},
+  year         = {2026},
+  publisher    = {National Institute of Standards and Technology},
+  url          = {https://github.com/usnistgov/NIST_EPA_Legionella}
+}
+```
+
+## License
+
+This software was developed by employees of the National Institute
+of Standards and Technology (NIST), an agency of the Federal
+Government and is being made available as a public service. Pursuant
+to [Title 17 United States Code Section 105][usc-17], works of NIST
+employees are not subject to copyright protection in the United
+States. This software may be subject to foreign copyright. Permission
+in the United States and in foreign countries, to the extent that
+NIST may hold copyright, to use, copy, modify, create derivative
+works, and distribute this software and its documentation without
+fee is hereby granted on a non-exclusive basis, provided that this
+notice and disclaimer of warranty appears in all copies.
+
+See [LICENSE.md](LICENSE.md) for the full NIST licensing statement.
+
+<!-- References -->
+
+[18f-guide]: https://github.com/18F/open-source-guide/blob/18f-pages/pages/making-readmes-readable.md
+[cornell-meta]: https://data.research.cornell.edu/content/readme
+[gh-cdo]: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+[gh-mdn]: https://github.github.com/gfm/
+[gh-nst]: https://github.com/usnistgov
+[gh-odi]: https://odiwiki.nist.gov/ODI/GitHub.html
+[gh-osr]: https://github.com/usnistgov/opensource-repo/
+[gh-ost]: https://github.com/orgs/usnistgov/teams/opensource-team
+[gh-rob]: https://odiwiki.nist.gov/pub/ODI/GitHub/GHROB.pdf
+[li-bsd]: https://opensource.org/licenses/bsd-license
+[li-gpl]: https://opensource.org/licenses/gpl-license
+[li-mit]: https://opensource.org/licenses/mit-license
+[nist-code]: https://code.nist.gov
+[nist-disclaimer]: https://www.nist.gov/open/license
+[nist-s-1801-02]: https://inet.nist.gov/adlp/directives/review-data-intended-publication
+[nist-open]: https://www.nist.gov/open/license#software
+[usc-17]: https://www.copyright.gov/title17/
+[wk-rdm]: https://en.wikipedia.org/wiki/README
