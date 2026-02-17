@@ -33,7 +33,9 @@ NIST_EPA_Legionella/
 │   ├── data_paths.py                 # Portable data access via data_config.json
 │   ├── env_data_loader.py            # Unified environmental sensor data loader
 │   ├── co2_decay_analysis.py         # CO2 decay & air-change rate (λ) analysis
-│   ├── particle_decay_analysis.py    # Particle penetration, deposition & emission analysis
+│   ├── particle_data_loader.py       # QuantAQ particle data loading and preparation
+│   ├── particle_calculations.py      # Penetration, deposition & emission calculations
+│   ├── particle_decay_analysis.py    # Particle decay analysis orchestration
 │   ├── rh_temp_other_analysis.py     # RH, temperature & wind analysis
 │   └── deprecated/                   # Deprecated/archived code
 │       └── co2_decay_analysis.py     # Previous version of CO2 analysis
@@ -66,13 +68,21 @@ NIST_EPA_Legionella/
 ├── testing/                          # Testing and exploratory scripts
 │   └── co2 plot.py                   # Aranet4 CO2 plotting script
 │
-└── docs/                             # Documentation
+└── docs/                             # Documentation & instrument references
+    ├── Data Analysis.docx            # Data analysis planning notes
+    ├── MH cDAQ channels MAP and wiring notes 123115.xlsx
+    ├── MH_weather_sta_to_DAQ_connections sketch.pdf
+    │
+    │ # Instrument Manuals & Data Sheets
+    ├── AIO-2-9800-Manual-Rev-G.pdf   # Met One AIO 2 weather sensor manual
+    ├── AIO2-1.pdf                    # Met One AIO 2 data sheet
     ├── Aranet_Datasheet_TDSPC003_Aranet4_PRO_1.pdf
     ├── aranet4_user_manual_v25_web.pdf
-    ├── Data Analysis.docx            # Data analysis planning notes
-    ├── data_analysis_checklist.xlsx   # Task tracking for analysis milestones
-    ├── IAQMH_instruments             # Instrument reference information
-    └── python_script_style_prompt.txt # Coding style guidelines
+    ├── NI cDAQ-9171_9174_9178 User Manual - National Instruments.pdf
+    ├── ni-9201_getting_started_2-1-2024.pdf
+    ├── Setra_Model_264_Data_Sheet.pdf
+    ├── Vaisala HMP155_User_Guide_in_English.pdf
+    └── Vaisala HMP45AD-User-Guide-U274EN.pdf
 ```
 
 ## Installation
@@ -343,6 +353,36 @@ Key packages (see `epa_mh.yml` for complete list):
 - pyyaml - Configuration management
 - openpyxl - Excel file I/O
 
+## References
+
+Instrument manuals, data sheets, and system documentation are located in the [`docs/`](docs/) directory.
+
+### Aranet4 PRO (CO2 Sensor)
+
+- [Aranet4 PRO Data Sheet](docs/Aranet_Datasheet_TDSPC003_Aranet4_PRO_1.pdf)
+- [Aranet4 User Manual](docs/aranet4_user_manual_v25_web.pdf)
+
+### Met One AIO 2 (Weather Sensor)
+
+- [AIO 2 Manual (Rev G)](docs/AIO-2-9800-Manual-Rev-G.pdf)
+- [AIO 2 Data Sheet](docs/AIO2-1.pdf)
+
+### DAQ System (NI cDAQ-9178)
+
+- [NI cDAQ-9171/9174/9178 User Manual](docs/NI%20cDAQ-9171_9174_9178%20User%20Manual%20-%20National%20Instruments.pdf)
+- [NI 9201 Getting Started Guide](docs/ni-9201_getting_started_2-1-2024.pdf)
+- [cDAQ Channel Map & Wiring Notes](docs/MH%20cDAQ%20channels%20MAP%20and%20wiring%20notes%20123115.xlsx)
+- [Weather Station to DAQ Connections Sketch](docs/MH_weather_sta_to_DAQ_connections%20sketch.pdf)
+
+### Setra Model 264 (Differential Pressure)
+
+- [Setra Model 264 Data Sheet](docs/Setra_Model_264_Data_Sheet.pdf)
+
+### Vaisala Humidity & Temperature Probes
+
+- [HMP155 User Guide](docs/Vaisala%20HMP155_User_Guide_in_English.pdf)
+- [HMP45A/D User Guide](docs/Vaisala%20HMP45AD-User-Guide-U274EN.pdf)
+
 ## Contact
 
 - **PI:** Dustin G. Poppendieck
@@ -350,6 +390,10 @@ Key packages (see `epa_mh.yml` for complete list):
 - **Division:** Building Energy & Environment Division
 - **Group:** Indoor Air Quality and Ventilation Group
 - **Email:** dustin.poppendieck@nist.gov
+
+## Data Availability
+
+The experimental data associated with this project are not included in this repository. Data can be made available upon request by contacting the PI.
 
 ## Citation
 
@@ -381,7 +425,7 @@ notice and disclaimer of warranty appears in all copies.
 
 See [LICENSE.md](LICENSE.md) for the full NIST licensing statement.
 
-<!-- References -->
+<!-- Link definitions -->
 
 [18f-guide]: https://github.com/18F/open-source-guide/blob/18f-pages/pages/making-readmes-readable.md
 [cornell-meta]: https://data.research.cornell.edu/content/readme
