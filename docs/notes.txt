@@ -1,0 +1,16 @@
+(base) PS C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella> ls ~/.ssh
+
+
+    Directory: C:\Users\nml\.ssh
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----        11/14/2025   8:53 AM            270 known_hosts
+
+
+(base) PS C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella> git remote -v
+origin  https://github.com/NathanL-CodeBase/NIST_EPA_Legionella.git (fetch)
+origin  https://github.com/NathanL-CodeBase/NIST_EPA_Legionella.git (push)
+(base) PS C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella> git config --global credential.helper
+(base) PS C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella> 
