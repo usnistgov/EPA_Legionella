@@ -443,7 +443,12 @@ def calculate_emission_rate(
     """
     Calculate emission rate (E) from shower start to peak concentration.
 
-    Solves: E = pλVC_out,t + V(C_t - C_t(i+1))/Δt - λVC_t - β_deposition VC_t
+    Solves for E_t at each time step by rearranging the mass balance equation:
+        (C_t(i+1) - C_t)/Δt = pλC_out,t - λC_t - β_deposition C_t + E_t/V
+        E_t = pλVC_out,t + V(C_t - C_t(i+1))/Δt - λVC_t - β_deposition VC_t
+
+    E_total is the area under the E_t vs. time curve (trapezoidal rule):
+        E_total = Δt × Σ(E_t + E_t(i+1)) / 2
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -455,7 +460,7 @@ def calculate_emission_rate(
         beta (float): Deposition rate (h⁻¹)
 
     Returns:
-        Dict: Dictionary with E statistics (particles/minute)
+        Dict: Dictionary with E_mean, E_std, E_total statistics (particles/minute, particles)
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -489,7 +494,12 @@ def calculate_emission_rate(
     dt_minutes = TIME_STEP_MINUTES  # minutes
 
     # Calculate E for each time step
-    E_values = []
+    E_values_all = []   # All valid E values (for trapezoidal E_total)
+    E_values = []       # Positive E values only (for mean/std/median)
+
+    # Convert λ and β from h⁻¹ to min⁻¹ once
+    lambda_per_min = lambda_ach / 60.0
+    beta_per_min = beta / 60.0
 
     for i in range(len(c_inside) - 1):
         c_t = c_inside[i]
@@ -500,12 +510,10 @@ def calculate_emission_rate(
         if np.isnan(c_t) or np.isnan(c_t_next) or np.isnan(c_out_t):
             continue
 
-        # Calculate E (particles/minute)
-        # E = pλVC_out,t + V(C_t - C_t(i+1))/Δt - λVC_t - β_deposition VC_t
-        # Convert λ and β from h⁻¹ to min⁻¹
-        lambda_per_min = lambda_ach / 60.0
-        beta_per_min = beta / 60.0
-
+        # Solve for E_t from the mass balance equation:
+        # (C_t(i+1) - C_t)/Δt = pλC_out,t - λC_t - β_deposition C_t + E_t/V
+        # Rearranging:
+        # E_t = pλVC_out,t + V(C_t - C_t(i+1))/Δt - λVC_t - β_deposition VC_t
         term1 = p * lambda_per_min * V * c_out_t
         term2 = V * (c_t - c_t_next) / dt_minutes
         term3 = -lambda_per_min * V * c_t
@@ -513,7 +521,9 @@ def calculate_emission_rate(
 
         E = term1 + term2 + term3 + term4
 
-        # Only keep positive emission rates
+        E_values_all.append(E)
+
+        # Only accumulate positive emission rates for statistics
         if E > 0:
             E_values.append(E)
 
@@ -527,8 +537,12 @@ def calculate_emission_rate(
             "skip_reason": "No positive emission values calculated",
         }
 
-    # Calculate total emission over shower duration
-    E_total = np.sum(E_values) * dt_minutes  # Total particles emitted
+    # Calculate total emission using trapezoidal rule:
+    # E_total = Δt × Σ(E_t + E_t(i+1)) / 2
+    if len(E_values_all) >= 2:
+        E_total = float(np.trapz(E_values_all) * dt_minutes)
+    else:
+        E_total = float(E_values_all[0] * dt_minutes) if E_values_all else 0.0
 
     return {
         "E_mean": float(np.mean(E_values)),

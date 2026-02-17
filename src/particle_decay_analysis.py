@@ -61,16 +61,25 @@ Methodology:
 
     4. Calculate emission rate (E) from shower start to peak concentration:
        - Use shower ON to peak concentration time within analysis window
-       - Solve numerically for each time step:
-         E = p*lambda*V*C_out,t + V(C_t - C_t(i+1))/dt - lambda*V*C_t - beta*V*C_t
-       - Average E over the shower-to-peak period
+       - Solve numerically for E_t at each time step by rearranging the mass balance:
+           (C_t(i+1) - C_t)/dt = p*lambda*C_out,t - lambda*C_t - beta*C_t + E_t/V
+           E_t/V = -(C_t(i+1) - C_t)/dt + p*lambda*C_out,t - lambda*C_t - beta*C_t
+           E_t = p*lambda*V*C_out,t + V*(C_t - C_t(i+1))/dt - lambda*V*C_t - beta*V*C_t
+       - Report E_mean and E_std from positive E_t values over the window
 
     5. Predict concentration Ct using forward Euler simulation:
        - Window: shower ON to 2 hours after shower OFF
-       - C_t(i+1) = C_t + dt[p*lambda*C_out,t - C_t(lambda + beta) + E/V]
-       - E = E_mean from shower ON to peak, then E = 0
+       - Rearranging the mass balance to solve for C_t(i+1):
+           (C_t(i+1) - C_t)/dt = p*lambda*C_out,t - lambda*C_t - beta*C_t + E_t/V
+           C_t(i+1) = C_t + dt*[p*lambda*C_out,t - C_t*(lambda + beta) + E_t/V]
+       - E_t = E_mean from shower ON to peak_time, then E_t = 0
        - C_0 = measured bin concentration at shower ON
        - Plot predicted Ct on particle decay figures
+
+    6. Calculate total emission (E_total) for each bin:
+       - Area under the E_t vs. time curve using the trapezoidal rule:
+           E_total = dt * sum[(E_t + E_t(i+1)) / 2]
+       - Summed over all time steps from shower ON to peak concentration
 
 Output Files:
     - particle_analysis_summary.xlsx: Multi-sheet workbook with:
