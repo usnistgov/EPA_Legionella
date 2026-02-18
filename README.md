@@ -425,6 +425,10 @@ notice and disclaimer of warranty appears in all copies.
 
 See [LICENSE.md](LICENSE.md) for the full NIST licensing statement.
 
+## Disclaimer
+
+Certain commercial equipment, instruments, software, or materials are identified in this repository in order to specify the experimental and analytical procedures adequately. Such identification is not intended to imply recommendation or endorsement of any product or service by NIST, nor is it intended to imply that the materials or equipment identified are necessarily the best available for the purpose.
+
 <!-- Link definitions -->
 
 [18f-guide]: https://github.com/18F/open-source-guide/blob/18f-pages/pages/making-readmes-readable.md
