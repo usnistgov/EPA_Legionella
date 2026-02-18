@@ -18,7 +18,7 @@ Key Functions:
     - Write corrected files maintaining the original format
 
 Processing Features:
-    - Supports both CO2 log files (MH_CO2andFanProgram_YYYYMMDD.txt)
+    - Supports CO2 log files (MH_CO2andFanProgram_YYYYMMDD.txt)
     - Supports shower log files (MH_ShowerProgram_YYYYMMDD.txt)
     - Interactive mode with defaults for current problem files
     - Automatic backup creation with _backup suffix
@@ -372,10 +372,11 @@ def process_log_type(log_type, reference_date_str, target_date_strs):
 
 def get_user_input():
     """
-    Prompt user for reference date and target dates.
+    Prompt user for log type(s), reference date, and target dates.
 
     Returns:
-        tuple: (reference_date_str, target_date_list)
+        tuple: (reference_date_str, target_date_list, log_types_list)
+            log_types_list contains one or both of 'co2', 'shower'
     """
     print("Log File Repair Utility")
     print("=" * 60)
@@ -383,8 +384,34 @@ def get_user_input():
     print("This script fixes empty/corrupted log files by copying data from")
     print("a reference file and adjusting the dates appropriately.")
     print()
+
+    # --- Select log type(s) ---
+    print("Which log file(s) do you want to fix?")
+    print("  1. CO2 Injection  (MH_CO2andFanProgram_YYYYMMDD.txt)")
+    print("  2. Shower Program (MH_ShowerProgram_YYYYMMDD.txt)")
+    print("  3. Both           (default)")
+    print()
+    log_type_input = input("Enter choice (1/2/3) or press Enter for default [3 - Both]: ").strip()
+
+    if log_type_input == "1":
+        log_types = ["co2"]
+        log_type_label = "CO2 Injection only"
+    elif log_type_input == "2":
+        log_types = ["shower"]
+        log_type_label = "Shower Program only"
+    else:
+        if log_type_input not in ("", "3"):
+            print(f"  WARNING: Unrecognized choice '{log_type_input}'. Defaulting to Both.")
+        log_types = ["co2", "shower"]
+        log_type_label = "Both (CO2 + Shower)"
+
+    print()
+    print(f"Log type(s): {log_type_label}")
+    print()
+
+    # --- Select dates ---
     print(f"Default reference date: {DEFAULT_REFERENCE_DATE}")
-    print(f"Default target dates: {', '.join(DEFAULT_TARGET_DATES)}")
+    print(f"Default target dates:   {', '.join(DEFAULT_TARGET_DATES)}")
     print()
 
     # Get reference date
@@ -421,8 +448,9 @@ def get_user_input():
         target_dates = DEFAULT_TARGET_DATES
 
     print()
+    print(f"Log type(s):    {log_type_label}")
     print(f"Reference date: {reference_date}")
-    print(f"Target dates: {', '.join(target_dates)}")
+    print(f"Target dates:   {', '.join(target_dates)}")
     print()
 
     # Confirm
@@ -431,7 +459,7 @@ def get_user_input():
         print("Aborted by user.")
         sys.exit(0)
 
-    return reference_date, target_dates
+    return reference_date, target_dates, log_types
 
 
 # =============================================================================
@@ -442,13 +470,13 @@ def get_user_input():
 def main():
     """Main entry point for the log file repair utility."""
     # Get user input
-    reference_date, target_dates = get_user_input()
+    reference_date, target_dates, log_types = get_user_input()
 
     total_success = 0
     total_failure = 0
 
-    # Process both log types
-    for log_type in ["co2", "shower"]:
+    # Process selected log type(s)
+    for log_type in log_types:
         success, failure = process_log_type(log_type, reference_date, target_dates)
         total_success += success
         total_failure += failure
