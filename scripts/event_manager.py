@@ -126,6 +126,8 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 5, 10, 0, 0), "W30"),  # Mixed water from Feb 5 10AM
     (datetime(2026, 2, 9, 10, 0, 0), "W37"),  # Mixed water from Feb 9 10AM
     (datetime(2026, 2, 11, 8, 0, 0), "W23"),  # Mixed water from Feb 11 8AM
+    (datetime(2026, 2, 13, 11, 0, 0), "W14"),  # Mixed water from Feb 13 11AM
+    (datetime(2026, 2, 16, 10, 23, 0), "W43"),  # Mixed water from Feb 16 10:23AM
 ]
 
 # Door position transitions: (datetime, position)
