@@ -296,7 +296,7 @@ python src/particle_decay_analysis.py --plot
 - Combines indoor and outdoor QuantAQ MODULAIR-PM sensor data into one file
 - Calculates penetration factor (p) from 1-hour pre-shower window
 - Uses air change rate (λ) from CO2 decay analysis results
-- Determines deposition loss rate (β) from 2-hour post-shower decay
+- Determines deposition loss rate (β) from 2-hour post-shower decay using penetration factor, p, and air change rate (λ) from CO2 decay analysis
 - Calculates emission rates (E) during 10-minute shower periods
 - Numerical solution of time-dependent mass balance equation
 
