@@ -401,7 +401,7 @@ If you use this software, please cite it as:
 
 ```bibtex
 @software{nist_epa_legionella,
-  author       = {Nathan M. Lima},
+  author       = {Lima, Nathan M. and Poppendieck, Dustin G.},
   title        = {NIST-EPA Legionella Study Analysis Tools},
   year         = {2026},
   publisher    = {National Institute of Standards and Technology},
@@ -424,6 +424,10 @@ fee is hereby granted on a non-exclusive basis, provided that this
 notice and disclaimer of warranty appears in all copies.
 
 See [LICENSE.md](LICENSE.md) for the full NIST licensing statement.
+
+## Disclaimer
+
+Certain commercial equipment, instruments, software, or materials are identified in this repository in order to specify the experimental and analytical procedures adequately. Such identification is not intended to imply recommendation or endorsement of any product or service by NIST, nor is it intended to imply that the materials or equipment identified are necessarily the best available for the purpose.
 
 <!-- Link definitions -->
 
