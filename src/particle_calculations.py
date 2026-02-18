@@ -34,9 +34,12 @@ Step-by-step methodology:
             (C_{t+1} - C_t)/dt = p*lambda*C_out,t - lambda*C_t - beta*C_t
         Rearranged to solve for beta at each time step:
             beta = 1/dt - lambda - C_{t+1}/(C_t*dt) + p*lambda*(C_out,t/C_t)
-        Only estimates in [0, MAX_DEPOSITION_RATE] are retained; mean and
-        std are reported. R² computed from a forward Euler simulation using
-        the mean beta and the measured (time-varying) outdoor concentration.
+        All estimates <= MAX_DEPOSITION_RATE are collected (no lower bound,
+        so negative values from noise or rising-concentration steps are
+        included to avoid upward bias).  A 5th-95th percentile trim then
+        removes extreme outliers on both sides symmetrically.  Mean and std
+        of the trimmed set are reported.  R² computed from a forward Euler
+        simulation using the mean beta and time-varying outdoor concentration.
 
     Step 4 - Emission rate (E):
         Using the shower-on-to-peak window:
@@ -317,9 +320,12 @@ def calculate_deposition_rate(
     that fall within [0, MAX_DEPOSITION_RATE] are kept; the mean and
     standard deviation of the retained estimates are reported.
 
-    R² is computed from a forward Euler simulation using the mean beta and
-    the measured (time-varying) outdoor concentration, giving a physically
-    meaningful goodness-of-fit measure that accounts for varying C_out.
+    All per-step estimates at or below MAX_DEPOSITION_RATE are collected
+    (no lower bound — negative values from noise or brief concentration
+    rises are retained to avoid upward bias).  A symmetric 5th–95th
+    percentile trim then removes extreme outliers on both sides.  R² is
+    computed from a forward Euler simulation using the trimmed-mean beta
+    and the measured (time-varying) outdoor concentration.
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -411,8 +417,13 @@ def calculate_deposition_rate(
     # From the discrete mass balance (E = 0):
     #   beta = 1/dt_h - lambda - C_{t+1}/(C_t * dt_h) + p*lambda*(C_out,t/C_t)
     # where dt_h is the time step in hours.
+    #
+    # All estimates at or below MAX_DEPOSITION_RATE are collected (no lower
+    # bound, so negative values from noisy or rising-concentration steps are
+    # included).  A 5th–95th percentile trim is then applied to remove
+    # extreme outliers on both sides without introducing directional bias.
     dt_h = TIME_STEP_MINUTES / 60.0  # time step in hours
-    beta_values = []
+    beta_raw = []
     for i in range(len(c_inside) - 1):
         c_t = c_inside[i]
         c_t_next = c_inside[i + 1]
@@ -429,23 +440,32 @@ def calculate_deposition_rate(
             + p * lambda_ach * (c_out_t / c_t)
         )
 
-        # Retain only physically reasonable estimates
-        if 0.0 <= beta_t <= MAX_DEPOSITION_RATE:
-            beta_values.append(beta_t)
+        # Reject only unphysically large positive outliers
+        if beta_t <= MAX_DEPOSITION_RATE:
+            beta_raw.append(beta_t)
 
-    if len(beta_values) < MIN_POINTS_DEPOSITION:
+    if len(beta_raw) < MIN_POINTS_DEPOSITION:
         return {
             **_nan_result,
-            "n_points": len(beta_values),
+            "n_points": len(beta_raw),
             "peak_time": peak_time,
             "skip_reason": (
-                f"Insufficient valid beta estimates: {len(beta_values)} "
+                f"Insufficient valid beta estimates: {len(beta_raw)} "
                 f"(minimum {MIN_POINTS_DEPOSITION} required)"
             ),
         }
 
-    beta_val = float(np.mean(beta_values))
-    beta_std_val = float(np.std(beta_values))
+    # Percentile trim (5th–95th) to remove outliers without directional bias
+    beta_arr = np.array(beta_raw, dtype=np.float64)
+    p5 = float(np.percentile(beta_arr, 5))
+    p95 = float(np.percentile(beta_arr, 95))
+    beta_trimmed = beta_arr[(beta_arr >= p5) & (beta_arr <= p95)]
+
+    if len(beta_trimmed) == 0:
+        beta_trimmed = beta_arr  # fall back to full set if trim removes everything
+
+    beta_val = float(np.mean(beta_trimmed))
+    beta_std_val = float(np.std(beta_trimmed))
 
     # Compute R² from a forward Euler simulation using mean beta and
     # the measured (time-varying) outdoor concentration.
@@ -478,7 +498,7 @@ def calculate_deposition_rate(
         "beta": beta_val,
         "beta_std": beta_std_val,
         "beta_r_squared": r_squared,
-        "n_points": len(beta_values),
+        "n_points": len(beta_trimmed),
         "c_steady_state": float(c_steady_state),
         "peak_time": peak_time,
     }

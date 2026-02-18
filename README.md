@@ -292,20 +292,36 @@ python src/particle_decay_analysis.py --plot
 ```
 
 **Methodology:**
-- Analyzes 7 particle size bins: 0.35-0.46, 0.46-0.66, 0.66-1.0, 1.0-1.3, 1.3-1.7, 1.7-2.3, 2.3-3.0 µm
-- Combines indoor and outdoor QuantAQ MODULAIR-PM sensor data
-- Calculates penetration factor (p) from 1-hour pre-shower window
-- Uses air change rate (λ) from CO2 decay analysis results
-- Determines deposition loss rate (β) from 2-hour post-shower decay
-- Calculates emission rates (E) during 10-minute shower periods
-- Numerical solution of time-dependent mass balance equation
+
+The mass balance equation for indoor particle concentration:
+
+```
+V·dC/dt = p·Q·C_out - Q·C - β·C·V + E
+dC/dt = p·λ·C_out - λ·C - β·C + E/V
+```
+
+1. **Penetration factor (p):** Ratio of indoor to outdoor concentration averaged over before/after windows relative to the shower event; zeros excluded; capped at 1.
+2. **Air change rate (λ):** Loaded from CO2 decay analysis results (h⁻¹).
+3. **Deposition rate (β, numerical):** Step-by-step solution during the 2-hour post-shower decay window; beta solved at each time step from the discrete mass balance:
+   ```
+   β = 1/dt - λ - C_{t+1}/(C_t·dt) + p·λ·(C_out,t / C_t)
+   ```
+   All estimates ≤ MAX_DEPOSITION_RATE are collected (no lower bound, to avoid upward bias). A **5th–95th percentile trim** then removes extreme outliers symmetrically. R² is computed from a forward Euler simulation using the mean β and time-varying outdoor concentration.
+4. **Emission rate (E):** Mass balance rearranged and solved numerically at each time step during the shower-on-to-peak window; mean and std reported from positive values.
+5. **Predicted concentration (Ct):** Single continuous forward Euler simulation from shower ON to 2 hours after shower OFF. E = E_mean before peak_time, E = 0 after. Returned as two connected segments (emission phase and decay phase) forming one continuous predicted Ct curve on figures.
+6. **Total emission (E_total):** Trapezoidal rule area under the E_t vs. time curve from shower ON to peak.
 
 **Output Files:**
-- `output/particle_summary.csv` - Per-event, per-bin results (p, β, E)
-- `output/particle_overall_summary.csv` - Statistical summaries across all events
-- `output/plots/event_XX_decay.png` - Decay curves for all bins per event
-  - Solid lines indicate valid analysis (complete p, β, E data)
-  - Dashed lines indicate invalid/incomplete analysis
+- `output/particle_analysis_summary.xlsx` - Multi-sheet Excel workbook:
+  - `all_results` — Full results table (all metrics per event and bin)
+  - `p_penetration` — Penetration factors per event and bin
+  - `beta_deposition` — Deposition rates per event and bin
+  - `beta_r_squared` — R² of forward Euler decay fit per event and bin
+  - `E_emission` — Emission rates per event and bin
+  - `E_total_particles` — Total emitted particle counts (E_total) per bin
+- `output/plots/event_XX-YYYYYY_pm_decay.png` - Individual event decay curves
+  - Solid measured concentration lines indicate valid analysis
+  - Dashed predicted Ct lines show the continuous emission + decay simulation
   - Markers show penetration window start, shower ON/OFF, deposition window end
 
 ### Relative Humidity, Temperature & Wind Analysis
@@ -345,7 +361,7 @@ python src/rh_temp_other_analysis.py --plot
 
 Key packages (see `epa_mh.yml` for complete list):
 - pandas, numpy - Data manipulation
-- scipy - Statistical analysis (linear regression for decay fitting)
+- scipy - Numerical integration (trapezoidal rule for E_total calculation)
 - matplotlib - Publication-quality figure generation
 - bokeh - Interactive visualization
 - requests - API communication

@@ -56,8 +56,11 @@ Methodology:
        - Use 2-hour window after shower ends
        - Start time from peak concentration within the window to end of window
        - Solve numerically for each time step:
-         beta_deposition = 1/dt - lambda - C_t(i+1)/(C_t dt) + (p*lambda*C_out,t)/C_t
-       - Average beta over the window
+           beta = 1/dt - lambda - C_{t+1}/(C_t*dt) + p*lambda*(C_out,t/C_t)
+       - Collect all estimates <= MAX_DEPOSITION_RATE (no lower bound to
+         avoid upward bias from excluding negative/noisy steps)
+       - Apply 5th-95th percentile trim to remove extreme outliers symmetrically
+       - Report mean beta over the trimmed set
 
     4. Calculate emission rate (E) from shower start to peak concentration:
        - Use shower ON to peak concentration time within analysis window
