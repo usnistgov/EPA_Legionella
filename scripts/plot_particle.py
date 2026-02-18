@@ -16,7 +16,7 @@ Key Functions:
     - plot_size_distribution_summary: Multi-panel summary of all metrics
 
 Plot Features:
-    - Single-panel event plots with concentrations and curve-fit decay predictions
+    - Single-panel event plots with concentrations and model prediction curves
     - Color-coded particle size bins (0.35-3.0 µm)
     - Shaded deposition analysis window
     - Shower ON/OFF markers with consistent styling
@@ -25,10 +25,13 @@ Plot Features:
 
 Methodology:
     1. Extract data window around shower event (2 hr before to 1 hr after deposition end)
-    2. Plot particle concentrations for all 7 size bins
+    2. Plot particle concentrations for all 7 size bins (solid = valid beta,
+       dashed = invalid beta)
     3. Shade deposition window (2 hr post-shower)
-    4. Overlay curve-fit decay predictions (dashed lines)
-    5. Display β (deposition rate), p (penetration), and E (emission) values
+    4. Overlay continuous predicted Ct curves (emission phase + decay phase as one
+       unbroken dashed line per valid bin); decay phase starts from the predicted
+       concentration at peak_time, not the measured peak value
+    5. Display λ (air change rate) and valid-bin count in text box
 
 Output Files:
     - Individual event plots: {test_name}_particle_decay.png
@@ -85,8 +88,14 @@ def plot_particle_decay_event(
     """
     Plot particle concentration decay for a single event showing all bins.
 
-    Creates a single-panel figure with particle concentrations and curve-fit
-    decay predictions overlaid as dashed lines.
+    Creates a single-panel figure with:
+      - Measured particle concentrations for all 7 bins (solid = valid beta,
+        dashed = invalid beta)
+      - Continuous predicted Ct curve per valid bin (emission phase from
+        shower_on to peak_time, then decay phase from peak_time to
+        deposition_end, both as dashed lines of the same colour forming one
+        unbroken model prediction; decay starts from predicted concentration
+        at peak, not from measured peak value)
 
     Parameters:
         particle_data: DataFrame with particle concentrations
@@ -142,9 +151,22 @@ def plot_particle_decay_event(
                 alpha=alpha,
             )
 
-            # Plot decay prediction (anchored to measured peak concentration)
+            # Plot continuous predicted Ct: emission phase then decay phase
+            # as two segments of the same simulation (they connect at peak_time)
+            emission_dts = result.get(f"bin{bin_num}_emission_datetimes", [])
+            emission_pred = result.get(f"bin{bin_num}_emission_predicted", [])
             decay_dts = result.get(f"bin{bin_num}_decay_datetimes", [])
             decay_pred = result.get(f"bin{bin_num}_decay_predicted", [])
+
+            if len(emission_dts) > 0 and len(emission_pred) > 0:
+                ax1.plot(
+                    pd.to_datetime(emission_dts),
+                    np.array(emission_pred),
+                    color=color,
+                    linewidth=LINE_WIDTH_FIT,
+                    linestyle="--",
+                    alpha=0.8,
+                )
             if len(decay_dts) > 0 and len(decay_pred) > 0:
                 ax1.plot(
                     pd.to_datetime(decay_dts),
@@ -155,9 +177,10 @@ def plot_particle_decay_event(
                     alpha=0.8,
                 )
 
-    # Add single legend entry for predicted decay lines
+    # Add single legend entry for predicted Ct lines
     has_predictions = any(
-        len(result.get(f"bin{bn}_decay_predicted", [])) > 0
+        len(result.get(f"bin{bn}_emission_predicted", [])) > 0
+        or len(result.get(f"bin{bn}_decay_predicted", [])) > 0
         for bn in particle_bins.keys()
     )
     if has_predictions:
@@ -167,7 +190,7 @@ def plot_particle_decay_event(
             color="gray",
             linestyle="--",
             linewidth=LINE_WIDTH_FIT,
-            label="Predicted Decay",
+            label="Predicted Ct",
         )
 
     # Add shaded window for deposition analysis period

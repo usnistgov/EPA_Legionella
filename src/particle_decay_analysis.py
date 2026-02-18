@@ -69,12 +69,16 @@ Methodology:
 
     5. Predict concentration Ct using forward Euler simulation:
        - Window: shower ON to 2 hours after shower OFF
-       - Rearranging the mass balance to solve for C_t(i+1):
-           (C_t(i+1) - C_t)/dt = p*lambda*C_out,t - lambda*C_t - beta*C_t + E_t/V
+       - Single continuous simulation using time-varying outdoor concentration:
            C_t(i+1) = C_t + dt*[p*lambda*C_out,t - C_t*(lambda + beta) + E_t/V]
        - E_t = E_mean from shower ON to peak_time, then E_t = 0
+       - When E_mean is unavailable (emission calc failed), E_t = 0 throughout
+         so a decay-only prediction is still generated for valid-beta bins
        - C_0 = measured bin concentration at shower ON
-       - Plot predicted Ct on particle decay figures
+       - Returned as two continuous segments: emission phase (shower ON to peak)
+         and decay phase (peak to deposition end); decay starts from predicted
+         concentration at peak, not from the measured peak value
+       - Plot both phases as a single continuous predicted Ct curve on figures
 
     6. Calculate total emission (E_total) for each bin:
        - Area under the E_t vs. time curve using the trapezoidal rule:
@@ -83,11 +87,15 @@ Methodology:
 
 Output Files:
     - particle_analysis_summary.xlsx: Multi-sheet workbook with:
+        * all_results: Full results table (all metrics per event and bin)
         * p_penetration: Penetration factors per event and bin
         * beta_deposition: Deposition rates per event and bin
+        * beta_r_squared: R² of forward Euler decay fit per event and bin
         * E_emission: Emission rates per event and bin
-        * overall_summary: Aggregated statistics
-    - plots/event_XX_bin_Y_decay.png: Individual decay curves
+        * E_total_particles: Total emitted particle counts (E_total) per bin
+    - plots/event_XX-YYYYYY_pm_decay.png: Individual event decay curves
+      with measured concentrations and model prediction (emission + decay
+      phases shown as a single continuous predicted Ct line per bin)
     - plots/penetration_summary.png: Summary of p values
     - plots/deposition_summary.png: Summary of beta values
     - plots/emission_summary.png: Summary of E values
@@ -157,10 +165,27 @@ def analyze_event_all_bins(
     """
     Analyze all particle bins for a single shower event.
 
+    For each bin the following are computed in order:
+        1. Penetration factor (p) from before/after windows
+        2. Deposition rate (beta) using the numerical step-by-step approach
+        3. Emission rate (E_mean, E_std, E_total) from shower_on to peak
+        4. Forward Euler Ct prediction (emission + decay phases); decay-only
+           prediction (E=0) is generated even when emission calc fails, so
+           that a predicted curve is available for every bin with a valid beta
+
+    Per-bin result keys include:
+        bin{n}_p_mean, bin{n}_p_std
+        bin{n}_beta, bin{n}_beta_std, bin{n}_beta_r_squared
+        bin{n}_E_mean, bin{n}_E_std, bin{n}_E_total
+        bin{n}_emission_datetimes, bin{n}_emission_predicted  (shower→peak)
+        bin{n}_decay_datetimes, bin{n}_decay_predicted        (peak→deposition_end)
+        bin{n}_ct_datetimes, bin{n}_ct_predicted              (full window)
+        bin{n}_skip_reason, bin{n}_c_steady_state, bin{n}_peak_time
+
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
         event (Dict): Event timing information
-        lambda_ach (float): Air change rate (h-1)
+        lambda_ach (float): Air change rate (h⁻¹)
 
     Returns:
         Dict: Results for all bins
@@ -211,6 +236,12 @@ def analyze_event_all_bins(
             )
             results[f"bin{bin_num}_c_steady_state"] = np.nan
             results[f"bin{bin_num}_peak_time"] = None
+            results[f"bin{bin_num}_ct_datetimes"] = []
+            results[f"bin{bin_num}_ct_predicted"] = []
+            results[f"bin{bin_num}_emission_datetimes"] = []
+            results[f"bin{bin_num}_emission_predicted"] = []
+            results[f"bin{bin_num}_decay_datetimes"] = []
+            results[f"bin{bin_num}_decay_predicted"] = []
             continue
 
         p_mean = p_result["p_mean"]
@@ -243,6 +274,12 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_skip_reason"] = beta_result.get(
                 "skip_reason", "Unknown"
             )
+            results[f"bin{bin_num}_ct_datetimes"] = []
+            results[f"bin{bin_num}_ct_predicted"] = []
+            results[f"bin{bin_num}_emission_datetimes"] = []
+            results[f"bin{bin_num}_emission_predicted"] = []
+            results[f"bin{bin_num}_decay_datetimes"] = []
+            results[f"bin{bin_num}_decay_predicted"] = []
             continue
 
         beta_val = beta_result["beta"]
@@ -268,30 +305,33 @@ def analyze_event_all_bins(
         results[f"bin{bin_num}_E_total"] = E_result.get("E_total", np.nan)
         results[f"bin{bin_num}_skip_reason"] = E_result.get("skip_reason", None)
 
-        # Calculate Ct prediction (forward Euler simulation)
+        # Calculate Ct prediction (forward Euler simulation).
+        # Uses E_mean when available; falls back to E=0 (decay-only) so that
+        # a predicted curve is always generated for any bin with a valid beta.
         E_mean_val = E_result.get("E_mean", np.nan)
-        if not np.isnan(E_mean_val) and not np.isnan(beta_val):
-            ct_result = calculate_ct_prediction(
-                particle_data,
-                event["shower_on"],
-                event["shower_off"],
-                event["deposition_end"],
-                bin_num,
-                p_mean,
-                lambda_ach,
-                beta_val,
-                E_mean_val,
-                peak_time,
-            )
-            results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
-            results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
-            results[f"bin{bin_num}_decay_datetimes"] = ct_result.get("decay_datetimes", [])
-            results[f"bin{bin_num}_decay_predicted"] = ct_result.get("decay_predicted", [])
-        else:
-            results[f"bin{bin_num}_ct_datetimes"] = []
-            results[f"bin{bin_num}_ct_predicted"] = []
-            results[f"bin{bin_num}_decay_datetimes"] = []
-            results[f"bin{bin_num}_decay_predicted"] = []
+        effective_E = E_mean_val if not np.isnan(E_mean_val) else 0.0
+        ct_result = calculate_ct_prediction(
+            particle_data,
+            event["shower_on"],
+            event["shower_off"],
+            event["deposition_end"],
+            bin_num,
+            p_mean,
+            lambda_ach,
+            beta_val,
+            effective_E,
+            peak_time,
+        )
+        results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
+        results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
+        results[f"bin{bin_num}_emission_datetimes"] = ct_result.get(
+            "emission_datetimes", []
+        )
+        results[f"bin{bin_num}_emission_predicted"] = ct_result.get(
+            "emission_predicted", []
+        )
+        results[f"bin{bin_num}_decay_datetimes"] = ct_result.get("decay_datetimes", [])
+        results[f"bin{bin_num}_decay_predicted"] = ct_result.get("decay_predicted", [])
 
     return results
 
@@ -554,7 +594,16 @@ def _print_overall_summary(results_df: pd.DataFrame, results: list) -> None:
 
 
 def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
-    """Save analysis results to Excel workbook."""
+    """Save analysis results to Excel workbook with one sheet per metric.
+
+    Sheets written:
+        all_results       - Full results table (all metrics per event and bin)
+        p_penetration     - Penetration factors
+        beta_deposition   - Deposition rates (h⁻¹), from numerical estimation
+        beta_r_squared    - R² of forward Euler decay simulation
+        E_emission        - Mean emission rates (#/min)
+        E_total_particles - Total emitted particle counts per bin (E_total, #)
+    """
     output_file = output_dir / "particle_analysis_summary.xlsx"
 
     if results_df.empty:
@@ -595,6 +644,12 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
             f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()
         ]
 
+        E_total_cols = ["event_number", "shower_on"] + [
+            f"bin{i}_E_total (#)" for i in PARTICLE_BINS.keys()
+        ]
+        # Only include columns that exist (guard against empty results)
+        E_total_cols = [c for c in E_total_cols if c in results_df_export.columns]
+
         results_df_export[p_cols].to_excel(
             writer, sheet_name="p_penetration", index=False
         )
@@ -606,6 +661,9 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         )
         results_df_export[E_cols].to_excel(
             writer, sheet_name="E_emission", index=False
+        )
+        results_df_export[E_total_cols].to_excel(
+            writer, sheet_name="E_total_particles", index=False
         )
 
     print(f"\nResults saved to: {output_file}")
