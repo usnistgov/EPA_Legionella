@@ -43,8 +43,8 @@ Step-by-step methodology:
 
     Step 4 - Emission rate (E):
         Using the shower-on-to-peak window:
-            E_t = p*lambda*V*C_out,t + V*(C_t - C_{t+1})/dt
-                  - lambda*V*C_t - beta*V*C_t
+            E_t = V*(C_{t+1} - C_t)/dt - p*lambda*V*C_out,t
+                  + lambda*V*C_t + beta*V*C_t
         Mean and std reported from positive E_t values.
 
     Step 5 - Predicted concentration (Ct, forward Euler):
@@ -67,7 +67,7 @@ Date: 2026
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -350,6 +350,7 @@ def calculate_deposition_rate(
         "n_points": 0,
         "c_steady_state": np.nan,
         "peak_time": None,
+        "c_peak": np.nan,
     }
 
     # Filter to full deposition window first
@@ -464,7 +465,8 @@ def calculate_deposition_rate(
     if len(beta_trimmed) == 0:
         beta_trimmed = beta_arr  # fall back to full set if trim removes everything
 
-    beta_val = float(np.mean(beta_trimmed))
+    # Enforce physical minimum: deposition rate cannot be negative
+    beta_val = max(float(np.mean(beta_trimmed)), 0.0)
     beta_std_val = float(np.std(beta_trimmed))
 
     # Compute R² from a forward Euler simulation using mean beta and
@@ -501,6 +503,7 @@ def calculate_deposition_rate(
         "n_points": len(beta_trimmed),
         "c_steady_state": float(c_steady_state),
         "peak_time": peak_time,
+        "c_peak": float(c_inside[0]) if len(c_inside) > 0 else np.nan,
     }
 
 
@@ -522,11 +525,16 @@ def calculate_emission_rate(
     Calculate emission rate (E) from shower start to peak concentration.
 
     Solves for E_t at each time step by rearranging the mass balance equation:
-        (C_t(i+1) - C_t)/Δt = pλC_out,t - λC_t - β_deposition C_t + E_t/V
-        E_t = pλVC_out,t + V(C_t - C_t(i+1))/Δt - λVC_t - β_deposition VC_t
+        (C_{t+1} - C_t)/Δt = pλC_out,t - λC_t - β_deposition C_t + E_t/V
+        E_t = V(C_{t+1} - C_t)/Δt - pλVC_out,t + λVC_t + β_deposition VC_t
 
-    E_total is the area under the E_t vs. time curve (trapezoidal rule):
-        E_total = Δt × Σ(E_t + E_t(i+1)) / 2
+    During the shower phase the concentration is rising (C_{t+1} > C_t), so
+    the first term V(C_{t+1} - C_t)/Δt is large and positive, correctly
+    yielding a positive emission rate.
+
+    E_total is the area under the E_t vs. time curve (trapezoidal rule),
+    integrating only non-negative contributions:
+        E_total = Δt × Σ max(E_t, 0) dt  (trapezoidal, clipped at 0)
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -589,13 +597,14 @@ def calculate_emission_rate(
             continue
 
         # Solve for E_t from the mass balance equation:
-        # (C_t(i+1) - C_t)/Δt = pλC_out,t - λC_t - β_deposition C_t + E_t/V
-        # Rearranging:
-        # E_t = pλVC_out,t + V(C_t - C_t(i+1))/Δt - λVC_t - β_deposition VC_t
-        term1 = p * lambda_per_min * V * c_out_t
-        term2 = V * (c_t - c_t_next) / dt_minutes
-        term3 = -lambda_per_min * V * c_t
-        term4 = -beta_per_min * V * c_t
+        # (C_{t+1} - C_t)/Δt = pλC_out,t - λC_t - β C_t + E_t/V
+        # Rearranging for E_t:
+        # E_t = V(C_{t+1} - C_t)/Δt - pλVC_out,t + λVC_t + βVC_t
+        # During the shower C_{t+1} > C_t, so term1 is large positive → E > 0
+        term1 = V * (c_t_next - c_t) / dt_minutes
+        term2 = -p * lambda_per_min * V * c_out_t
+        term3 = lambda_per_min * V * c_t
+        term4 = beta_per_min * V * c_t
 
         E = term1 + term2 + term3 + term4
 
@@ -615,12 +624,14 @@ def calculate_emission_rate(
             "skip_reason": "No positive emission values calculated",
         }
 
-    # Calculate total emission using trapezoidal rule:
-    # E_total = Δt × Σ(E_t + E_t(i+1)) / 2
+    # Calculate total emission using trapezoidal rule, clipping negatives to
+    # zero so that brief noisy dips do not subtract from the total count.
+    # E_total = Δt × trapezoid(max(E_t, 0))
     if len(E_values_all) >= 2:
-        E_total = float(trapezoid(E_values_all) * dt_minutes)
+        E_arr = np.maximum(np.array(E_values_all, dtype=np.float64), 0.0)
+        E_total = float(trapezoid(E_arr) * dt_minutes)
     else:
-        E_total = float(E_values_all[0] * dt_minutes) if E_values_all else 0.0
+        E_total = float(max(0.0, E_values_all[0]) * dt_minutes) if E_values_all else 0.0
 
     return {
         "E_mean": float(np.mean(E_values)),
@@ -647,6 +658,7 @@ def calculate_ct_prediction(
     beta: float,
     E_mean: float,
     peak_time: datetime,
+    c_peak_measured: Optional[float] = None,
 ) -> Dict:
     """
     Simulate indoor particle concentration using forward Euler method.
@@ -680,6 +692,12 @@ def calculate_ct_prediction(
         E_mean (float): Mean emission rate during shower (#/min); use 0.0
                         to compute a decay-only prediction
         peak_time (datetime): Time of peak concentration (E=0 after this)
+        c_peak_measured (float, optional): Measured indoor concentration at
+            peak_time.  When provided the decay phase (peak_time to
+            deposition_end) is re-run starting from this value so that the
+            plotted decay curve is anchored to the *measured* peak — the same
+            starting point used when computing the beta R².  If None the decay
+            phase continues from the predicted concentration at peak_time.
 
     Returns:
         Dict with keys 'datetimes', 'predicted_ct', 'emission_datetimes',
@@ -734,6 +752,21 @@ def calculate_ct_prediction(
         # C_{t+1} = C_t + dt * [p*lambda*C_out - C_t*(lambda + beta) + E/V]
         dCdt = p * lambda_ach * c_out_t - c_t * (lambda_ach + beta) + E_active / V
         predicted[i + 1] = max(c_t + dt_hours * dCdt, 0.0)
+
+    # If the measured peak concentration is available, anchor the decay phase to
+    # it.  This makes the plotted decay curve start from the same point that was
+    # used when computing the beta R², so figures and statistics are consistent.
+    if c_peak_measured is not None and not np.isnan(c_peak_measured):
+        time_diffs = np.abs(datetimes_pd - peak_ts)
+        peak_idx_sim = int(np.argmin(time_diffs))
+        if peak_idx_sim < len(predicted):
+            predicted[peak_idx_sim] = c_peak_measured
+            # Re-run decay from the measured peak with E = 0
+            for j in range(peak_idx_sim, len(predicted) - 1):
+                c_t = predicted[j]
+                c_out_j = c_outside[j] if not np.isnan(c_outside[j]) else 0.0
+                dCdt_j = p * lambda_ach * c_out_j - c_t * (lambda_ach + beta)
+                predicted[j + 1] = max(c_t + dt_hours * dCdt_j, 0.0)
 
     # Split the continuous simulation at peak_time into emission and decay phases.
     # Both arrays overlap by one point at peak_time so they form a seamless curve.

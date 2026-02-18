@@ -65,9 +65,9 @@ Methodology:
     4. Calculate emission rate (E) from shower start to peak concentration:
        - Use shower ON to peak concentration time within analysis window
        - Solve numerically for E_t at each time step by rearranging the mass balance:
-           (C_t(i+1) - C_t)/dt = p*lambda*C_out,t - lambda*C_t - beta*C_t + E_t/V
-           E_t/V = -(C_t(i+1) - C_t)/dt + p*lambda*C_out,t - lambda*C_t - beta*C_t
-           E_t = p*lambda*V*C_out,t + V*(C_t - C_t(i+1))/dt - lambda*V*C_t - beta*V*C_t
+           (C_{t+1} - C_t)/dt = p*lambda*C_out,t - lambda*C_t - beta*C_t + E_t/V
+           E_t/V = (C_{t+1} - C_t)/dt - p*lambda*C_out,t + lambda*C_t + beta*C_t
+           E_t = V*(C_{t+1} - C_t)/dt - p*lambda*V*C_out,t + lambda*V*C_t + beta*V*C_t
        - Report E_mean and E_std from positive E_t values over the window
 
     5. Predict concentration Ct using forward Euler simulation:
@@ -286,6 +286,7 @@ def analyze_event_all_bins(
             continue
 
         beta_val = beta_result["beta"]
+        c_peak = beta_result.get("c_peak", np.nan)
 
         # Use peak_time from deposition calculation as E window endpoint
         peak_time = beta_result.get("peak_time")
@@ -324,6 +325,7 @@ def analyze_event_all_bins(
             beta_val,
             effective_E,
             peak_time,
+            c_peak_measured=c_peak,
         )
         results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
         results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
