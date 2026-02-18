@@ -401,7 +401,7 @@ If you use this software, please cite it as:
 
 ```bibtex
 @software{nist_epa_legionella,
-  author       = {Nathan M. Lima},
+  author       = {Lima, Nathan M. and Poppendieck, Dustin G.},
   title        = {NIST-EPA Legionella Study Analysis Tools},
   year         = {2026},
   publisher    = {National Institute of Standards and Technology},
