@@ -16,7 +16,12 @@ from pathlib import Path
 
 
 def run_command(command: list[str], cwd: Path | None = None) -> float:
-    """Run a command using ``subprocess.run`` within the epa_mh conda environment.
+    """Run a command using ``subprocess.run``.
+
+    This function ensures the command runs inside the ``epa_mh`` conda environment.
+    If the current process is already within that environment, the command is executed
+    directly. Otherwise, it activates the environment using ``conda activate epa_mh``
+    before running the command.
 
     Parameters
     ----------
@@ -25,19 +30,42 @@ def run_command(command: list[str], cwd: Path | None = None) -> float:
     cwd: Path | None, optional
         Working directory for the command. Defaults to the repository root.
     """
-    # Prepend conda run to ensure the epa_mh environment is used
-    conda_cmd = ["conda", "run", "-n", "epa_mh"] + command
-    print(f"Running: {' '.join(conda_cmd)}")
-    start = time.time()
-    try:
-        subprocess.run(conda_cmd, cwd=cwd, check=True)
-    except subprocess.CalledProcessError as e:
-        print(
-            f"Error: Command {' '.join(conda_cmd)} failed with exit code {e.returncode}"
-        )
-        sys.exit(e.returncode)
+    import os
+    import shlex
+
+    # Determine if we are already inside the epa_mh environment
+    current_env = os.getenv("CONDA_DEFAULT_ENV")
+    if current_env == "epa_mh":
+        # Run the command directly
+        exec_cmd = command
+        exec_str = None
+    else:
+        # Build a shell command that activates the environment then runs the command
+        # Join the command list into a properly escaped string for the shell
+        cmd_str = " ".join(shlex.quote(arg) for arg in command)
+        exec_str = f"conda activate epa_mh && {cmd_str}"
+        exec_cmd = None
+
+    if exec_str is not None:
+        print(f"Running (with conda activate): {exec_str}")
+        start = time.time()
+        try:
+            subprocess.run(exec_str, cwd=cwd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error: Command {exec_str} failed with exit code {e.returncode}")
+            sys.exit(e.returncode)
+    else:
+        print(f"Running: {' '.join(exec_cmd)}")
+        start = time.time()
+        try:
+            subprocess.run(exec_cmd, cwd=cwd, check=True)
+        except subprocess.CalledProcessError as e:
+            print(
+                f"Error: Command {' '.join(exec_cmd)} failed with exit code {e.returncode}"
+            )
+            sys.exit(e.returncode)
     elapsed = time.time() - start
-    print(f"Finished: {' '.join(conda_cmd)} in {elapsed:.2f} seconds")
+    print(f"Finished in {elapsed:.2f} seconds")
     return elapsed
 
 
