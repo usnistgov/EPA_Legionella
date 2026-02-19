@@ -16,7 +16,7 @@ from pathlib import Path
 
 
 def run_command(command: list[str], cwd: Path | None = None) -> float:
-    """Run a command using ``subprocess.run``.
+    """Run a command using ``subprocess.run`` within the epa_mh conda environment.
 
     Parameters
     ----------
@@ -25,17 +25,19 @@ def run_command(command: list[str], cwd: Path | None = None) -> float:
     cwd: Path | None, optional
         Working directory for the command. Defaults to the repository root.
     """
-    print(f"Running: {' '.join(command)}")
+    # Prepend conda run to ensure the epa_mh environment is used
+    conda_cmd = ["conda", "run", "-n", "epa_mh"] + command
+    print(f"Running: {' '.join(conda_cmd)}")
     start = time.time()
     try:
-        subprocess.run(command, cwd=cwd, check=True)
+        subprocess.run(conda_cmd, cwd=cwd, check=True)
     except subprocess.CalledProcessError as e:
         print(
-            f"Error: Command {' '.join(command)} failed with exit code {e.returncode}"
+            f"Error: Command {' '.join(conda_cmd)} failed with exit code {e.returncode}"
         )
         sys.exit(e.returncode)
     elapsed = time.time() - start
-    print(f"Finished: {' '.join(command)} in {elapsed:.2f} seconds")
+    print(f"Finished: {' '.join(conda_cmd)} in {elapsed:.2f} seconds")
     return elapsed
 
 
