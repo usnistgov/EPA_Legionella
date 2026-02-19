@@ -38,7 +38,8 @@ Step-by-step methodology:
         so negative values from noise or rising-concentration steps are
         included to avoid upward bias).  A 5th-95th percentile trim then
         removes extreme outliers on both sides symmetrically.  Mean and std
-        of the trimmed set are reported.  R² computed from a forward Euler
+        of the trimmed set are reported (beta_raw_mean = unclamped mean;
+        beta = max(beta_raw_mean, 0)).  R² computed from a forward Euler
         simulation using the mean beta and time-varying outdoor concentration.
 
     Step 4 - Emission rate (E):
@@ -358,9 +359,11 @@ def calculate_deposition_rate(
           and indicate measurement noise spikes.
         - 5th–95th percentile trim on the retained estimates to remove
           symmetric extreme outliers without introducing directional bias.
-        - Negative trimmed-mean beta returns NaN (skip_reason set); this
-          indicates an insufficient indoor–outdoor concentration gradient for
-          a reliable deposition estimate and is NOT clamped to 0.
+        - Negative trimmed-mean beta is clamped to 0 (beta_raw_mean stores the
+          unclamped value for transparency).  For small bins where indoor ≈
+          outdoor concentration the signal is buried in noise; clamping to 0
+          allows Ct prediction and emission calculations to continue rather
+          than discarding the event entirely.
         - c_t <= 0 steps skipped (division by c_t unstable).
         - DEPOSITION_WINDOW_HOURS (2.0): decay window length; 2 h is long
           enough for measurable decay of larger bins and short enough to
@@ -375,9 +378,10 @@ def calculate_deposition_rate(
         lambda_ach (float): Air change rate (h⁻¹)
 
     Returns:
-        Dict: Dictionary with beta, beta_std, beta_r_squared, n_points,
-              c_steady_state, and peak_time; or NaN values + skip_reason
-              on failure
+        Dict: Dictionary with beta (clamped ≥ 0), beta_raw_mean (unclamped
+              trimmed mean for transparency), beta_std, beta_r_squared,
+              n_points, c_steady_state, and peak_time; or NaN values +
+              skip_reason on failure
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -385,6 +389,7 @@ def calculate_deposition_rate(
 
     _nan_result = {
         "beta": np.nan,
+        "beta_raw_mean": np.nan,
         "beta_std": np.nan,
         "beta_r_squared": np.nan,
         "n_points": 0,
@@ -491,22 +496,14 @@ def calculate_deposition_rate(
     if len(beta_trimmed) == 0:
         beta_trimmed = beta_arr  # fall back to full set if trim removes everything
 
-    # If the trimmed-mean beta is negative the concentration gradient during
-    # the decay window was insufficient to distinguish deposition from noise
-    # (common in small bins where indoor ≈ outdoor).  Report NaN rather than
-    # clamping to 0, which would produce a misleading zero in the Excel sheet.
+    # Clamp the trimmed-mean beta to 0.  A negative mean indicates the
+    # concentration gradient was too small to measure deposition above noise
+    # (common for small bins where indoor ≈ outdoor in high-ACH rooms).
+    # We clamp rather than returning NaN so that the Ct prediction and emission
+    # calculations can still run; the raw (possibly negative) mean is stored as
+    # beta_raw_mean so callers can see when clamping occurred.
     beta_mean = float(np.mean(beta_trimmed))
-    if beta_mean < 0.0:
-        return {
-            **_nan_result,
-            "n_points": len(beta_trimmed),
-            "peak_time": peak_time,
-            "skip_reason": (
-                f"Negative trimmed-mean beta ({beta_mean:.4f} h⁻¹): "
-                f"insufficient concentration gradient for reliable deposition estimate"
-            ),
-        }
-    beta_val = beta_mean
+    beta_val = max(beta_mean, 0.0)
     beta_std_val = float(np.std(beta_trimmed))
 
     # Compute R² from a forward Euler simulation using mean beta and
@@ -538,6 +535,7 @@ def calculate_deposition_rate(
 
     return {
         "beta": beta_val,
+        "beta_raw_mean": beta_mean,
         "beta_std": beta_std_val,
         "beta_r_squared": r_squared,
         "n_points": len(beta_trimmed),

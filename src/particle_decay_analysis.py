@@ -184,7 +184,7 @@ def analyze_event_all_bins(
 
     Per-bin result keys include:
         bin{n}_p_mean, bin{n}_p_std
-        bin{n}_beta, bin{n}_beta_std, bin{n}_beta_r_squared
+        bin{n}_beta, bin{n}_beta_raw_mean, bin{n}_beta_std, bin{n}_beta_r_squared
         bin{n}_E_mean, bin{n}_E_std, bin{n}_E_total
         bin{n}_emission_datetimes, bin{n}_emission_predicted  (shower→peak)
         bin{n}_decay_datetimes, bin{n}_decay_predicted        (peak→deposition_end)
@@ -235,6 +235,7 @@ def analyze_event_all_bins(
         # Skip further calculations if p is invalid
         if np.isnan(p_result.get("p_mean", np.nan)):
             results[f"bin{bin_num}_beta"] = np.nan
+            results[f"bin{bin_num}_beta_raw_mean"] = np.nan
             results[f"bin{bin_num}_beta_std"] = np.nan
             results[f"bin{bin_num}_beta_r_squared"] = np.nan
             results[f"bin{bin_num}_E_mean"] = np.nan
@@ -269,6 +270,7 @@ def analyze_event_all_bins(
         )
 
         results[f"bin{bin_num}_beta"] = beta_result.get("beta", np.nan)
+        results[f"bin{bin_num}_beta_raw_mean"] = beta_result.get("beta_raw_mean", np.nan)
         results[f"bin{bin_num}_beta_std"] = beta_result.get("beta_std", np.nan)
         results[f"bin{bin_num}_beta_r_squared"] = beta_result.get(
             "beta_r_squared", np.nan
@@ -279,6 +281,7 @@ def analyze_event_all_bins(
         results[f"bin{bin_num}_peak_time"] = beta_result.get("peak_time", None)
 
         # Skip emission calculation if beta is invalid
+        # (beta_raw_mean already stored above from beta_result)
         if np.isnan(beta_result.get("beta", np.nan)):
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
@@ -616,7 +619,8 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
     Sheets written:
         all_results       - Full results table (all metrics per event and bin)
         p_penetration     - Penetration factors
-        beta_deposition   - Deposition rates (h⁻¹), from numerical estimation
+        beta_deposition   - Deposition rates (h⁻¹): beta (clamped ≥ 0) and
+                            beta_raw_mean (unclamped trimmed mean) per bin
         beta_r_squared    - R² of forward Euler decay simulation
         E_emission        - Mean emission rates (#/min)
         E_total_particles - Total emitted particle counts per bin (E_total, #)
@@ -637,6 +641,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         column_rename[f"bin{bin_num}_p_mean"] = f"bin{bin_num}_p_mean (-)"
         column_rename[f"bin{bin_num}_p_std"] = f"bin{bin_num}_p_std (-)"
         column_rename[f"bin{bin_num}_beta"] = f"bin{bin_num}_beta (h-1)"
+        column_rename[f"bin{bin_num}_beta_raw_mean"] = f"bin{bin_num}_beta_raw_mean (h-1)"
         column_rename[f"bin{bin_num}_beta_std"] = f"bin{bin_num}_beta_std (h-1)"
         column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
         column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
@@ -653,7 +658,9 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
             f"bin{i}_p_mean (-)" for i in PARTICLE_BINS.keys()
         ]
         beta_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_beta (h-1)" for i in PARTICLE_BINS.keys()
+            col
+            for i in PARTICLE_BINS.keys()
+            for col in (f"bin{i}_beta (h-1)", f"bin{i}_beta_raw_mean (h-1)")
         ]
         beta_r2_cols = ["event_number", "shower_on"] + [
             f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
