@@ -67,7 +67,7 @@ Date: 2026
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -100,12 +100,22 @@ TIME_STEP_MINUTES = 1.0  # Time resolution for numerical calculations
 ROLLING_WINDOW_MIN = 0  # Rolling average window in minutes (0 = no smoothing)
 
 # Validation thresholds
+# MAX_DEPOSITION_RATE: upper cap on individual per-step beta estimates before
+# percentile-trimming.  Values above 15 h⁻¹ correspond to a half-life of
+# ~4 min for gravitational settling alone, which is physically unreasonable
+# for particles < 3 µm; these are almost certainly noise spikes.
 MAX_DEPOSITION_RATE = 15.0  # Maximum reasonable β (h⁻¹)
-MIN_CONCENTRATION_RATIO = 1.0  # Minimum C_inside/C_outside during decay
 
 # Minimum data point requirements
+# MIN_POINTS_PENETRATION: penetration windows are ~5 h long at 1-min resolution
+# (~300 data points); 10 is a very loose lower bound that only rejects windows
+# with severe data dropouts.
 MIN_POINTS_PENETRATION = 10  # Minimum points for penetration calculation
+# MIN_POINTS_DEPOSITION: the 2-hr decay window contains ~120 points; 10 ensures
+# at least a few minutes of continuous decay data for a meaningful beta estimate.
 MIN_POINTS_DEPOSITION = 10  # Minimum points for deposition calculation
+# MIN_POINTS_EMISSION: the shower-on-to-peak window can be as short as 2-3 min;
+# requiring at least 3 consecutive valid steps avoids single-point estimates.
 MIN_POINTS_EMISSION = 3  # Minimum points for emission calculation
 
 
@@ -243,6 +253,19 @@ def calculate_penetration_factor(
     p = average of C_inside / C_outside from the before and after windows.
     Zero concentration values are excluded. Values above 1 are capped at 1.
 
+    QA filters applied:
+        - MIN_POINTS_PENETRATION (10): minimum valid points per window; each
+          window spans ~5 h at 1-min resolution (~300 points), so this only
+          rejects windows with severe data dropouts.
+        - Zero/NaN concentrations excluded before computing ratios.
+        - p capped at 1.0 (physical upper bound for infiltration factor).
+
+    Window timing (see get_penetration_windows for exact offsets):
+        Night events: before = 9 pm (day before) → 2 am (day of);
+                      after  = 9 am → 2 pm (day of)
+        Day events:   before = 9 am → 2 pm (day of);
+                      after  = 9 pm (day of) → 2 am (next day)
+
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
         shower_on (datetime): Shower start time
@@ -250,7 +273,8 @@ def calculate_penetration_factor(
         bin_num (int): Particle bin number (0-6)
 
     Returns:
-        Dict: Dictionary with p value and statistics
+        Dict: Dictionary with p_mean, p_std, n_points, n_windows; or
+              p_mean=NaN and skip_reason on failure
     """
     windows = get_penetration_windows(shower_on, time_of_day)
 
@@ -316,9 +340,7 @@ def calculate_deposition_rate(
         => beta = 1/dt - lambda - C_{t+1}/(C_t*dt) + p*lambda*(C_out,t/C_t)
 
     where dt is the time step in hours and C_out,t is the measured outdoor
-    concentration at time t (time-varying, not averaged).  Only estimates
-    that fall within [0, MAX_DEPOSITION_RATE] are kept; the mean and
-    standard deviation of the retained estimates are reported.
+    concentration at time t (time-varying, not averaged).
 
     All per-step estimates at or below MAX_DEPOSITION_RATE are collected
     (no lower bound — negative values from noise or brief concentration
@@ -326,6 +348,23 @@ def calculate_deposition_rate(
     percentile trim then removes extreme outliers on both sides.  R² is
     computed from a forward Euler simulation using the trimmed-mean beta
     and the measured (time-varying) outdoor concentration.
+
+    QA filters applied:
+        - MIN_POINTS_DEPOSITION (10): minimum valid data points both in the
+          full window and after peak; the 2-hr window at 1-min resolution
+          yields ~120 points, so 10 rejects only severe dropouts.
+        - MAX_DEPOSITION_RATE (15.0 h⁻¹): upper cap on per-step estimates;
+          values above this are physically unreasonable for sub-3 µm particles
+          and indicate measurement noise spikes.
+        - 5th–95th percentile trim on the retained estimates to remove
+          symmetric extreme outliers without introducing directional bias.
+        - Negative trimmed-mean beta returns NaN (skip_reason set); this
+          indicates an insufficient indoor–outdoor concentration gradient for
+          a reliable deposition estimate and is NOT clamped to 0.
+        - c_t <= 0 steps skipped (division by c_t unstable).
+        - DEPOSITION_WINDOW_HOURS (2.0): decay window length; 2 h is long
+          enough for measurable decay of larger bins and short enough to
+          avoid environmental drift dominating the signal.
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -337,7 +376,8 @@ def calculate_deposition_rate(
 
     Returns:
         Dict: Dictionary with beta, beta_std, beta_r_squared, n_points,
-              c_steady_state, and peak_time
+              c_steady_state, and peak_time; or NaN values + skip_reason
+              on failure
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -350,7 +390,6 @@ def calculate_deposition_rate(
         "n_points": 0,
         "c_steady_state": np.nan,
         "peak_time": None,
-        "c_peak": np.nan,
     }
 
     # Filter to full deposition window first
@@ -399,20 +438,6 @@ def calculate_deposition_rate(
 
     c_inside = np.asarray(decay_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(decay_data[col_outside].values, dtype=np.float64)
-
-    # Check for sufficient concentration ratio at peak vs. outdoor mean
-    c_outside_mean = float(np.nanmean(c_outside))
-    c_ratio = c_inside[0] / c_outside_mean if c_outside_mean > 0 else 0
-    if c_ratio < MIN_CONCENTRATION_RATIO:
-        return {
-            **_nan_result,
-            "peak_time": peak_time,
-            "skip_reason": (
-                f"Insufficient concentration ratio at peak: {c_ratio:.3f} "
-                f"(minimum {MIN_CONCENTRATION_RATIO}). "
-                f"C_peak={c_inside[0]:.1f}, C_outside_mean={c_outside_mean:.1f}"
-            ),
-        }
 
     # Numerical approach: solve for beta at each consecutive time step.
     # From the discrete mass balance (E = 0):
@@ -465,8 +490,22 @@ def calculate_deposition_rate(
     if len(beta_trimmed) == 0:
         beta_trimmed = beta_arr  # fall back to full set if trim removes everything
 
-    # Enforce physical minimum: deposition rate cannot be negative
-    beta_val = max(float(np.mean(beta_trimmed)), 0.0)
+    # If the trimmed-mean beta is negative the concentration gradient during
+    # the decay window was insufficient to distinguish deposition from noise
+    # (common in small bins where indoor ≈ outdoor).  Report NaN rather than
+    # clamping to 0, which would produce a misleading zero in the Excel sheet.
+    beta_mean = float(np.mean(beta_trimmed))
+    if beta_mean < 0.0:
+        return {
+            **_nan_result,
+            "n_points": len(beta_trimmed),
+            "peak_time": peak_time,
+            "skip_reason": (
+                f"Negative trimmed-mean beta ({beta_mean:.4f} h⁻¹): "
+                f"insufficient concentration gradient for reliable deposition estimate"
+            ),
+        }
+    beta_val = beta_mean
     beta_std_val = float(np.std(beta_trimmed))
 
     # Compute R² from a forward Euler simulation using mean beta and
@@ -503,7 +542,6 @@ def calculate_deposition_rate(
         "n_points": len(beta_trimmed),
         "c_steady_state": float(c_steady_state),
         "peak_time": peak_time,
-        "c_peak": float(c_inside[0]) if len(c_inside) > 0 else np.nan,
     }
 
 
@@ -536,6 +574,18 @@ def calculate_emission_rate(
     integrating only non-negative contributions:
         E_total = Δt × Σ max(E_t, 0) dt  (trapezoidal, clipped at 0)
 
+    QA filters applied:
+        - MIN_POINTS_EMISSION (3): minimum valid steps in the emission window;
+          the shower-on-to-peak window can be as short as 2–3 min, so requiring
+          3 consecutive steps avoids single-point emission estimates.
+        - NaN/invalid concentration steps are skipped; the window must contain
+          at least MIN_POINTS_EMISSION non-NaN consecutive pairs.
+        - E_total clips negative per-step contributions to 0 before trapezoid
+          integration; brief noisy dips should not subtract from the total count.
+        - E_mean and E_std are computed from positive E_t values only; zero or
+          negative steps (concentration briefly flat or dipping) are excluded
+          from the mean but included in E_total (as 0).
+
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
         shower_on (datetime): Shower start time
@@ -546,7 +596,9 @@ def calculate_emission_rate(
         beta (float): Deposition rate (h⁻¹)
 
     Returns:
-        Dict: Dictionary with E_mean, E_std, E_total statistics (particles/minute, particles)
+        Dict: Dictionary with E_mean, E_std, E_total statistics (#/min, #);
+              also E_times (list of timestamps) and E_per_step (list of all
+              per-step E_t values aligned with E_times) for visualization
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -573,6 +625,7 @@ def calculate_emission_rate(
 
     c_inside = np.asarray(shower_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(shower_data[col_outside].values, dtype=np.float64)
+    datetimes_arr = shower_data["datetime"].values  # timestamps for per-step output
 
     V = (
         BEDROOM_VOLUME_M3 * CM3_PER_M3
@@ -581,6 +634,7 @@ def calculate_emission_rate(
 
     # Calculate E for each time step
     E_values_all = []  # All valid E values (for trapezoidal E_total)
+    E_times_list = []  # Timestamps corresponding to each entry in E_values_all
     E_values = []  # Positive E values only (for mean/std/median)
 
     # Convert λ and β from h⁻¹ to min⁻¹ once
@@ -609,6 +663,7 @@ def calculate_emission_rate(
         E = term1 + term2 + term3 + term4
 
         E_values_all.append(E)
+        E_times_list.append(datetimes_arr[i])
 
         # Only accumulate positive emission rates for statistics
         if E > 0:
@@ -639,6 +694,8 @@ def calculate_emission_rate(
         "E_median": float(np.median(E_values)),
         "E_total": float(E_total),
         "n_points": len(E_values),
+        "E_times": E_times_list,
+        "E_per_step": E_values_all,
     }
 
 
@@ -658,7 +715,6 @@ def calculate_ct_prediction(
     beta: float,
     E_mean: float,
     peak_time: datetime,
-    c_peak_measured: Optional[float] = None,
 ) -> Dict:
     """
     Simulate indoor particle concentration using forward Euler method.
@@ -692,17 +748,13 @@ def calculate_ct_prediction(
         E_mean (float): Mean emission rate during shower (#/min); use 0.0
                         to compute a decay-only prediction
         peak_time (datetime): Time of peak concentration (E=0 after this)
-        c_peak_measured (float, optional): Measured indoor concentration at
-            peak_time.  When provided the decay phase (peak_time to
-            deposition_end) is re-run starting from this value so that the
-            plotted decay curve is anchored to the *measured* peak — the same
-            starting point used when computing the beta R².  If None the decay
-            phase continues from the predicted concentration at peak_time.
 
     Returns:
         Dict with keys 'datetimes', 'predicted_ct', 'emission_datetimes',
-        'emission_predicted', 'decay_datetimes', 'decay_predicted'; or
-        'skip_reason' on failure.
+        'emission_predicted', 'decay_datetimes', 'decay_predicted',
+        'E_r_squared'; or 'skip_reason' on failure.
+        E_r_squared is the R² of the emission-phase forward Euler prediction
+        vs. measured indoor concentration from shower_on to peak_time.
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -753,25 +805,24 @@ def calculate_ct_prediction(
         dCdt = p * lambda_ach * c_out_t - c_t * (lambda_ach + beta) + E_active / V
         predicted[i + 1] = max(c_t + dt_hours * dCdt, 0.0)
 
-    # If the measured peak concentration is available, anchor the decay phase to
-    # it.  This makes the plotted decay curve start from the same point that was
-    # used when computing the beta R², so figures and statistics are consistent.
-    if c_peak_measured is not None and not np.isnan(c_peak_measured):
-        time_diffs = np.abs(datetimes_pd - peak_ts)
-        peak_idx_sim = int(np.argmin(time_diffs))
-        if peak_idx_sim < len(predicted):
-            predicted[peak_idx_sim] = c_peak_measured
-            # Re-run decay from the measured peak with E = 0
-            for j in range(peak_idx_sim, len(predicted) - 1):
-                c_t = predicted[j]
-                c_out_j = c_outside[j] if not np.isnan(c_outside[j]) else 0.0
-                dCdt_j = p * lambda_ach * c_out_j - c_t * (lambda_ach + beta)
-                predicted[j + 1] = max(c_t + dt_hours * dCdt_j, 0.0)
-
     # Split the continuous simulation at peak_time into emission and decay phases.
     # Both arrays overlap by one point at peak_time so they form a seamless curve.
     emission_mask = datetimes_pd <= peak_ts
     decay_mask = datetimes_pd >= peak_ts
+
+    # Emission R²: how well does the emission-phase forward Euler prediction
+    # match the measured indoor concentration from shower_on to peak_time?
+    c_inside_emission = c_inside[emission_mask]
+    predicted_emission = predicted[emission_mask]
+    valid_em = ~np.isnan(c_inside_emission)
+    if np.sum(valid_em) >= 2:
+        c_em_valid = c_inside_emission[valid_em]
+        pred_em_valid = predicted_emission[valid_em]
+        ss_res_em = float(np.sum((c_em_valid - pred_em_valid) ** 2))
+        ss_tot_em = float(np.sum((c_em_valid - np.mean(c_em_valid)) ** 2))
+        E_r_squared = 1.0 - ss_res_em / ss_tot_em if ss_tot_em > 0 else np.nan
+    else:
+        E_r_squared = np.nan
 
     return {
         "datetimes": datetimes,
@@ -780,4 +831,5 @@ def calculate_ct_prediction(
         "emission_predicted": predicted[emission_mask],
         "decay_datetimes": datetimes[decay_mask],
         "decay_predicted": predicted[decay_mask],
+        "E_r_squared": E_r_squared,
     }

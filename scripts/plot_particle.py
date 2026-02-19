@@ -9,29 +9,32 @@ emission analysis in the EPA Legionella project. Plots are designed for
 analyzing aerosol behavior during and after shower events.
 
 Key Functions:
-    - plot_particle_decay_event: Individual event decay curves per bin
+    - plot_particle_decay_event: Individual event decay curves per bin (two panels)
     - plot_penetration_summary: Bar chart of penetration factors by size
     - plot_deposition_summary: Bar chart of deposition rates by size
     - plot_emission_summary: Bar chart of emission rates by size
     - plot_size_distribution_summary: Multi-panel summary of all metrics
 
 Plot Features:
-    - Single-panel event plots with concentrations and model prediction curves
+    - Two-panel event plots: concentration time series (top) + emission rates (bottom)
     - Color-coded particle size bins (0.35-3.0 µm)
     - Shaded deposition analysis window
     - Shower ON/OFF markers with consistent styling
     - Log-scale concentration axis for wide dynamic range
+    - Emission subplot shows per-step E_t lines, E_mean dashed lines, and R² annotation
     - Configuration-based subplot grouping
 
 Methodology:
     1. Extract data window around shower event (2 hr before to 1 hr after deposition end)
-    2. Plot particle concentrations for all 7 size bins (solid = valid beta,
+    2. Top panel: plot particle concentrations for all 7 size bins (solid = valid beta,
        dashed = invalid beta)
     3. Shade deposition window (2 hr post-shower)
     4. Overlay continuous predicted Ct curves (emission phase + decay phase as one
        unbroken dashed line per valid bin); decay phase starts from the predicted
        concentration at peak_time, not the measured peak value
-    5. Display λ (air change rate) and valid-bin count in text box
+    5. Bottom panel: per-step E_t as faint lines, E_mean as dashed horizontal lines
+       spanning shower_on to peak_time per bin, R² annotation
+    6. Display λ (air change rate) and valid-bin count in text box
 
 Output Files:
     - Individual event plots: {test_name}_particle_decay.png
@@ -88,7 +91,9 @@ def plot_particle_decay_event(
     """
     Plot particle concentration decay for a single event showing all bins.
 
-    Creates a single-panel figure with:
+    Creates a two-panel figure matching the CO2 analytical plot style:
+
+    Top panel (ax1) — concentration time series:
       - Measured particle concentrations for all 7 bins (solid = valid beta,
         dashed = invalid beta)
       - Continuous predicted Ct curve per valid bin (emission phase from
@@ -96,6 +101,12 @@ def plot_particle_decay_event(
         deposition_end, both as dashed lines of the same colour forming one
         unbroken model prediction; decay starts from predicted concentration
         at peak, not from measured peak value)
+      - Shower ON/OFF markers and shaded deposition window
+
+    Bottom panel (ax2) — per-step emission rates:
+      - Per-step E_t values as faint lines for each valid bin
+      - E_mean as a horizontal dashed line spanning shower_on to peak_time
+      - Emission R² annotation in the panel
 
     Parameters:
         particle_data: DataFrame with particle concentrations
@@ -121,13 +132,15 @@ def plot_particle_decay_event(
         print(f"    Warning: No data for event {event_number}")
         return
 
-    # Create single-panel figure
-    fig, ax1 = create_figure(figsize=(12, 6))
+    # Two-panel figure: concentration (top, 2x height) + emission (bottom, 1x)
+    fig, (ax1, ax2) = create_figure(
+        nrows=2, ncols=1, figsize=(12, 9), height_ratios=[2, 1]
+    )
 
     lambda_ach = result.get("lambda_ach", np.nan)
 
     # =========================================================================
-    # Particle concentrations with decay predictions
+    # Top panel: Particle concentrations with decay predictions
     # =========================================================================
     for bin_num, bin_info in particle_bins.items():
         col_inside = f"{bin_info['column']}_inside"
@@ -256,11 +269,89 @@ def plot_particle_decay_event(
         ncol=2,
     )
     ax1.set_yscale("log")
-    # Set reasonable y-axis limits for log scale
-    ax1.set_ylim(bottom=0.001)  # Minimum value for log scale
+    ax1.set_ylim(bottom=0.001)
     ax1.grid(True, alpha=0.3, which="both")
     ax1.tick_params(labelsize=FONT_SIZE_TICK)
     format_datetime_axis(ax1)
+
+    # =========================================================================
+    # Bottom panel: Per-step emission rates
+    # =========================================================================
+    has_emission_data = False
+    E_r2_lines = []  # Collect R² annotations for valid bins
+
+    for bin_num, bin_info in particle_bins.items():
+        color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
+
+        E_times = result.get(f"bin{bin_num}_E_times", [])
+        E_per_step = result.get(f"bin{bin_num}_E_per_step", [])
+        E_mean_val = result.get(f"bin{bin_num}_E_mean", np.nan)
+        E_r2_val = result.get(f"bin{bin_num}_E_r_squared", np.nan)
+        peak_time = result.get(f"bin{bin_num}_peak_time", None)
+
+        if len(E_times) > 0 and len(E_per_step) > 0:
+            has_emission_data = True
+            # Per-step E_t as a faint line (all values, including negative)
+            ax2.plot(
+                pd.to_datetime(E_times),
+                np.array(E_per_step),
+                color=color,
+                linewidth=0.8,
+                alpha=0.35,
+            )
+
+        # E_mean as horizontal dashed line spanning shower_on → peak_time
+        if not np.isnan(E_mean_val) and peak_time is not None:
+            has_emission_data = True
+            ax2.hlines(
+                E_mean_val,
+                event["shower_on"],
+                pd.Timestamp(peak_time),
+                color=color,
+                linewidth=LINE_WIDTH_FIT,
+                linestyle="--",
+                alpha=0.9,
+            )
+            r2_str = f"{E_r2_val:.3f}" if not np.isnan(E_r2_val) else "N/A"
+            E_r2_lines.append(f"B{bin_num}: R²={r2_str}")
+
+    # Add shower ON/OFF markers to emission panel
+    add_shower_on_marker(ax2, event["shower_on"])
+    add_shower_off_marker(ax2, event["shower_off"])
+
+    ax2.set_ylabel("Emission Rate E\n(#/cm³·min)", fontsize=FONT_SIZE_LABEL - 1)
+    ax2.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
+    ax2.grid(True, alpha=0.3)
+    ax2.tick_params(labelsize=FONT_SIZE_TICK)
+    format_datetime_axis(ax2)
+
+    # Add E R² annotation box to emission panel
+    if E_r2_lines:
+        r2_text = "Emission R²:\n" + "\n".join(E_r2_lines)
+        props_r2 = dict(
+            boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray"
+        )
+        ax2.text(
+            0.02,
+            0.98,
+            r2_text,
+            transform=ax2.transAxes,
+            fontsize=FONT_SIZE_LEGEND - 1,
+            verticalalignment="top",
+            bbox=props_r2,
+        )
+
+    if not has_emission_data:
+        ax2.text(
+            0.5,
+            0.5,
+            "No emission data available",
+            ha="center",
+            va="center",
+            transform=ax2.transAxes,
+            fontsize=FONT_SIZE_LABEL,
+            color="gray",
+        )
 
     plt.tight_layout()
     save_figure(fig, output_path)

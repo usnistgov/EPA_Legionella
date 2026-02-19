@@ -301,15 +301,21 @@ dC/dt = p·λ·C_out - λ·C - β·C + E/V
 ```
 
 1. **Penetration factor (p):** Ratio of indoor to outdoor concentration averaged over before/after windows relative to the shower event; zeros excluded; capped at 1.
+   - *QA:* Minimum 10 valid points per window (`MIN_POINTS_PENETRATION`); windows where this is not met are skipped.
+   - Night event windows: before = 9 pm (day before) → 2 am; after = 9 am → 2 pm
+   - Day event windows: before = 9 am → 2 pm; after = 9 pm → 2 am (next day)
 2. **Air change rate (λ):** Loaded from CO2 decay analysis results (h⁻¹).
-3. **Deposition rate (β, numerical):** Step-by-step solution during the 2-hour post-shower decay window; beta solved at each time step from the discrete mass balance:
+3. **Deposition rate (β, numerical):** Step-by-step solution during the 2-hour (`DEPOSITION_WINDOW_HOURS`) post-shower decay window; beta solved at each time step from the discrete mass balance:
    ```
    β = 1/dt - λ - C_{t+1}/(C_t·dt) + p·λ·(C_out,t / C_t)
    ```
-   All estimates ≤ MAX_DEPOSITION_RATE are collected (no lower bound, to avoid upward bias). A **5th–95th percentile trim** then removes extreme outliers symmetrically. R² is computed from a forward Euler simulation using the mean β and time-varying outdoor concentration.
+   All estimates ≤ `MAX_DEPOSITION_RATE` (15 h⁻¹) are collected (no lower bound, to avoid upward bias). A **5th–95th percentile trim** removes extreme outliers symmetrically. If the trimmed-mean β is negative the bin is skipped (NaN reported) — clamping to 0 would produce a misleading zero. R² is computed from a forward Euler simulation using the mean β.
+   - *QA:* Minimum 10 valid points in the decay window and after peak (`MIN_POINTS_DEPOSITION`); `MAX_DEPOSITION_RATE` = 15 h⁻¹ upper cap (above this, values are noise spikes for sub-3 µm particles).
 4. **Emission rate (E):** Mass balance rearranged and solved numerically at each time step during the shower-on-to-peak window; mean and std reported from positive values.
-5. **Predicted concentration (Ct):** Single continuous forward Euler simulation from shower ON to 2 hours after shower OFF. E = E_mean before peak_time, E = 0 after. Returned as two connected segments (emission phase and decay phase) forming one continuous predicted Ct curve on figures.
-6. **Total emission (E_total):** Trapezoidal rule area under the E_t vs. time curve from shower ON to peak.
+   - *QA:* Minimum 3 valid consecutive steps (`MIN_POINTS_EMISSION`); E_total clips negative per-step contributions to 0 before trapezoid integration.
+5. **Predicted concentration (Ct):** Single continuous forward Euler simulation from shower ON to 2 hours after shower OFF. E = E_mean before peak_time, E = 0 after. Returned as two connected segments forming one continuous predicted Ct curve on figures. Decay phase starts from the *predicted* peak (end of emission simulation), not the measured peak.
+   - Emission R² (E_r_squared): R² of the emission-phase simulation vs. measured indoor concentration from shower ON to peak.
+6. **Total emission (E_total):** Trapezoidal rule area under the E_t vs. time curve from shower ON to peak; negative per-step contributions clipped to 0.
 
 **Output Files:**
 - `output/particle_analysis_summary.xlsx` - Multi-sheet Excel workbook:
@@ -319,10 +325,10 @@ dC/dt = p·λ·C_out - λ·C - β·C + E/V
   - `beta_r_squared` — R² of forward Euler decay fit per event and bin
   - `E_emission` — Emission rates per event and bin
   - `E_total_particles` — Total emitted particle counts (E_total) per bin
-- `output/plots/event_XX-YYYYYY_pm_decay.png` - Individual event decay curves
-  - Solid measured concentration lines indicate valid analysis
-  - Dashed predicted Ct lines show the continuous emission + decay simulation
-  - Markers show penetration window start, shower ON/OFF, deposition window end
+  - `E_r_squared` — R² of forward Euler emission-phase simulation per bin
+- `output/plots/event_XX-YYYYYY_pm_decay.png` - Individual event decay curves (two-panel)
+  - *Top panel:* Solid measured concentration lines indicate valid analysis; dashed predicted Ct lines show the continuous emission + decay simulation; shower ON/OFF markers and shaded deposition window
+  - *Bottom panel:* Per-step E_t as faint lines per bin; E_mean as dashed horizontal line spanning shower ON to peak_time; emission R² annotation
 
 ### Relative Humidity, Temperature & Wind Analysis
 

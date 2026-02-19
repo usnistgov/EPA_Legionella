@@ -53,13 +53,15 @@ Methodology:
        - Units: h-1
 
     3. Calculate deposition rate (beta_deposition) when E=0:
-       - Use 2-hour window after shower ends
+       - Use 2-hour window after shower ends (DEPOSITION_WINDOW_HOURS)
        - Start time from peak concentration within the window to end of window
        - Solve numerically for each time step:
            beta = 1/dt - lambda - C_{t+1}/(C_t*dt) + p*lambda*(C_out,t/C_t)
        - Collect all estimates <= MAX_DEPOSITION_RATE (no lower bound to
          avoid upward bias from excluding negative/noisy steps)
        - Apply 5th-95th percentile trim to remove extreme outliers symmetrically
+       - If trimmed-mean beta < 0, return NaN (skip_reason set); do NOT clamp
+         to 0, as a zero beta is physically different from insufficient data
        - Report mean beta over the trimmed set
 
     4. Calculate emission rate (E) from shower start to peak concentration:
@@ -69,6 +71,7 @@ Methodology:
            E_t/V = (C_{t+1} - C_t)/dt - p*lambda*C_out,t + lambda*C_t + beta*C_t
            E_t = V*(C_{t+1} - C_t)/dt - p*lambda*V*C_out,t + lambda*V*C_t + beta*V*C_t
        - Report E_mean and E_std from positive E_t values over the window
+       - E_times and E_per_step (all steps including negative) stored for plotting
 
     5. Predict concentration Ct using forward Euler simulation:
        - Window: shower ON to 2 hours after shower OFF
@@ -82,23 +85,27 @@ Methodology:
          and decay phase (peak to deposition end); decay starts from predicted
          concentration at peak, not from the measured peak value
        - Plot both phases as a single continuous predicted Ct curve on figures
+       - E_r_squared: R² of emission-phase forward Euler vs. measured concentration
 
     6. Calculate total emission (E_total) for each bin:
        - Area under the E_t vs. time curve using the trapezoidal rule:
            E_total = dt * sum[(E_t + E_t(i+1)) / 2]
        - Summed over all time steps from shower ON to peak concentration
+       - Negative per-step contributions clipped to 0 before integration
 
 Output Files:
     - particle_analysis_summary.xlsx: Multi-sheet workbook with:
         * all_results: Full results table (all metrics per event and bin)
         * p_penetration: Penetration factors per event and bin
         * beta_deposition: Deposition rates per event and bin
-        * beta_r_squared: R² of forward Euler decay fit per event and bin
+        * beta_r_squared: R² of forward Euler decay simulation
         * E_emission: Emission rates per event and bin
         * E_total_particles: Total emitted particle counts (E_total) per bin
+        * E_r_squared: R² of forward Euler emission-phase simulation
     - plots/event_XX-YYYYYY_pm_decay.png: Individual event decay curves
-      with measured concentrations and model prediction (emission + decay
-      phases shown as a single continuous predicted Ct line per bin)
+      (two-panel): top panel shows measured concentrations and continuous
+      predicted Ct (emission + decay phases); bottom panel shows per-step
+      E_t, E_mean dashed lines, and emission R² annotation per bin
     - plots/penetration_summary.png: Summary of p values
     - plots/deposition_summary.png: Summary of beta values
     - plots/emission_summary.png: Summary of E values
@@ -135,7 +142,6 @@ from src.particle_calculations import (  # noqa: E402
     BEDROOM_VOLUME_M3,
     DEPOSITION_WINDOW_HOURS,
     MAX_DEPOSITION_RATE,
-    MIN_CONCENTRATION_RATIO,
     MIN_POINTS_DEPOSITION,
     MIN_POINTS_EMISSION,
     MIN_POINTS_PENETRATION,
@@ -234,6 +240,7 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
+            results[f"bin{bin_num}_E_r_squared"] = np.nan
             results[f"bin{bin_num}_skip_reason"] = p_result.get(
                 "skip_reason", "Unknown"
             )
@@ -245,6 +252,8 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_emission_predicted"] = []
             results[f"bin{bin_num}_decay_datetimes"] = []
             results[f"bin{bin_num}_decay_predicted"] = []
+            results[f"bin{bin_num}_E_times"] = []
+            results[f"bin{bin_num}_E_per_step"] = []
             continue
 
         p_mean = p_result["p_mean"]
@@ -274,6 +283,7 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
+            results[f"bin{bin_num}_E_r_squared"] = np.nan
             results[f"bin{bin_num}_skip_reason"] = beta_result.get(
                 "skip_reason", "Unknown"
             )
@@ -283,10 +293,11 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_emission_predicted"] = []
             results[f"bin{bin_num}_decay_datetimes"] = []
             results[f"bin{bin_num}_decay_predicted"] = []
+            results[f"bin{bin_num}_E_times"] = []
+            results[f"bin{bin_num}_E_per_step"] = []
             continue
 
         beta_val = beta_result["beta"]
-        c_peak = beta_result.get("c_peak", np.nan)
 
         # Use peak_time from deposition calculation as E window endpoint
         peak_time = beta_result.get("peak_time")
@@ -308,6 +319,8 @@ def analyze_event_all_bins(
         results[f"bin{bin_num}_E_std"] = E_result.get("E_std", np.nan)
         results[f"bin{bin_num}_E_total"] = E_result.get("E_total", np.nan)
         results[f"bin{bin_num}_skip_reason"] = E_result.get("skip_reason", None)
+        results[f"bin{bin_num}_E_times"] = E_result.get("E_times", [])
+        results[f"bin{bin_num}_E_per_step"] = E_result.get("E_per_step", [])
 
         # Calculate Ct prediction (forward Euler simulation).
         # Uses E_mean when available; falls back to E=0 (decay-only) so that
@@ -325,7 +338,6 @@ def analyze_event_all_bins(
             beta_val,
             effective_E,
             peak_time,
-            c_peak_measured=c_peak,
         )
         results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
         results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
@@ -337,6 +349,7 @@ def analyze_event_all_bins(
         )
         results[f"bin{bin_num}_decay_datetimes"] = ct_result.get("decay_datetimes", [])
         results[f"bin{bin_num}_decay_predicted"] = ct_result.get("decay_predicted", [])
+        results[f"bin{bin_num}_E_r_squared"] = ct_result.get("E_r_squared", np.nan)
 
     return results
 
@@ -370,7 +383,6 @@ def run_particle_analysis(
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
     print("\nValidation thresholds:")
     print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
-    print(f"  Min concentration ratio: {MIN_CONCENTRATION_RATIO}")
     print(
         f"  Min data points: p={MIN_POINTS_PENETRATION}, beta={MIN_POINTS_DEPOSITION}, E={MIN_POINTS_EMISSION}"
     )
@@ -608,6 +620,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         beta_r_squared    - R² of forward Euler decay simulation
         E_emission        - Mean emission rates (#/min)
         E_total_particles - Total emitted particle counts per bin (E_total, #)
+        E_r_squared       - R² of forward Euler emission-phase simulation
     """
     output_file = output_dir / "particle_analysis_summary.xlsx"
 
@@ -655,6 +668,11 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         # Only include columns that exist (guard against empty results)
         E_total_cols = [c for c in E_total_cols if c in results_df_export.columns]
 
+        E_r2_cols = ["event_number", "shower_on"] + [
+            f"bin{i}_E_r_squared" for i in PARTICLE_BINS.keys()
+        ]
+        E_r2_cols = [c for c in E_r2_cols if c in results_df_export.columns]
+
         results_df_export[p_cols].to_excel(
             writer, sheet_name="p_penetration", index=False
         )
@@ -670,6 +688,10 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         results_df_export[E_total_cols].to_excel(
             writer, sheet_name="E_total_particles", index=False
         )
+        if E_r2_cols:
+            results_df_export[E_r2_cols].to_excel(
+                writer, sheet_name="E_r_squared", index=False
+            )
 
     print(f"\nResults saved to: {output_file}")
 
