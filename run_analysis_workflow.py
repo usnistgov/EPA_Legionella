@@ -35,30 +35,40 @@ def run_command(command: list[str], cwd: Path | None = None) -> float:
 
     # Determine if we are already inside the epa_mh environment
     current_env = os.getenv("CONDA_DEFAULT_ENV")
+    # Initialize variables with proper types
+    exec_cmd: list[str] = []
+    exec_str: str | None = None
     if current_env == "epa_mh":
         # Run the command directly
         exec_cmd = command
-        exec_str = None
     else:
         # Build a shell command that activates the environment then runs the command
         # Join the command list into a properly escaped string for the shell
         cmd_str = " ".join(shlex.quote(arg) for arg in command)
         exec_str = f"conda activate epa_mh && {cmd_str}"
-        exec_cmd = None
+        exec_cmd = command
 
     if exec_str is not None:
         print(f"Running (with conda activate): {exec_str}")
         start = time.time()
         try:
-            subprocess.run(exec_str, cwd=cwd, shell=True, check=True)
+            subprocess.run(
+                exec_str,
+                cwd=str(cwd) if cwd is not None else None,
+                shell=True,
+                check=True,
+            )
         except subprocess.CalledProcessError as e:
             print(f"Error: Command {exec_str} failed with exit code {e.returncode}")
             sys.exit(e.returncode)
     else:
+        # exec_cmd is guaranteed to be a non‑empty list here
         print(f"Running: {' '.join(exec_cmd)}")
         start = time.time()
         try:
-            subprocess.run(exec_cmd, cwd=cwd, check=True)
+            subprocess.run(
+                exec_cmd, cwd=str(cwd) if cwd is not None else None, check=True
+            )
         except subprocess.CalledProcessError as e:
             print(
                 f"Error: Command {' '.join(exec_cmd)} failed with exit code {e.returncode}"
