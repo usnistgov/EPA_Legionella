@@ -438,6 +438,7 @@ def calculate_deposition_rate(
 
     c_inside = np.asarray(decay_data[col_inside].values, dtype=np.float64)
     c_outside = np.asarray(decay_data[col_outside].values, dtype=np.float64)
+    c_outside_mean = float(np.nanmean(c_outside))
 
     # Numerical approach: solve for beta at each consecutive time step.
     # From the discrete mass balance (E = 0):
