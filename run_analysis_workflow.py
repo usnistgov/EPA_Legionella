@@ -11,10 +11,11 @@ Usage:
 
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
-def run_command(command: list[str], cwd: Path | None = None) -> None:
+def run_command(command: list[str], cwd: Path | None = None) -> float:
     """Run a command using ``subprocess.run``.
 
     Parameters
@@ -25,6 +26,7 @@ def run_command(command: list[str], cwd: Path | None = None) -> None:
         Working directory for the command. Defaults to the repository root.
     """
     print(f"Running: {' '.join(command)}")
+    start = time.time()
     try:
         subprocess.run(command, cwd=cwd, check=True)
     except subprocess.CalledProcessError as e:
@@ -32,6 +34,9 @@ def run_command(command: list[str], cwd: Path | None = None) -> None:
             f"Error: Command {' '.join(command)} failed with exit code {e.returncode}"
         )
         sys.exit(e.returncode)
+    elapsed = time.time() - start
+    print(f"Finished: {' '.join(command)} in {elapsed:.2f} seconds")
+    return elapsed
 
 
 def main() -> None:
