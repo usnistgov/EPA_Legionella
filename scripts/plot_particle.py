@@ -885,19 +885,24 @@ def plot_emission_boxplot(
     output_path: Path,
 ) -> None:
     """
-    Create a grouped box-and-whisker plot of total particle emission by water temperature.
+    Create two box-and-whisker figures of total particle emission by water temperature.
 
-    X-axis is numeric water temperature (°C).  Only base W## events are included
-    (runs with letter suffixes such as W48b or W48c are excluded).  For each
-    temperature, one box per particle size bin is drawn with a small horizontal
-    offset so bins at the same temperature do not overlap.  Each bin is assigned
-    a consistent color from SENSOR_COLORS.
+    Produces one figure for small bins (Bin 0–2) and one for large bins (Bin 3–6),
+    each saved with the bin range appended to the output filename stem (e.g.,
+    emission_etotal_boxplot_bin0-2.png and emission_etotal_boxplot_bin3-6.png).
+
+    X-axis is a fixed numeric range 5–60 °C with ticks every 5 °C.  Only base W##
+    events are included (runs with letter suffixes such as W48b are excluded).
+    Within each figure, bins are drawn as nested/concentric boxes all centered at
+    the exact temperature value (no horizontal offset); the outermost bin gets the
+    widest box and each successive bin is progressively narrower.  The y-axis
+    auto-scales independently for each figure.
 
     Parameters:
         results_df: DataFrame with analysis results (must contain config_key and
                     bin{n}_E_total columns)
         particle_bins: Dictionary of particle bin information
-        output_path: Path to save the figure
+        output_path: Base path used to derive the two output filenames
     """
     import re
     from matplotlib.patches import Patch
@@ -928,94 +933,102 @@ def plot_emission_boxplot(
         return
 
     temp_map = {k: _extract_temp(k) for k in config_keys}
+    all_bin_nums = list(particle_bins.keys())
 
-    bin_nums = list(particle_bins.keys())
-    n_bins = len(bin_nums)
-
-    # Bins are drawn as nested/concentric boxes all centered at the exact
-    # temperature value.  Bin 1 gets the widest box, bin 7 the narrowest,
-    # so each bin is visible as a progressively smaller rectangle inside the
-    # previous one.  No horizontal offset is applied.
-    bin_widths = np.linspace(2.5, 0.4, n_bins)
-
-    fig, ax = create_figure(figsize=(16, 9))
-    if isinstance(ax, list):
-        ax = ax[0]
-
-    for bin_idx, bin_num in enumerate(bin_nums):
-        color = SENSOR_COLORS[bin_idx % len(SENSOR_COLORS)]
-        col = f"bin{bin_num}_E_total"
-        if col not in base_df.columns:
-            continue
-
-        box_width = float(bin_widths[bin_idx])
-        positions = []
-        data = []
-
-        for config_key in config_keys:
-            temp = temp_map.get(config_key)
-            if temp is None:
-                continue
-            values = base_df.loc[
-                base_df["config_key"] == config_key, col
-            ].dropna().values
-            if len(values) > 0:
-                positions.append(temp)
-                data.append(values)
-
-        if not data:
-            continue
-
-        bp = ax.boxplot(
-            data,
-            positions=positions,
-            widths=box_width,
-            patch_artist=True,
-            showfliers=True,
-            flierprops=dict(marker="o", markersize=3, alpha=0.5, color=color),
-        )
-        for patch in bp["boxes"]:
-            patch.set_facecolor(color)
-            patch.set_alpha(0.7)
-        for element in ("whiskers", "caps"):
-            for line in bp[element]:
-                line.set_color(color)
-                line.set_alpha(0.7)
-        for med in bp["medians"]:
-            med.set_color("black")
-            med.set_linewidth(1.5)
-
-    ax.set_xlim(5, 60)
-    ax.set_xticks(range(5, 65, 5))
-    ax.set_xticklabels(
-        [f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK
-    )
-    ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
-    ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
-    ax.set_title(
-        "Particle Emission by Water Temperature and Size Bin\n(Box = median/IQR, whiskers = 1.5×IQR)",
-        fontsize=FONT_SIZE_TITLE,
-        fontweight=TITLE_FONTWEIGHT,
-    )
-    ax.grid(True, alpha=0.3, axis="y")
-    ax.tick_params(labelsize=FONT_SIZE_TICK)
-
-    # Legend: one entry per bin
-    legend_elements = [
-        Patch(
-            facecolor=SENSOR_COLORS[i % len(SENSOR_COLORS)],
-            alpha=0.7,
-            label=f"Bin {b} ({particle_bins[b]['name']} µm)",
-        )
-        for i, b in enumerate(bin_nums)
+    # Two figures: small bins (0-2) and large bins (3-6)
+    bin_groups = [
+        ([b for b in all_bin_nums if b <= 2], "bin0-2"),
+        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
     ]
-    ax.legend(
-        handles=legend_elements,
-        loc="upper right",
-        fontsize=FONT_SIZE_LEGEND - 1,
-        ncol=2,
-    )
 
-    plt.tight_layout()
-    save_figure(fig, output_path)
-    plt.close(fig)
+    for group_bins, group_label in bin_groups:
+        if not group_bins:
+            continue
+
+        n_group = len(group_bins)
+        # Nested/concentric widths: outermost bin gets widest box
+        bin_widths = np.linspace(2.5, 0.4, n_group)
+
+        fig, ax = create_figure(figsize=(16, 9))
+        if isinstance(ax, list):
+            ax = ax[0]
+
+        for bin_idx, bin_num in enumerate(group_bins):
+            # Use the bin's global index in all_bin_nums for a consistent color
+            global_idx = all_bin_nums.index(bin_num)
+            color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
+            col = f"bin{bin_num}_E_total"
+            if col not in base_df.columns:
+                continue
+
+            box_width = float(bin_widths[bin_idx])
+            positions = []
+            data = []
+
+            for config_key in config_keys:
+                temp = temp_map.get(config_key)
+                if temp is None:
+                    continue
+                values = base_df[base_df["config_key"] == config_key][col].dropna().values
+                if len(values) > 0:
+                    positions.append(temp)
+                    data.append(values)
+
+            if not data:
+                continue
+
+            bp = ax.boxplot(
+                data,
+                positions=positions,
+                widths=box_width,
+                patch_artist=True,
+                showfliers=True,
+                flierprops=dict(marker="o", markersize=3, alpha=0.5, color=color),
+            )
+            for patch in bp["boxes"]:
+                patch.set_facecolor(color)
+                patch.set_alpha(0.7)
+            for element in ("whiskers", "caps"):
+                for line in bp[element]:
+                    line.set_color(color)
+                    line.set_alpha(0.7)
+            for med in bp["medians"]:
+                med.set_color("black")
+                med.set_linewidth(1.5)
+
+        ax.set_xlim(5, 60)
+        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticklabels(
+            [f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK
+        )
+        ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
+        ax.set_title(
+            f"Particle Emission by Water Temperature — {group_label.replace('-', '–').replace('bin', 'Bin ')}"
+            "\n(Box = median/IQR, whiskers = 1.5×IQR)",
+            fontsize=FONT_SIZE_TITLE,
+            fontweight=TITLE_FONTWEIGHT,
+        )
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.tick_params(labelsize=FONT_SIZE_TICK)
+
+        # Legend: one entry per bin in this group
+        legend_elements = [
+            Patch(
+                facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
+                alpha=0.7,
+                label=f"Bin {b} ({particle_bins[b]['name']} µm)",
+            )
+            for b in group_bins
+        ]
+        ax.legend(
+            handles=legend_elements,
+            loc="upper right",
+            fontsize=FONT_SIZE_LEGEND - 1,
+            ncol=1,
+        )
+
+        group_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
+        plt.tight_layout()
+        save_figure(fig, group_output)
+        plt.close(fig)
