@@ -928,17 +928,17 @@ def plot_emission_boxplot(
         return
 
     temp_map = {k: _extract_temp(k) for k in config_keys}
-    temps_sorted = sorted(set(v for v in temp_map.values() if v is not None))
 
     bin_nums = list(particle_bins.keys())
     n_bins = len(bin_nums)
 
-    # Bins are offset slightly around each temperature center so they don't
-    # all sit at the exact same x value.  box_width < bin_gap to leave gaps.
-    box_width = 0.30
-    bin_gap = 0.40
+    # Bins are drawn as nested/concentric boxes all centered at the exact
+    # temperature value.  Bin 1 gets the widest box, bin 7 the narrowest,
+    # so each bin is visible as a progressively smaller rectangle inside the
+    # previous one.  No horizontal offset is applied.
+    bin_widths = np.linspace(2.5, 0.4, n_bins)
 
-    fig, ax = create_figure(figsize=(max(10, len(config_keys) * 2.2), 7))
+    fig, ax = create_figure(figsize=(16, 9))
     if isinstance(ax, list):
         ax = ax[0]
 
@@ -948,7 +948,7 @@ def plot_emission_boxplot(
         if col not in base_df.columns:
             continue
 
-        offset = (bin_idx - (n_bins - 1) / 2.0) * bin_gap
+        box_width = float(bin_widths[bin_idx])
         positions = []
         data = []
 
@@ -960,7 +960,7 @@ def plot_emission_boxplot(
                 base_df["config_key"] == config_key, col
             ].dropna().values
             if len(values) > 0:
-                positions.append(temp + offset)
+                positions.append(temp)
                 data.append(values)
 
         if not data:
@@ -985,12 +985,11 @@ def plot_emission_boxplot(
             med.set_color("black")
             med.set_linewidth(1.5)
 
-    half_group = (n_bins - 1) / 2.0 * bin_gap
-    ax.set_xticks(temps_sorted)
+    ax.set_xlim(5, 60)
+    ax.set_xticks(range(5, 65, 5))
     ax.set_xticklabels(
-        [f"{int(t)}°C" for t in temps_sorted], fontsize=FONT_SIZE_TICK
+        [f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK
     )
-    ax.set_xlim(min(temps_sorted) - half_group - 2, max(temps_sorted) + half_group + 2)
     ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
     ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
     ax.set_title(
