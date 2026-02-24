@@ -935,6 +935,9 @@ def plot_emission_boxplot(
     temp_map = {k: _extract_temp(k) for k in config_keys}
     all_bin_nums = list(particle_bins.keys())
 
+    # Widths computed once across all bins so they are consistent between figures
+    all_bin_widths = np.linspace(2.5, 0.4, len(all_bin_nums))
+
     # Two figures: small bins (0-2) and large bins (3-6)
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
@@ -945,15 +948,11 @@ def plot_emission_boxplot(
         if not group_bins:
             continue
 
-        n_group = len(group_bins)
-        # Nested/concentric widths: outermost bin gets widest box
-        bin_widths = np.linspace(2.5, 0.4, n_group)
-
         fig, ax = create_figure(figsize=(16, 9))
         if isinstance(ax, list):
             ax = ax[0]
 
-        for bin_idx, bin_num in enumerate(group_bins):
+        for bin_num in group_bins:
             # Use the bin's global index in all_bin_nums for a consistent color
             global_idx = all_bin_nums.index(bin_num)
             color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
@@ -961,7 +960,7 @@ def plot_emission_boxplot(
             if col not in base_df.columns:
                 continue
 
-            box_width = float(bin_widths[bin_idx])
+            box_width = float(all_bin_widths[global_idx])
             positions = []
             data = []
 
