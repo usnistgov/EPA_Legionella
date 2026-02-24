@@ -887,10 +887,11 @@ def plot_emission_boxplot(
     """
     Create a grouped box-and-whisker plot of total particle emission by water temperature.
 
-    For each water temperature configuration (x-axis), draws one box per particle size
-    bin (grouped side-by-side) so that bin-specific emission distributions can be
-    compared across temperatures.  Each bin is assigned a consistent color from
-    SENSOR_COLORS.  Configurations are sorted from coldest to hottest water temperature.
+    X-axis is numeric water temperature (°C).  Only base W## events are included
+    (runs with letter suffixes such as W48b or W48c are excluded).  For each
+    temperature, one box per particle size bin is drawn with a small horizontal
+    offset so bins at the same temperature do not overlap.  Each bin is assigned
+    a consistent color from SENSOR_COLORS.
 
     Parameters:
         results_df: DataFrame with analysis results (must contain config_key and
@@ -898,6 +899,7 @@ def plot_emission_boxplot(
         particle_bins: Dictionary of particle bin information
         output_path: Path to save the figure
     """
+    import re
     from matplotlib.patches import Patch
 
     apply_style()
@@ -905,42 +907,60 @@ def plot_emission_boxplot(
     if results_df.empty or "config_key" not in results_df.columns:
         return
 
+    # Keep only base W## configs — no letter suffix after the digits
+    def _is_base(key: str) -> bool:
+        return bool(re.match(r"^W\d+(_|$)", str(key)))
+
+    def _extract_temp(key: str) -> float | None:
+        m = re.match(r"^W(\d+)", str(key))
+        return float(m.group(1)) if m else None
+
+    base_df = results_df[results_df["config_key"].apply(_is_base)].copy()
+
+    if base_df.empty:
+        return
+
     config_keys = sort_config_keys_by_water_temp(
-        [k for k in results_df["config_key"].dropna().unique()]
+        [k for k in base_df["config_key"].dropna().unique()]
     )
 
     if not config_keys:
         return
 
-    n_configs = len(config_keys)
+    temp_map = {k: _extract_temp(k) for k in config_keys}
+    temps_sorted = sorted(set(v for v in temp_map.values() if v is not None))
+
     bin_nums = list(particle_bins.keys())
     n_bins = len(bin_nums)
 
-    # Layout: boxes 0.12 wide, 0.14 apart within a group, 1.4 between group centers
-    box_width = 0.12
-    bin_gap = 0.14
-    group_spacing = max(1.4, n_bins * bin_gap * 1.3)
-    group_centers = np.arange(n_configs) * group_spacing
+    # Bins are offset slightly around each temperature center so they don't
+    # all sit at the exact same x value.  box_width < bin_gap to leave gaps.
+    box_width = 0.30
+    bin_gap = 0.40
 
-    fig, ax = create_figure(figsize=(max(10, n_configs * 2.2), 7))
+    fig, ax = create_figure(figsize=(max(10, len(config_keys) * 2.2), 7))
+    if isinstance(ax, list):
+        ax = ax[0]
 
     for bin_idx, bin_num in enumerate(bin_nums):
         color = SENSOR_COLORS[bin_idx % len(SENSOR_COLORS)]
         col = f"bin{bin_num}_E_total"
-        if col not in results_df.columns:
+        if col not in base_df.columns:
             continue
 
-        # Offset from group center; bin_idx 0 is at the far left of the group
         offset = (bin_idx - (n_bins - 1) / 2.0) * bin_gap
         positions = []
         data = []
 
-        for cfg_idx, config_key in enumerate(config_keys):
-            values = results_df.loc[
-                results_df["config_key"] == config_key, col
+        for config_key in config_keys:
+            temp = temp_map.get(config_key)
+            if temp is None:
+                continue
+            values = base_df.loc[
+                base_df["config_key"] == config_key, col
             ].dropna().values
             if len(values) > 0:
-                positions.append(group_centers[cfg_idx] + offset)
+                positions.append(temp + offset)
                 data.append(values)
 
         if not data:
@@ -965,9 +985,13 @@ def plot_emission_boxplot(
             med.set_color("black")
             med.set_linewidth(1.5)
 
-    ax.set_xticks(group_centers)
-    ax.set_xticklabels(config_keys, rotation=45, ha="right", fontsize=FONT_SIZE_TICK)
-    ax.set_xlabel("Water Temperature Configuration", fontsize=FONT_SIZE_LABEL)
+    half_group = (n_bins - 1) / 2.0 * bin_gap
+    ax.set_xticks(temps_sorted)
+    ax.set_xticklabels(
+        [f"{int(t)}°C" for t in temps_sorted], fontsize=FONT_SIZE_TICK
+    )
+    ax.set_xlim(min(temps_sorted) - half_group - 2, max(temps_sorted) + half_group + 2)
+    ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
     ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
     ax.set_title(
         "Particle Emission by Water Temperature and Size Bin\n(Box = median/IQR, whiskers = 1.5×IQR)",
