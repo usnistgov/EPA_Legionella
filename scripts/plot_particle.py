@@ -13,16 +13,19 @@ Key Functions:
     - plot_penetration_summary: Bar chart of penetration factors by size
     - plot_deposition_summary: Bar chart of deposition rates by size
     - plot_emission_summary: Bar chart of emission rates by size
+    - plot_emission_boxplot: Box-and-whisker of E_total by water temperature and bin
     - plot_size_distribution_summary: Multi-panel summary of all metrics
 
 Plot Features:
     - Two-panel event plots: concentration time series (top) + emission rates (bottom)
     - Color-coded particle size bins (0.35-3.0 µm)
     - Shaded deposition analysis window
-    - Shower ON/OFF markers with consistent styling
+    - Shower ON/OFF markers (dotted lines) distinct from fitted/predicted lines (dashed)
+    - Decay R² values listed in top-panel text box alongside lambda and valid-bin count
     - Log-scale concentration axis for wide dynamic range
     - Emission subplot shows per-step E_t lines, E_mean dashed lines, and R² annotation
-    - Configuration-based subplot grouping
+    - Emission subplot x-axis matches concentration panel; y-axis clipped to 2nd-98th percentile
+    - Configuration-based subplot grouping; temperature-based colors from get_config_color()
 
 Methodology:
     1. Extract data window around shower event (2 hr before to 1 hr after deposition end)
@@ -235,21 +238,23 @@ def plot_particle_decay_event(
         )
     ax1.set_title(title, fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
 
-    # Add results text box with summary
-    textstr = f"λ = {lambda_ach:.4f} h⁻¹\n\n"
-
-    # Count valid bins and build beta summary
+    # Count valid bins and build decay R² summary for the text box
     valid_bins = 0
-    beta_values = []
+    decay_r2_lines = []
     for bin_num in particle_bins.keys():
         beta_val = result.get(f"bin{bin_num}_beta", np.nan)
         if not np.isnan(beta_val):
             valid_bins += 1
             r2_val = result.get(f"bin{bin_num}_beta_r_squared", np.nan)
-            beta_values.append((bin_num, beta_val, r2_val))
+            r2_str = f"{r2_val:.3f}" if not np.isnan(r2_val) else "N/A"
+            decay_r2_lines.append(f" B{bin_num}: R²={r2_str}")
 
+    # Build text box content: lambda, valid-bin count, and per-bin decay R²
+    textstr = f"λ = {lambda_ach:.4f} h⁻¹\n"
     textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
     textstr += "(Solid=valid, Dashed=invalid)"
+    if decay_r2_lines:
+        textstr += "\n\nDecay R²:\n" + "\n".join(decay_r2_lines)
 
     props = dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray")
     ax1.text(
@@ -323,7 +328,22 @@ def plot_particle_decay_event(
     ax2.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(labelsize=FONT_SIZE_TICK)
-    format_datetime_axis(ax2)
+
+    # Match x-axis range to the full plot window (same as the concentration panel)
+    ax2.set_xlim(ax1.get_xlim())
+    format_datetime_axis(ax2, interval_minutes=30)
+
+    # Percentile-based y-axis limits to avoid extreme noise spikes dominating
+    all_e_steps = []
+    for bn in particle_bins.keys():
+        all_e_steps.extend(result.get(f"bin{bn}_E_per_step", []))
+    if all_e_steps:
+        e_arr = np.array([v for v in all_e_steps if not np.isnan(v)], dtype=float)
+        if len(e_arr) >= 4:
+            p2 = float(np.percentile(e_arr, 2))
+            p98 = float(np.percentile(e_arr, 98))
+            margin = max((p98 - p2) * 0.15, abs(p98) * 0.05, 1e-6)
+            ax2.set_ylim(p2 - margin, p98 + margin)
 
     # Add E R² annotation box to emission panel
     if E_r2_lines:
@@ -853,6 +873,125 @@ def plot_size_distribution_summary(
 
     for ax in axes:
         ax.tick_params(labelsize=FONT_SIZE_TICK)
+
+    plt.tight_layout()
+    save_figure(fig, output_path)
+    plt.close(fig)
+
+
+def plot_emission_boxplot(
+    results_df: pd.DataFrame,
+    particle_bins: Dict,
+    output_path: Path,
+) -> None:
+    """
+    Create a grouped box-and-whisker plot of total particle emission by water temperature.
+
+    For each water temperature configuration (x-axis), draws one box per particle size
+    bin (grouped side-by-side) so that bin-specific emission distributions can be
+    compared across temperatures.  Each bin is assigned a consistent color from
+    SENSOR_COLORS.  Configurations are sorted from coldest to hottest water temperature.
+
+    Parameters:
+        results_df: DataFrame with analysis results (must contain config_key and
+                    bin{n}_E_total columns)
+        particle_bins: Dictionary of particle bin information
+        output_path: Path to save the figure
+    """
+    from matplotlib.patches import Patch
+
+    apply_style()
+
+    if results_df.empty or "config_key" not in results_df.columns:
+        return
+
+    config_keys = sort_config_keys_by_water_temp(
+        [k for k in results_df["config_key"].dropna().unique()]
+    )
+
+    if not config_keys:
+        return
+
+    n_configs = len(config_keys)
+    bin_nums = list(particle_bins.keys())
+    n_bins = len(bin_nums)
+
+    # Layout: boxes 0.12 wide, 0.14 apart within a group, 1.4 between group centers
+    box_width = 0.12
+    bin_gap = 0.14
+    group_spacing = max(1.4, n_bins * bin_gap * 1.3)
+    group_centers = np.arange(n_configs) * group_spacing
+
+    fig, ax = create_figure(figsize=(max(10, n_configs * 2.2), 7))
+
+    for bin_idx, bin_num in enumerate(bin_nums):
+        color = SENSOR_COLORS[bin_idx % len(SENSOR_COLORS)]
+        col = f"bin{bin_num}_E_total"
+        if col not in results_df.columns:
+            continue
+
+        # Offset from group center; bin_idx 0 is at the far left of the group
+        offset = (bin_idx - (n_bins - 1) / 2.0) * bin_gap
+        positions = []
+        data = []
+
+        for cfg_idx, config_key in enumerate(config_keys):
+            values = results_df.loc[
+                results_df["config_key"] == config_key, col
+            ].dropna().values
+            if len(values) > 0:
+                positions.append(group_centers[cfg_idx] + offset)
+                data.append(values)
+
+        if not data:
+            continue
+
+        bp = ax.boxplot(
+            data,
+            positions=positions,
+            widths=box_width,
+            patch_artist=True,
+            showfliers=True,
+            flierprops=dict(marker="o", markersize=3, alpha=0.5, color=color),
+        )
+        for patch in bp["boxes"]:
+            patch.set_facecolor(color)
+            patch.set_alpha(0.7)
+        for element in ("whiskers", "caps"):
+            for line in bp[element]:
+                line.set_color(color)
+                line.set_alpha(0.7)
+        for med in bp["medians"]:
+            med.set_color("black")
+            med.set_linewidth(1.5)
+
+    ax.set_xticks(group_centers)
+    ax.set_xticklabels(config_keys, rotation=45, ha="right", fontsize=FONT_SIZE_TICK)
+    ax.set_xlabel("Water Temperature Configuration", fontsize=FONT_SIZE_LABEL)
+    ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
+    ax.set_title(
+        "Particle Emission by Water Temperature and Size Bin\n(Box = median/IQR, whiskers = 1.5×IQR)",
+        fontsize=FONT_SIZE_TITLE,
+        fontweight=TITLE_FONTWEIGHT,
+    )
+    ax.grid(True, alpha=0.3, axis="y")
+    ax.tick_params(labelsize=FONT_SIZE_TICK)
+
+    # Legend: one entry per bin
+    legend_elements = [
+        Patch(
+            facecolor=SENSOR_COLORS[i % len(SENSOR_COLORS)],
+            alpha=0.7,
+            label=f"Bin {b} ({particle_bins[b]['name']} µm)",
+        )
+        for i, b in enumerate(bin_nums)
+    ]
+    ax.legend(
+        handles=legend_elements,
+        loc="upper right",
+        fontsize=FONT_SIZE_LEGEND - 1,
+        ncol=2,
+    )
 
     plt.tight_layout()
     save_figure(fig, output_path)

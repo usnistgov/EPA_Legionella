@@ -99,20 +99,33 @@ SENSOR_COLORS = [
 # Configuration-based colors for grouping by test conditions
 # Maps configuration keys to colors for consistent visualization
 CONFIG_COLORS = {
-    # Water temperature colors
-    "HW": "#d62728",  # Red for Hot Water
-    "CW": "#1f77b4",  # Blue for Cold Water
-    "MW": "#9467bd",  # Purple for Mixed Water
-    # Door position colors (use hatching to distinguish from water temp)
-    "Open": "#2ca02c",  # Green for Open
+    # Door position colors
+    "Open": "#2ca02c",    # Green for Open
     "Closed": "#ff7f0e",  # Orange for Closed
-    "Partial": "#bcbd22",  # Yellow-green for Partial
+    "Partial": "#bcbd22", # Yellow-green for Partial
     # Fan status colors
-    "FanOn": "#e377c2",  # Pink for Fan On
+    "FanOn": "#e377c2",   # Pink for Fan On
     "FanOff": "#7f7f7f",  # Gray for Fan Off
 }
 
-# Color palette for different config_key values (for bar charts with subplots)
+# Temperature-based color palette for W## water temperature codes.
+# Colors progress from cool blues (cold) through greens/yellows (warm) to reds (hot),
+# using a perceptually uniform diverging palette suitable for scientific plots.
+# Keys are numeric temperatures in degrees C; fractional lookup uses nearest match.
+WATER_TEMP_COLORS = {
+    11: "#313695",  # Dark blue       (11 °C)
+    14: "#4575b4",  # Blue            (14 °C)
+    22: "#74add1",  # Light blue      (22 °C)
+    23: "#abd9e9",  # Pale blue       (23 °C)
+    25: "#74c476",  # Green           (25 °C)
+    30: "#fee090",  # Light amber     (30 °C)
+    37: "#fdae61",  # Orange          (37 °C)
+    43: "#f46d43",  # Dark orange     (43 °C)
+    48: "#d73027",  # Red             (48 °C)
+    53: "#a50026",  # Dark red        (53 °C)
+}
+
+# Color palette for different config_key values (fallback for unknown keys)
 CONFIG_KEY_COLORS = [
     "#1f77b4",  # Blue
     "#d62728",  # Red
@@ -127,28 +140,35 @@ CONFIG_KEY_COLORS = [
 
 def get_config_color(config_key: str, index: int = 0) -> str:
     """
-    Get color for a configuration key.
+    Get color for a configuration key based on water temperature.
 
-    First tries to match water temperature (HW, CW, MW) for consistent coloring,
-    then falls back to the CONFIG_KEY_COLORS list.
+    Extracts the numeric temperature from a W## code in the config_key
+    (e.g., "W48_DoorOpen_FanOff" -> 48 -> red, "W48b_DoorOpen_FanOff" -> 48 -> red)
+    and returns the nearest color from WATER_TEMP_COLORS.  Letter suffixes on
+    repeat-run codes (e.g., W48b) are stripped before lookup so both runs share
+    the same base color.  Falls back to CONFIG_KEY_COLORS for unrecognised keys.
 
     Parameters:
-        config_key: Configuration key string (e.g., "HW_DoorClosed_FanOff")
-        index: Fallback index if no match found
+        config_key: Configuration key string (e.g., "W48_DoorOpen_FanOff")
+        index: Fallback index if no W## pattern is found
 
     Returns:
         Hex color string
     """
-    # Try to extract water temperature from config_key
-    if config_key.startswith("HW"):
-        return CONFIG_COLORS["HW"]
-    elif config_key.startswith("CW"):
-        return CONFIG_COLORS["CW"]
-    elif config_key.startswith("MW"):
-        return CONFIG_COLORS["MW"]
-    else:
-        # Fallback to indexed color
-        return CONFIG_KEY_COLORS[index % len(CONFIG_KEY_COLORS)]
+    # Extract numeric temperature from W## or W##b codes
+    if config_key and config_key[0] == "W":
+        water_part = config_key.split("_")[0]   # e.g., "W48b"
+        numeric_str = "".join(c for c in water_part[1:] if c.isdigit())
+        if numeric_str:
+            try:
+                temp_num = int(numeric_str)
+                nearest = min(WATER_TEMP_COLORS, key=lambda t: abs(t - temp_num))
+                return WATER_TEMP_COLORS[nearest]
+            except (ValueError, TypeError):
+                pass
+
+    # Fallback to indexed color
+    return CONFIG_KEY_COLORS[index % len(CONFIG_KEY_COLORS)]
 
 # Line styles
 LINE_WIDTH_DATA = 1.5
@@ -158,17 +178,18 @@ LINE_WIDTH_ANNOTATION = 1.0
 # Marker settings
 MARKER_SIZE = 4
 
-# Shower/Activation event marker styles (centralized for consistency)
+# Shower/Activation event marker styles (centralized for consistency).
+# Dotted (:) distinguishes shower event markers from fitted/predicted lines (--).
 SHOWER_ON_STYLE = {
     "color": "#2ca02c",  # Green
-    "linestyle": "--",
+    "linestyle": ":",
     "linewidth": 2.0,
     "alpha": 0.8,
 }
 
 SHOWER_OFF_STYLE = {
     "color": "#d62728",  # Red
-    "linestyle": "--",
+    "linestyle": ":",
     "linewidth": 2.0,
     "alpha": 0.8,
 }

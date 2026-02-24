@@ -96,19 +96,26 @@ Methodology:
 Output Files:
     - particle_analysis_summary.xlsx: Multi-sheet workbook with:
         * all_results: Full results table (all metrics per event and bin)
-        * p_penetration: Penetration factors per event and bin
-        * beta_deposition: Deposition rates per event and bin
-        * beta_r_squared: R² of forward Euler decay simulation
-        * E_emission: Emission rates per event and bin
-        * E_total_particles: Total emitted particle counts (E_total) per bin
-        * E_r_squared: R² of forward Euler emission-phase simulation
+        * p_penetration: Penetration factors per event and bin (includes test_name)
+        * beta_deposition: Deposition rates per event and bin (includes test_name)
+        * beta_r_squared: R² of forward Euler decay simulation (includes test_name)
+        * E_emission: Emission rates per event and bin (includes test_name)
+        * E_total_particles: Total emitted particle counts (E_total) per bin (includes test_name)
+        * E_r_squared: R² of forward Euler emission-phase simulation (includes test_name)
+        * peak_comparison: Measured vs. predicted concentration at peak_time and
+          deposition_end for each bin, with percent difference (wide format,
+          one row per event)
     - plots/event_XX-YYYYYY_pm_decay.png: Individual event decay curves
       (two-panel): top panel shows measured concentrations and continuous
-      predicted Ct (emission + decay phases); bottom panel shows per-step
-      E_t, E_mean dashed lines, and emission R² annotation per bin
+      predicted Ct (emission + decay phases) with decay R² in text box;
+      bottom panel shows per-step E_t, E_mean dashed lines, and emission R²
+      annotation; shower markers use dotted lines; E plot x-axis matches
+      concentration panel; E plot y-axis clipped to 2nd-98th percentile
     - plots/penetration_summary.png: Summary of p values
     - plots/deposition_summary.png: Summary of beta values
     - plots/emission_summary.png: Summary of E values
+    - plots/emission_etotal_boxplot.png: Box-and-whisker of E_total by water
+      temperature configuration and particle size bin
 
 Module Structure:
     - particle_calculations.py: Pure computation functions (p, beta, E, Ct)
@@ -255,6 +262,10 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_decay_predicted"] = []
             results[f"bin{bin_num}_E_times"] = []
             results[f"bin{bin_num}_E_per_step"] = []
+            results[f"bin{bin_num}_peak_measured"] = np.nan
+            results[f"bin{bin_num}_peak_predicted"] = np.nan
+            results[f"bin{bin_num}_deposition_end_measured"] = np.nan
+            results[f"bin{bin_num}_deposition_end_predicted"] = np.nan
             continue
 
         p_mean = p_result["p_mean"]
@@ -298,6 +309,10 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_decay_predicted"] = []
             results[f"bin{bin_num}_E_times"] = []
             results[f"bin{bin_num}_E_per_step"] = []
+            results[f"bin{bin_num}_peak_measured"] = np.nan
+            results[f"bin{bin_num}_peak_predicted"] = np.nan
+            results[f"bin{bin_num}_deposition_end_measured"] = np.nan
+            results[f"bin{bin_num}_deposition_end_predicted"] = np.nan
             continue
 
         beta_val = beta_result["beta"]
@@ -353,6 +368,44 @@ def analyze_event_all_bins(
         results[f"bin{bin_num}_decay_datetimes"] = ct_result.get("decay_datetimes", [])
         results[f"bin{bin_num}_decay_predicted"] = ct_result.get("decay_predicted", [])
         results[f"bin{bin_num}_E_r_squared"] = ct_result.get("E_r_squared", np.nan)
+
+        # Peak and deposition-end concentration comparisons (measured vs. predicted)
+        col_inside = f"{PARTICLE_BINS[bin_num]['column']}_inside"
+        emission_pred = ct_result.get("emission_predicted", [])
+        decay_pred = ct_result.get("decay_predicted", [])
+
+        # Measured concentration nearest to peak_time.
+        # Use argmin() + to_numpy() to avoid pandas Scalar typing ambiguity.
+        col_values = particle_data[col_inside].to_numpy(dtype=float, na_value=np.nan)
+        if peak_time is not None and col_inside in particle_data.columns:
+            time_diffs = (particle_data["datetime"] - pd.Timestamp(peak_time)).abs()
+            peak_row = int(time_diffs.argmin())
+            results[f"bin{bin_num}_peak_measured"] = float(col_values[peak_row])
+        else:
+            results[f"bin{bin_num}_peak_measured"] = np.nan
+
+        # Predicted concentration at peak_time (last point of emission phase)
+        results[f"bin{bin_num}_peak_predicted"] = (
+            float(emission_pred[-1]) if len(emission_pred) > 0 else np.nan
+        )
+
+        # Measured concentration nearest to deposition_end
+        depo_end = event["deposition_end"]
+        if col_inside in particle_data.columns:
+            time_diffs_end = (
+                particle_data["datetime"] - pd.Timestamp(depo_end)
+            ).abs()
+            end_row = int(time_diffs_end.argmin())
+            results[f"bin{bin_num}_deposition_end_measured"] = float(
+                col_values[end_row]
+            )
+        else:
+            results[f"bin{bin_num}_deposition_end_measured"] = np.nan
+
+        # Predicted concentration at deposition_end (last point of decay phase)
+        results[f"bin{bin_num}_deposition_end_predicted"] = (
+            float(decay_pred[-1]) if len(decay_pred) > 0 else np.nan
+        )
 
     return results
 
@@ -653,29 +706,26 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         # Main results
         results_df_export.to_excel(writer, sheet_name="all_results", index=False)
 
-        # Separate sheets for each metric
-        p_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_p_mean (-)" for i in PARTICLE_BINS.keys()
-        ]
-        beta_cols = ["event_number", "shower_on"] + [
+        # Shared ID columns present on every sheet
+        id_cols = ["event_number", "test_name", "shower_on"]
+
+        # Separate sheets for each metric (all include test_name for cross-referencing)
+        p_cols = id_cols + [f"bin{i}_p_mean (-)" for i in PARTICLE_BINS.keys()]
+        beta_cols = id_cols + [
             col
             for i in PARTICLE_BINS.keys()
             for col in (f"bin{i}_beta (h-1)", f"bin{i}_beta_raw_mean (h-1)")
         ]
-        beta_r2_cols = ["event_number", "shower_on"] + [
+        beta_r2_cols = id_cols + [
             f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
         ]
-        E_cols = ["event_number", "shower_on"] + [
+        E_cols = id_cols + [
             f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()
         ]
-
-        E_total_cols = ["event_number", "shower_on"] + [
-            f"bin{i}_E_total (#)" for i in PARTICLE_BINS.keys()
-        ]
-        # Only include columns that exist (guard against empty results)
+        E_total_cols = id_cols + [f"bin{i}_E_total (#)" for i in PARTICLE_BINS.keys()]
         E_total_cols = [c for c in E_total_cols if c in results_df_export.columns]
 
-        E_r2_cols = ["event_number", "shower_on"] + [
+        E_r2_cols = id_cols + [
             f"bin{i}_E_r_squared" for i in PARTICLE_BINS.keys()
         ]
         E_r2_cols = [c for c in E_r2_cols if c in results_df_export.columns]
@@ -700,11 +750,49 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
                 writer, sheet_name="E_r_squared", index=False
             )
 
+        # Peak comparison sheet: measured vs. predicted at peak_time and deposition_end.
+        # Wide format: one row per event, bins as column groups.
+        peak_df = results_df[["event_number", "test_name"]].copy()
+        for bin_num in PARTICLE_BINS.keys():
+            meas_pk = f"bin{bin_num}_peak_measured"
+            pred_pk = f"bin{bin_num}_peak_predicted"
+            meas_de = f"bin{bin_num}_deposition_end_measured"
+            pred_de = f"bin{bin_num}_deposition_end_predicted"
+
+            if meas_pk not in results_df.columns:
+                continue
+
+            peak_df[f"bin{bin_num}_peak_measured (#/cm3)"] = results_df[meas_pk].values
+            peak_df[f"bin{bin_num}_peak_predicted (#/cm3)"] = results_df[pred_pk].values
+            with np.errstate(invalid="ignore", divide="ignore"):
+                pct_pk = (
+                    (results_df[pred_pk] - results_df[meas_pk])
+                    / results_df[meas_pk]
+                    * 100.0
+                )
+            peak_df[f"bin{bin_num}_peak_pct_diff (%)"] = pct_pk.values
+
+            peak_df[f"bin{bin_num}_deposition_end_measured (#/cm3)"] = (
+                results_df[meas_de].values
+            )
+            peak_df[f"bin{bin_num}_deposition_end_predicted (#/cm3)"] = (
+                results_df[pred_de].values
+            )
+            with np.errstate(invalid="ignore", divide="ignore"):
+                pct_de = (
+                    (results_df[pred_de] - results_df[meas_de])
+                    / results_df[meas_de]
+                    * 100.0
+                )
+            peak_df[f"bin{bin_num}_deposition_end_pct_diff (%)"] = pct_de.values
+
+        peak_df.to_excel(writer, sheet_name="peak_comparison", index=False)
+
     print(f"\nResults saved to: {output_file}")
 
 
 def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
-    """Generate summary plots for penetration, deposition, and emission."""
+    """Generate summary plots for penetration, deposition, emission, and E_total boxplot."""
     print("\nGenerating plots...")
     plot_dir = output_dir / "plots"
     plot_dir.mkdir(exist_ok=True)
@@ -712,6 +800,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
     try:
         from scripts.plot_particle import (
             plot_deposition_summary,
+            plot_emission_boxplot,
             plot_emission_summary,
             plot_penetration_summary,
         )
@@ -723,6 +812,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         (plot_penetration_summary, "penetration_summary.png"),
         (plot_deposition_summary, "deposition_summary.png"),
         (plot_emission_summary, "emission_summary.png"),
+        (plot_emission_boxplot, "emission_etotal_boxplot.png"),
     ]:
         try:
             plot_func(results_df, PARTICLE_BINS, plot_dir / filename)

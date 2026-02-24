@@ -268,10 +268,37 @@ def _find_value_column(df: pd.DataFrame, patterns: list) -> Optional[str]:
     return non_dt_cols[0] if non_dt_cols else None
 
 
+_WIND_ROLLING_WINDOW = "1min"  # Rolling average window for wind data
+
+
+def _apply_rolling_average(plot_data: pd.DataFrame, value_col: str) -> pd.Series:
+    """
+    Compute a time-based rolling average on a wind data column.
+
+    Uses a 1-minute window with min_periods=1 so the first few points still
+    have a value.  The input DataFrame must have 'datetime' as a column (not index).
+
+    Parameters:
+        plot_data: DataFrame with a 'datetime' column
+        value_col: Name of the column to smooth
+
+    Returns:
+        Series with rolling-averaged values, index aligned with plot_data
+    """
+    indexed = plot_data.set_index("datetime")
+    return indexed[value_col].rolling(_WIND_ROLLING_WINDOW, min_periods=1).mean()
+
+
 def _plot_wind_data(
     ax, data_dict: dict, window_start, window_end, settings: dict
 ) -> bool:
-    """Plot wind data with dual y-axes. Returns True if data was plotted."""
+    """Plot wind data with dual y-axes and 1-minute rolling averages.
+
+    Raw data is shown faintly; the 1-minute rolling average is overlaid as a
+    bolder line so short-duration gusts do not dominate the visual.
+
+    Returns True if data was plotted.
+    """
     ax2 = ax.twinx()
     speed_plotted = False
     direction_plotted = False
@@ -303,25 +330,47 @@ def _plot_wind_data(
             "direction" in sensor_name.lower() or "direction" in value_col.lower()
         )
 
+        # Compute 1-minute rolling average
+        rolling_values = _apply_rolling_average(plot_data, value_col)
+
+        display_name = simplify_sensor_name(sensor_name)
+
         if is_direction:
+            # Raw data faint, rolling average bold
             ax2.plot(
                 plot_data["datetime"],
                 plot_data[value_col],
                 color=COLORS["wind_direction"],
+                linewidth=LINE_WIDTH_DATA * 0.5,
+                alpha=0.3,
+                linestyle="--",
+            )
+            ax2.plot(
+                plot_data["datetime"],
+                rolling_values.values,
+                color=COLORS["wind_direction"],
                 linewidth=LINE_WIDTH_DATA,
-                label=simplify_sensor_name(sensor_name),
-                alpha=0.8,
+                label=display_name,
+                alpha=0.9,
                 linestyle="--",
             )
             direction_plotted = True
         else:
+            # Raw data faint, rolling average bold
             ax.plot(
                 plot_data["datetime"],
                 plot_data[value_col],
                 color=COLORS["wind_speed"],
+                linewidth=LINE_WIDTH_DATA * 0.5,
+                alpha=0.3,
+            )
+            ax.plot(
+                plot_data["datetime"],
+                rolling_values.values,
+                color=COLORS["wind_speed"],
                 linewidth=LINE_WIDTH_DATA,
-                label=simplify_sensor_name(sensor_name),
-                alpha=0.8,
+                label=display_name,
+                alpha=0.9,
             )
             speed_plotted = True
 
@@ -336,7 +385,7 @@ def _plot_wind_data(
     if direction_plotted:
         ax2.set_ylim(0, 360)
 
-    # Combine legends
+    # Combine legends (rolling average lines only, raw lines have no label)
     lines1, labels1 = ax.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax.legend(

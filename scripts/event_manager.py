@@ -20,22 +20,30 @@ Naming Convention Format:
 
     Components:
     - MMDD: Month and day (e.g., 0114 for January 14)
-    - TempCode: Water temperature code (e.g., W48, W11, W25)
+    - TempCode: Water temperature code (e.g., W48, W11, W25, W48b)
     - DoorPos: Door position (Open, Closed, or Partial)
     - TimeOfDay: Day or Night
     - RNN: Replicate number (R01, R02, etc.)
+
+    Repeat Temperature Convention:
+    When the same water temperature is retested (e.g., after a shower head change),
+    a letter suffix is appended to the temperature code: W48 (first run), W48b (second
+    run), W48c (third run), etc. The numeric temperature value determines sort order,
+    so all W48 variants sort together at 48 degrees C. Each variant forms a separate
+    config_key group for independent replicate counting and plotting.
 
     Examples:
     - 0115_W48_Open_Day_R01
     - 0122_W11_Open_Night_R03
     - 0203_W25_Open_Day_R01
+    - 0223_W48b_Open_Day_R01  (second W48 run, e.g. with new shower head)
 
 Time of Day Categories:
     - Day: 5am - 5pm
     - Night: 5pm - 5am
 
 Test Parameters:
-    - Water Temperature: Hot (Test start), Cold (Started 2026-01-22 14:00), Mixed (Started 2026-02-02 17:00)
+    - Water Temperature: Designated by W## code (e.g., W48 = 48 degrees C)
     - Time of Day: Based on shower start time
     - Bath Fan Status: Fan running during or within 2 hours after shower
 
@@ -130,7 +138,7 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 16, 11, 0, 0), "W43"),  # Mixed water from Feb 16 11AM
     (datetime(2026, 2, 18, 10, 23, 0), "W14"),  # Mixed water from Feb 18 10:23AM
     (datetime(2026, 2, 20, 8, 0, 0), "W53"),  # Mixed water from Feb 20 8AM
-    (datetime(2026, 2, 23, 10, 0, 0), "W48"),  # Mixed water from Feb 23 10AM
+    (datetime(2026, 2, 23, 10, 0, 0), "W48b"),  # W48 repeat from Feb 23 10AM (new shower head)
 ]
 
 # Door position transitions: (datetime, position)
@@ -151,9 +159,6 @@ FAN_STATUS_TRANSITIONS = [
     # Add future transitions here, e.g.:
     # (datetime(2026, 2, 15, 0, 0, 0), "On"),  # Fan on from Feb 15
 ]
-
-# Legacy constant for backward compatibility
-HOT_WATER_END_TIME = datetime(2026, 1, 22, 14, 0, 0)  # 2PM on Jan 22
 
 # Time of day boundaries (hour of day)
 TIME_OF_DAY_RANGES = {
@@ -185,12 +190,14 @@ def get_water_temp_sort_key(config_key: str) -> float:
     """
     Extract numeric water temperature from config_key for sorting.
 
-    Extracts the numeric value from the water temperature code (e.g., "W48" -> 48)
-    in the config_key string. Used to sort configurations from coldest to hottest.
+    Extracts the numeric value from the water temperature code (e.g., "W48" -> 48,
+    "W48b" -> 48) in the config_key string. Used to sort configurations from
+    coldest to hottest. Letter suffixes on repeat runs (e.g., W48b) are stripped
+    so that all runs at the same temperature sort together.
 
     Parameters:
-        config_key: Configuration key (e.g., "W48_DoorOpen_FanOff") or water temp
-                    code (e.g., "W48")
+        config_key: Configuration key (e.g., "W48_DoorOpen_FanOff", "W48b_DoorOpen_FanOff")
+                    or water temp code (e.g., "W48", "W48b")
 
     Returns:
         Numeric sort key (water temperature in °C). Unknown values sort last.
@@ -203,12 +210,15 @@ def get_water_temp_sort_key(config_key: str) -> float:
     parts = config_key.split("_")
     water_temp = parts[0]
 
-    # Extract numeric value from water temp code (e.g., "W48" -> 48)
+    # Extract numeric value from water temp code; strip letter suffixes for repeat
+    # runs (e.g., "W48b" -> 48, "W48" -> 48). Only digits are kept after the "W".
     if water_temp.startswith("W") and len(water_temp) > 1:
-        try:
-            return float(water_temp[1:])
-        except ValueError:
-            pass
+        numeric_str = "".join(c for c in water_temp[1:] if c.isdigit())
+        if numeric_str:
+            try:
+                return float(numeric_str)
+            except ValueError:
+                pass
 
     return float("inf")
 
