@@ -219,6 +219,7 @@ Desktop.ini
 $RECYCLE.BIN/
 
 # Temporary files
+python_script_style.txt
 *.tmp
 ~$*.xlsx
 ~$*.docx
