@@ -94,11 +94,6 @@ from src.env_data_loader import (  # noqa: E402
 PRE_SHOWER_MINUTES = 30  # Minutes before shower ON for baseline
 POST_SHOWER_HOURS = 2  # Hours after shower OFF for analysis
 
-# Bedroom average conditions window: number of minutes before shower ON
-# to use when computing the per-event average bedroom RH and temperature.
-# Change this value to adjust the pre-shower averaging window length.
-BEDROOM_CONDITIONS_WINDOW_MINUTES = 5
-
 # SENSOR_CONFIG keys for the bedroom instruments used in the bedroom average.
 # These map to SENSOR_CONFIG in env_data_loader.py.
 BEDROOM_RH_SENSORS = [
@@ -230,39 +225,33 @@ def clear_sensor_cache():
     _SENSOR_DATA_CACHE = {}
 
 
-def calculate_bedroom_conditions(event: Dict) -> Dict:
+def _extract_bedroom_conditions(event_results: Dict) -> Dict:
     """
-    Calculate average bedroom RH and temperature for a shower event.
+    Extract average bedroom RH and temperature from pre-shower analysis results.
 
-    Uses a window of BEDROOM_CONDITIONS_WINDOW_MINUTES before shower ON.
-    Only bedroom instruments with data in that window are included in the average.
-    Reports mean, std, and uncertainty (std / sqrt(n_instruments)) for each variable.
+    Reuses the pre-shower statistics already computed by analyze_shower_event()
+    for the rh/temperature_pre_post_boxplots (PRE_SHOWER_MINUTES window).
+    Averages across BEDROOM_RH_SENSORS and BEDROOM_TEMP_SENSORS, skipping
+    any sensor that has no data (NaN mean) for the event.
 
     Args:
-        event: Shower event dict with timing information
+        event_results: Output of analyze_shower_event() for one event
+                       ({sensor_name: {"pre": stats, "post": stats}}).
 
     Returns:
         Dict with keys: rh_mean, rh_std, rh_uncertainty, rh_n_instruments,
                         temp_mean, temp_std, temp_uncertainty, temp_n_instruments
     """
-    shower_on = event["shower_on"]
-    window_start = shower_on - timedelta(minutes=BEDROOM_CONDITIONS_WINDOW_MINUTES)
-    window_end = shower_on
 
     def _avg_sensor_group(sensor_keys: List[str]) -> Dict:
-        """Average across available sensors for the window."""
+        """Average pre-shower means across available sensors."""
         per_sensor_means = []
         for sensor_name in sensor_keys:
-            data = get_cached_sensor_data(sensor_name, window_start, window_end)
-            if data is None or data.empty:
+            if sensor_name not in event_results:
                 continue
-            window_vals = data.loc[
-                (data["datetime"] >= window_start) & (data["datetime"] <= window_end),
-                "value",
-            ].dropna()
-            if len(window_vals) == 0:
-                continue
-            per_sensor_means.append(float(window_vals.mean()))
+            mean_val = event_results[sensor_name]["pre"].get("mean", np.nan)
+            if not np.isnan(mean_val):
+                per_sensor_means.append(float(mean_val))
 
         n = len(per_sensor_means)
         if n == 0:
@@ -652,7 +641,7 @@ def save_results_to_excel(
         event_df.to_excel(writer, sheet_name="Event_Log", index=False)
 
         # Bedroom_Conditions sheet: per-event average bedroom RH and temperature
-        # computed over a BEDROOM_CONDITIONS_WINDOW_MINUTES window before shower ON.
+        # using the same PRE_SHOWER_MINUTES window as the pre/post boxplots.
         # Also stores std and uncertainty (not used for figures, but saved for reference).
         if bedroom_conditions is not None and len(bedroom_conditions) > 0:
             bed_rows = []
@@ -664,7 +653,7 @@ def save_results_to_excel(
                         "config_key": event.get("config_key", ""),
                         "water_temp": event.get("water_temp", ""),
                         "shower_on": event["shower_on"],
-                        "window_minutes": BEDROOM_CONDITIONS_WINDOW_MINUTES,
+                        "window_minutes": PRE_SHOWER_MINUTES,
                         "rh_mean (%)": cond.get("rh_mean", np.nan),
                         "rh_std (%)": cond.get("rh_std", np.nan),
                         "rh_uncertainty (%)": cond.get("rh_uncertainty", np.nan),
@@ -1101,15 +1090,16 @@ def run_rh_temp_analysis(
         if not sensor_data:
             print("    Warning: No sensor data available for this event")
             all_results.append({})
-            all_bedroom_conditions.append({})
+            all_bedroom_conditions.append(_extract_bedroom_conditions({}))
             continue
 
         print(f"    Using data from {len(sensor_data)} sensors")
         event_results = analyze_shower_event(event, sensor_data)
         all_results.append(event_results)
 
-        # Calculate average bedroom conditions for this event
-        bed_cond = calculate_bedroom_conditions(event)
+        # Extract bedroom conditions from already-computed pre-shower results
+        # (reuses the PRE_SHOWER_MINUTES window, same as pre_post_boxplots)
+        bed_cond = _extract_bedroom_conditions(event_results)
         all_bedroom_conditions.append(bed_cond)
 
     # Save results

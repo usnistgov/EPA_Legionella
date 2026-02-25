@@ -929,10 +929,10 @@ def _annotate_temp_groups(
     if not temp_stats:
         return
 
-    # Extend y-axis headroom so annotations aren't clipped
+    # Extend y-axis headroom so annotations aren't clipped (3 lines: W##, n=, RH=)
     y_min, y_max = ax.get_ylim()
     y_range = y_max - y_min
-    ax.set_ylim(y_min, y_max + 0.20 * y_range)
+    ax.set_ylim(y_min, y_max + 0.25 * y_range)
     y_min, y_max = ax.get_ylim()
     y_range = y_max - y_min
     offset = 0.02 * y_range
@@ -943,7 +943,15 @@ def _annotate_temp_groups(
         if np.isnan(max_val):
             continue
 
-        text_lines = [f"n={n}"]
+        # Prepend W## label if a config_key is stored in the stats entry
+        text_lines = []
+        config_key = stats.get("config_key", "")
+        if config_key and str(config_key).upper().startswith("W"):
+            w_part = str(config_key).split("_")[0]  # e.g. "W48b"
+            digits = "".join(c for c in w_part[1:] if c.isdigit())
+            if digits:
+                text_lines.append(f"W{digits}")
+        text_lines.append(f"n={n}")
         if rh_data is not None and "shower_on" in stats:
             avg_rh = _get_rh_at_shower_on(stats["shower_on"], rh_data)
             if not np.isnan(avg_rh):
@@ -1013,6 +1021,7 @@ def _build_temp_stats(
                 "shower_on": group_df["shower_on"].copy()
                 if "shower_on" in group_df.columns
                 else pd.Series([], dtype="object"),
+                "config_key": config_key,
             }
     return temp_stats
 
@@ -1799,6 +1808,7 @@ def plot_emission_etotal_by_metric_boxplot(
                 "shower_on": group_df["shower_on"].copy()
                 if "shower_on" in group_df.columns
                 else pd.Series([], dtype="object"),
+                "config_key": config_key,
             }
 
         fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
