@@ -905,6 +905,7 @@ def plot_emission_boxplot(
         output_path: Base path used to derive the two output filenames
     """
     import re
+
     from matplotlib.patches import Patch
 
     apply_style()
@@ -936,7 +937,7 @@ def plot_emission_boxplot(
     all_bin_nums = list(particle_bins.keys())
 
     # Widths computed once across all bins so they are consistent between figures
-    all_bin_widths = np.linspace(2.5, 0.4, len(all_bin_nums))
+    all_bin_widths = np.linspace(0.5, 2.5, len(all_bin_nums))
 
     # Two figures: small bins (0-2) and large bins (3-6)
     bin_groups = [
@@ -968,7 +969,9 @@ def plot_emission_boxplot(
                 temp = temp_map.get(config_key)
                 if temp is None:
                     continue
-                values = base_df[base_df["config_key"] == config_key][col].dropna().values
+                values = (
+                    base_df[base_df["config_key"] == config_key][col].dropna().values
+                )
                 if len(values) > 0:
                     positions.append(temp)
                     data.append(values)
@@ -997,9 +1000,7 @@ def plot_emission_boxplot(
 
         ax.set_xlim(5, 60)
         ax.set_xticks(range(5, 65, 5))
-        ax.set_xticklabels(
-            [f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK
-        )
+        ax.set_xticklabels([f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK)
         ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
         ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
         ax.set_title(
@@ -1027,7 +1028,9 @@ def plot_emission_boxplot(
             ncol=1,
         )
 
-        group_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
+        group_output = (
+            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
+        )
         plt.tight_layout()
         save_figure(fig, group_output)
         plt.close(fig)
