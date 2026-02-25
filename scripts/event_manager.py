@@ -139,13 +139,13 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 18, 10, 23, 0), "W14"),  # Mixed water from Feb 18 10:23AM
     (datetime(2026, 2, 20, 8, 0, 0), "W53"),  # Mixed water from Feb 20 8AM
     (
-        datetime(2026, 2, 23, 8, 0, 0),
+        datetime(2026, 2, 24, 8, 0, 0),
         "W50b",
-    ),  # Mixed water from Feb 23 8AM (pepco shower head)
+    ),  # Mixed water from Feb 24 8AM (pepco shower head)
     (
-        datetime(2026, 2, 25, 8, 0, 0),
-        "W48b",
-    ),  # Mixed water from Feb 25 8AM (pepco shower head)
+        datetime(2026, 2, 27, 8, 0, 0),
+        "W50c",
+    ),  # Mixed water from Feb 27 8AM (pepco shower head setting change)
 ]
 
 # Door position transitions: (datetime, position)

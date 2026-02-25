@@ -91,10 +91,7 @@ def main() -> None:
         (["python", "scripts/event_registry.py", "--force"], repo_root),
         (["python", "src/co2_decay_analysis.py"], repo_root),
         (["python", "src/rh_temp_other_analysis.py"], repo_root),
-        (
-            ["python", "src/particle_decay_analysis.py", "--allow-negative-beta"],
-            repo_root,
-        ),
+        (["python", "src/particle_decay_analysis.py"], repo_root),
     ]
 
     for cmd, cwd in steps:
