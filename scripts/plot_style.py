@@ -212,7 +212,7 @@ BOXPLOT_CONFIG = {
     "temp_xmin": 5,
     "temp_xmax": 60,
     "temp_xtick_step": 5,
-    # Box width range — linspace(box_width_max, box_width_min, n_bins)
+    # Box width range — linspace(box_width_min, box_width_max, n_bins)
     "box_width_max": 2.5,
     "box_width_min": 0.4,
     # Box and whisker transparency

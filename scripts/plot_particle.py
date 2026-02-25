@@ -1092,7 +1092,7 @@ def plot_emission_boxplot(
     all_bin_nums = list(particle_bins.keys())
 
     # Widths computed once across all bins so they are consistent between figures
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_max"], BOXPLOT_CONFIG["box_width_min"], len(all_bin_nums))
+    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
 
     # Two figures: small bins (0-2) and large bins (3-6)
     bin_groups = [
@@ -1264,7 +1264,7 @@ def plot_deposition_rate_boxplot(
     all_bin_nums = list(particle_bins.keys())
 
     # Widths consistent with emission boxplot
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_max"], BOXPLOT_CONFIG["box_width_min"], len(all_bin_nums))
+    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
 
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
@@ -1429,7 +1429,7 @@ def plot_emission_rate_boxplot(
     temp_map = {k: _extract_temp(k) for k in config_keys}
     all_bin_nums = list(particle_bins.keys())
 
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_max"], BOXPLOT_CONFIG["box_width_min"], len(all_bin_nums))
+    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
 
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
@@ -1592,7 +1592,7 @@ def plot_penetration_factor_boxplot(
     temp_map = {k: _extract_temp(k) for k in config_keys}
     all_bin_nums = list(particle_bins.keys())
 
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_max"], BOXPLOT_CONFIG["box_width_min"], len(all_bin_nums))
+    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
 
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
@@ -1789,7 +1789,7 @@ def plot_emission_etotal_by_metric_boxplot(
         x_range = max(all_x_vals[-1] - all_x_vals[0], 0.01)
         width_max = 0.045 * x_range
         width_min = 0.007 * x_range
-        all_bin_widths = np.linspace(width_max, width_min, len(all_bin_nums))
+        all_bin_widths = np.linspace(width_min, width_max, len(all_bin_nums))
 
         # Build annotation stats keyed by x position (not temperature)
         value_cols = [f"bin{b}_E_total" for b in group_bins]

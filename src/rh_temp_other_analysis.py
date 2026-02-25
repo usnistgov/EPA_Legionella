@@ -113,6 +113,18 @@ BEDROOM_TEMP_SENSORS = [
     "QuantAQ Inside Temp",
 ]
 
+# Sensors excluded from per-event RH time-series figures (non-bedroom / outdoor sensors
+# that add clutter without informing the bedroom aerosol context).
+# Temperature and wind figures are not affected.
+RH_TIMESERIES_EXCLUDE = {
+    "Vaisala MBa RH",      # Vaisala bathroom
+    "Vaisala Liv RH",      # Vaisala livingroom
+    "Aranet4 Entry RH",    # Aranet livingroom
+    "Aranet4 Outside RH",  # Aranet outside
+    "QuantAQ Outside RH",  # QuantAQ outside
+    "AIO2 OutsideS RH",    # AIO2 outside
+}
+
 # Global cache for pre-loaded sensor data (populated once at start)
 _SENSOR_DATA_CACHE: Dict[str, pd.DataFrame] = {}
 
@@ -731,6 +743,8 @@ def generate_time_series_plots(
                 for name, cfg in SENSOR_CONFIG.items()
                 if cfg["variable_type"].startswith(var_type)
             }
+            if var_type == "rh":
+                sensors = {k: v for k, v in sensors.items() if k not in RH_TIMESERIES_EXCLUDE}
 
             # Use cached data instead of reloading for each plot
             data_dict = {}
