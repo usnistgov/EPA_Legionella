@@ -177,6 +177,7 @@ def analyze_event_all_bins(
     particle_data: pd.DataFrame,
     event: Dict,
     lambda_ach: float,
+    allow_negative_beta: bool = False,
 ) -> Dict:
     """
     Analyze all particle bins for a single shower event.
@@ -202,6 +203,8 @@ def analyze_event_all_bins(
         particle_data (pd.DataFrame): DataFrame with particle concentrations
         event (Dict): Event timing information
         lambda_ach (float): Air change rate (h⁻¹)
+        allow_negative_beta (bool): If True, negative trimmed-mean beta is used
+            directly (particle growth); see calculate_deposition_rate for detail.
 
     Returns:
         Dict: Results for all bins
@@ -278,6 +281,7 @@ def analyze_event_all_bins(
             bin_num,
             p_mean,
             lambda_ach,
+            allow_negative_beta=allow_negative_beta,
         )
 
         results[f"bin{bin_num}_beta"] = beta_result.get("beta", np.nan)
@@ -356,6 +360,7 @@ def analyze_event_all_bins(
             beta_val,
             effective_E,
             peak_time,
+            allow_negative_ct=allow_negative_beta,
         )
         results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
         results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
@@ -418,6 +423,7 @@ def analyze_event_all_bins(
 def run_particle_analysis(
     output_dir: Optional[Path] = None,
     generate_plots: bool = True,
+    allow_negative_beta: bool = False,
 ) -> pd.DataFrame:
     """
     Run the complete particle decay and emission analysis.
@@ -425,6 +431,10 @@ def run_particle_analysis(
     Parameters:
         output_dir (Path): Optional output directory (defaults to data_root/output)
         generate_plots (bool): If True, generate plots for each event and summary
+        allow_negative_beta (bool): If True, negative trimmed-mean beta values are
+            used directly in all subsequent calculations (Ct prediction, emission)
+            rather than being clamped to 0.  Use when particle growth is expected
+            (e.g. condensation-dominant conditions).
 
     Returns:
         pd.DataFrame: DataFrame with analysis results for all events and bins
@@ -437,6 +447,9 @@ def run_particle_analysis(
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
     print("Penetration factor: averaged before/after windows (p capped at 1)")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
+    if allow_negative_beta:
+        print("NOTE: --allow-negative-beta active — beta clamp disabled; "
+              "negative beta (particle growth) propagated to Ct and E calculations.")
     print("\nValidation thresholds:")
     print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
     print(
@@ -559,7 +572,10 @@ def run_particle_analysis(
             f"lambda={lambda_ach:.4f} h^-1"
         )
 
-        result = analyze_event_all_bins(particle_data, event, lambda_ach)
+        result = analyze_event_all_bins(
+            particle_data, event, lambda_ach,
+            allow_negative_beta=allow_negative_beta,
+        )
         results.append(result)
 
         # Print summary for this event with detailed skip reasons
@@ -799,6 +815,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
 
     try:
         from scripts.plot_particle import (
+            plot_deposition_rate_boxplot,
             plot_deposition_summary,
             plot_emission_boxplot,
             plot_emission_summary,
@@ -808,14 +825,37 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         print("  Warning: plot_particle module not found. Skipping plots.")
         return
 
+    # Load Aranet4 Bedroom RH data once for n= / RH= boxplot annotations.
+    # This is best-effort: if the Aranet4 files are unavailable the annotation
+    # will show n= only (no RH line).
+    rh_data = None
+    try:
+        from src.co2_decay_analysis import load_and_merge_co2_data
+        _co2_data = load_and_merge_co2_data()
+        rh_data = _co2_data[["datetime", "RH_bedroom"]].copy()
+        print("  Loaded Aranet4 bedroom RH for boxplot annotations.")
+    except Exception as _rh_err:
+        print(f"  Note: Could not load Aranet4 RH data (n= only annotations): {_rh_err}")
+
+    # Bar-chart summary plots (no RH annotation needed)
     for plot_func, filename in [
         (plot_penetration_summary, "penetration_summary.png"),
         (plot_deposition_summary, "deposition_summary.png"),
         (plot_emission_summary, "emission_summary.png"),
-        (plot_emission_boxplot, "emission_etotal_boxplot.png"),
     ]:
         try:
             plot_func(results_df, PARTICLE_BINS, plot_dir / filename)
+            print(f"  Generated: {filename}")
+        except Exception as e:
+            print(f"  Error generating {filename}: {e}")
+
+    # Boxplots with n= / RH= annotations
+    for plot_func, filename in [
+        (plot_emission_boxplot, "emission_etotal_boxplot.png"),
+        (plot_deposition_rate_boxplot, "deposition_rate_boxplot.png"),
+    ]:
+        try:
+            plot_func(results_df, PARTICLE_BINS, plot_dir / filename, rh_data=rh_data)
             print(f"  Generated: {filename}")
         except Exception as e:
             print(f"  Error generating {filename}: {e}")
@@ -839,6 +879,16 @@ def main():
         action="store_true",
         help="Disable plot generation",
     )
+    parser.add_argument(
+        "--allow-negative-beta",
+        action="store_true",
+        help=(
+            "Allow negative trimmed-mean beta (deposition rate). "
+            "By default beta is clamped to 0; this flag retains negative values "
+            "so that particle growth conditions are captured in all downstream "
+            "calculations (Ct prediction, emission rate, E_total)."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -847,6 +897,7 @@ def main():
     run_particle_analysis(
         output_dir=output_dir,
         generate_plots=not args.no_plot,
+        allow_negative_beta=args.allow_negative_beta,
     )
 
 

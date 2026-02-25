@@ -329,6 +329,7 @@ def calculate_deposition_rate(
     bin_num: int,
     p: float,
     lambda_ach: float,
+    allow_negative_beta: bool = False,
 ) -> Dict:
     """
     Calculate deposition rate (beta) using a numerical step-by-step approach.
@@ -359,11 +360,14 @@ def calculate_deposition_rate(
           and indicate measurement noise spikes.
         - 5th–95th percentile trim on the retained estimates to remove
           symmetric extreme outliers without introducing directional bias.
-        - Negative trimmed-mean beta is clamped to 0 (beta_raw_mean stores the
-          unclamped value for transparency).  For small bins where indoor ≈
-          outdoor concentration the signal is buried in noise; clamping to 0
-          allows Ct prediction and emission calculations to continue rather
-          than discarding the event entirely.
+        - Negative trimmed-mean beta handling depends on allow_negative_beta:
+          If False (default): clamp to 0 (beta_raw_mean stores unclamped value
+          for transparency).  For small bins where indoor ≈ outdoor
+          concentration the signal is buried in noise; clamping to 0 allows
+          Ct prediction and emission calculations to continue rather than
+          discarding the event entirely.
+          If True: use the negative trimmed-mean directly; represents particle
+          growth (e.g. coagulation or condensation net of settling).
         - c_t <= 0 steps skipped (division by c_t unstable).
         - DEPOSITION_WINDOW_HOURS (2.0): decay window length; 2 h is long
           enough for measurable decay of larger bins and short enough to
@@ -376,10 +380,12 @@ def calculate_deposition_rate(
         bin_num (int): Particle bin number (0-6)
         p (float): Penetration factor
         lambda_ach (float): Air change rate (h⁻¹)
+        allow_negative_beta (bool): If True, do not clamp beta to 0; negative
+            values (particle growth) are used directly in calculations.
 
     Returns:
-        Dict: Dictionary with beta (clamped ≥ 0), beta_raw_mean (unclamped
-              trimmed mean for transparency), beta_std, beta_r_squared,
+        Dict: Dictionary with beta (clamped ≥ 0 unless allow_negative_beta),
+              beta_raw_mean (unclamped trimmed mean), beta_std, beta_r_squared,
               n_points, c_steady_state, and peak_time; or NaN values +
               skip_reason on failure
     """
@@ -496,14 +502,16 @@ def calculate_deposition_rate(
     if len(beta_trimmed) == 0:
         beta_trimmed = beta_arr  # fall back to full set if trim removes everything
 
-    # Clamp the trimmed-mean beta to 0.  A negative mean indicates the
-    # concentration gradient was too small to measure deposition above noise
-    # (common for small bins where indoor ≈ outdoor in high-ACH rooms).
-    # We clamp rather than returning NaN so that the Ct prediction and emission
-    # calculations can still run; the raw (possibly negative) mean is stored as
-    # beta_raw_mean so callers can see when clamping occurred.
+    # Determine final beta value.
+    # Default: clamp to 0.  A negative mean indicates the concentration
+    # gradient was too small to measure deposition above noise (common for
+    # small bins where indoor ≈ outdoor in high-ACH rooms).  Clamping allows
+    # Ct prediction and emission calculations to continue rather than
+    # discarding the event.
+    # allow_negative_beta=True: retain negative values; these represent net
+    # particle growth (e.g. coagulation / condensation dominating over settling).
     beta_mean = float(np.mean(beta_trimmed))
-    beta_val = max(beta_mean, 0.0)
+    beta_val = beta_mean if allow_negative_beta else max(beta_mean, 0.0)
     beta_std_val = float(np.std(beta_trimmed))
 
     # Compute R² from a forward Euler simulation using mean beta and
@@ -519,7 +527,8 @@ def calculate_deposition_rate(
             c_t = sim[j]
             c_out_t = c_outside_valid[j]
             dCdt = p * lambda_ach * c_out_t - c_t * (lambda_ach + beta_val)
-            sim[j + 1] = max(c_t + dt_h * dCdt, 0.0)
+            next_val = c_t + dt_h * dCdt
+            sim[j + 1] = next_val if allow_negative_beta else max(next_val, 0.0)
 
         ss_res = float(np.sum((c_inside_valid - sim) ** 2))
         ss_tot = float(np.sum((c_inside_valid - np.mean(c_inside_valid)) ** 2))
@@ -714,6 +723,7 @@ def calculate_ct_prediction(
     beta: float,
     E_mean: float,
     peak_time: datetime,
+    allow_negative_ct: bool = False,
 ) -> Dict:
     """
     Simulate indoor particle concentration using forward Euler method.
@@ -747,6 +757,9 @@ def calculate_ct_prediction(
         E_mean (float): Mean emission rate during shower (#/min); use 0.0
                         to compute a decay-only prediction
         peak_time (datetime): Time of peak concentration (E=0 after this)
+        allow_negative_ct (bool): If True, remove the ≥ 0 floor from the
+            forward Euler simulation, allowing negative predicted concentrations
+            (used together with allow_negative_beta for growth-regime events).
 
     Returns:
         Dict with keys 'datetimes', 'predicted_ct', 'emission_datetimes',
@@ -802,7 +815,8 @@ def calculate_ct_prediction(
 
         # C_{t+1} = C_t + dt * [p*lambda*C_out - C_t*(lambda + beta) + E/V]
         dCdt = p * lambda_ach * c_out_t - c_t * (lambda_ach + beta) + E_active / V
-        predicted[i + 1] = max(c_t + dt_hours * dCdt, 0.0)
+        next_ct = c_t + dt_hours * dCdt
+        predicted[i + 1] = next_ct if allow_negative_ct else max(next_ct, 0.0)
 
     # Split the continuous simulation at peak_time into emission and decay phases.
     # Both arrays overlap by one point at peak_time so they form a seamless curve.

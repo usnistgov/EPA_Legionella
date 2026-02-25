@@ -767,6 +767,168 @@ def analyze_injection_event(
 
 
 # =============================================================================
+# Air-Change Rate Box-and-Whisker Plot
+# =============================================================================
+
+
+def plot_air_change_rate_boxplot(
+    results_df: pd.DataFrame,
+    output_path: Path,
+) -> None:
+    """
+    Create a single box-and-whisker figure of air-change rate (λ) by water temperature.
+
+    One box is drawn per water temperature using ``lambda_average_mean``.  Only
+    base W## events are included (letter-suffix repeats such as W48b are
+    excluded).  X-axis is a fixed numeric range 5–60 °C with ticks every 5 °C.
+    Above each box the event count is annotated as ``n=X``.
+
+    Parameters:
+        results_df: DataFrame with CO2 analysis results.  Must contain
+            ``water_temp`` and ``lambda_average_mean`` columns.
+        output_path: Path at which to save ``air_change_rate_boxplot.png``.
+    """
+    import re
+
+    from matplotlib.patches import Patch
+
+    from scripts.plot_style import (
+        FONT_SIZE_ANNOTATION,
+        FONT_SIZE_LABEL,
+        FONT_SIZE_LEGEND,
+        FONT_SIZE_TICK,
+        FONT_SIZE_TITLE,
+        SENSOR_COLORS,
+        TITLE_FONTWEIGHT,
+        apply_style,
+        create_figure,
+        save_figure,
+    )
+
+    apply_style()
+
+    if results_df.empty or "water_temp" not in results_df.columns:
+        return
+
+    lambda_col = "lambda_average_mean"
+    if lambda_col not in results_df.columns:
+        return
+
+    # Keep only base W## water temps — no letter suffix
+    def _is_base_wt(wt: str) -> bool:
+        return bool(re.match(r"^W\d+$", str(wt)))
+
+    def _extract_temp(wt: str) -> "float | None":
+        m = re.match(r"^W(\d+)$", str(wt))
+        return float(m.group(1)) if m else None
+
+    base_df = results_df[results_df["water_temp"].apply(_is_base_wt)].copy()
+
+    if base_df.empty:
+        return
+
+    # Sort unique temperatures numerically
+    unique_wts = sort_config_keys_by_water_temp(
+        [wt for wt in base_df["water_temp"].dropna().unique()]
+    )
+    if not unique_wts:
+        return
+
+    temp_map = {wt: _extract_temp(wt) for wt in unique_wts}
+
+    # Collect data and positions
+    positions: list = []
+    data: list = []
+    n_per_temp: dict = {}
+    max_val_per_temp: dict = {}
+
+    for wt in unique_wts:
+        temp = temp_map.get(wt)
+        if temp is None:
+            continue
+        values = (
+            base_df[base_df["water_temp"] == wt][lambda_col].dropna().values
+        )
+        if len(values) > 0:
+            positions.append(temp)
+            data.append(values)
+            n_per_temp[temp] = len(values)
+            max_val_per_temp[temp] = float(np.max(values))
+
+    if not data:
+        return
+
+    fig, ax = create_figure(figsize=(16, 9))
+    if isinstance(ax, list):
+        ax = ax[0]
+
+    color = SENSOR_COLORS[0]
+    box_width = 2.5
+
+    bp = ax.boxplot(
+        data,
+        positions=positions,
+        widths=box_width,
+        patch_artist=True,
+        showfliers=True,
+        flierprops=dict(marker="o", markersize=3, alpha=0.5, color=color),
+    )
+    for patch in bp["boxes"]:
+        patch.set_facecolor(color)
+        patch.set_alpha(0.7)
+    for element in ("whiskers", "caps"):
+        for line in bp[element]:
+            line.set_color(color)
+            line.set_alpha(0.7)
+    for med in bp["medians"]:
+        med.set_color("black")
+        med.set_linewidth(1.5)
+
+    # Extend y-axis headroom for annotations
+    y_min, y_max = ax.get_ylim()
+    y_range = y_max - y_min
+    ax.set_ylim(y_min, y_max + 0.20 * y_range)
+    y_min, y_max = ax.get_ylim()
+    y_range = y_max - y_min
+    offset = 0.02 * y_range
+
+    for temp in sorted(max_val_per_temp):
+        n = n_per_temp.get(temp, 0)
+        max_val = max_val_per_temp[temp]
+        ax.text(
+            temp,
+            max_val + offset,
+            f"n={n}",
+            ha="center",
+            va="bottom",
+            fontsize=FONT_SIZE_ANNOTATION,
+            color="black",
+        )
+
+    ax.set_xlim(5, 60)
+    ax.set_xticks(range(5, 65, 5))
+    ax.set_xticklabels(
+        [f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK
+    )
+    ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
+    ax.set_ylabel("Air-Change Rate λ (h⁻¹)", fontsize=FONT_SIZE_LABEL)
+    ax.set_title(
+        "Air-Change Rate by Water Temperature\n"
+        "(Box = median/IQR, whiskers = 1.5×IQR; λ from CO₂ decay analysis)",
+        fontsize=FONT_SIZE_TITLE,
+        fontweight=TITLE_FONTWEIGHT,
+    )
+    ax.grid(True, alpha=0.3, axis="y")
+    ax.tick_params(labelsize=FONT_SIZE_TICK)
+
+    import matplotlib.pyplot as plt
+
+    plt.tight_layout()
+    save_figure(fig, output_path)
+    plt.close(fig)
+
+
+# =============================================================================
 # Main Analysis Pipeline
 # =============================================================================
 
@@ -1151,10 +1313,19 @@ def run_co2_decay_analysis(
     print(f"Summary saved to: {summary_file}")
     print(f"  Configurations: {len(config_keys)}")
 
-    # Generate summary plot if enabled
+    # Generate summary plots if enabled
     if generate_plots and len(valid_values) > 0:
         summary_plot_path = plot_dir / "lambda_summary.png"
         plot_lambda_summary(results_df, output_path=summary_plot_path)
+
+        # Air-change rate box-and-whisker plot
+        try:
+            acr_plot_path = plot_dir / "air_change_rate_boxplot.png"
+            plot_air_change_rate_boxplot(results_df, acr_plot_path)
+            print(f"  Generated: air_change_rate_boxplot.png")
+        except Exception as _acr_err:
+            print(f"  Warning: Could not generate air_change_rate_boxplot: {_acr_err}")
+
         print(f"Plots saved to: {plot_dir}")
 
     return results_df

@@ -60,6 +60,7 @@ import pandas as pd
 from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
     COLORS,
+    FONT_SIZE_ANNOTATION,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
     FONT_SIZE_TICK,
@@ -879,10 +880,147 @@ def plot_size_distribution_summary(
     plt.close(fig)
 
 
+def _get_rh_at_shower_on(
+    shower_on_series: "pd.Series",
+    rh_data: "pd.DataFrame",
+    tolerance_min: float = 5.0,
+) -> float:
+    """
+    Return the average Aranet4 Bedroom RH (%) at the shower-on times in *shower_on_series*.
+
+    Parameters:
+        shower_on_series: Series of shower_on timestamps for one temperature group.
+        rh_data: DataFrame with columns 'datetime' and 'RH_bedroom'.
+        tolerance_min: Maximum allowed time difference (minutes) for a nearest-
+            neighbour match.
+
+    Returns:
+        Mean RH across matched events, or np.nan if no matches found.
+    """
+    rh_vals = []
+    for t in shower_on_series.dropna():
+        t_pd = pd.Timestamp(t)
+        diffs = (rh_data["datetime"] - t_pd).abs().dt.total_seconds() / 60.0
+        nearest_idx = int(diffs.idxmin())
+        if float(diffs.iloc[nearest_idx]) <= tolerance_min:
+            rh_vals.append(float(rh_data["RH_bedroom"].iloc[nearest_idx]))
+    return float(np.mean(rh_vals)) if rh_vals else np.nan
+
+
+def _annotate_temp_groups(
+    ax: "plt.Axes",
+    temp_stats: dict,
+    rh_data: "Optional[pd.DataFrame]",
+    font_size: int,
+) -> None:
+    """
+    Add 'n=#\\nRH=##%' annotations above the highest data point in each
+    temperature group.
+
+    Parameters:
+        ax: The axes on which boxes have already been drawn.
+        temp_stats: Dict mapping numeric temperature → dict with keys
+            'n' (event count), 'shower_on' (pd.Series of shower-on times),
+            'max_val' (highest plotted data value across all bins).
+        rh_data: Aranet4 Bedroom RH DataFrame (datetime + RH_bedroom) or None.
+        font_size: Font size for annotation text.
+    """
+    if not temp_stats:
+        return
+
+    # Extend y-axis headroom so annotations aren't clipped
+    y_min, y_max = ax.get_ylim()
+    y_range = y_max - y_min
+    ax.set_ylim(y_min, y_max + 0.20 * y_range)
+    y_min, y_max = ax.get_ylim()
+    y_range = y_max - y_min
+    offset = 0.02 * y_range
+
+    for temp, stats in sorted(temp_stats.items()):
+        n = stats["n"]
+        max_val = stats.get("max_val", np.nan)
+        if np.isnan(max_val):
+            continue
+
+        text_lines = [f"n={n}"]
+        if rh_data is not None and "shower_on" in stats:
+            avg_rh = _get_rh_at_shower_on(stats["shower_on"], rh_data)
+            if not np.isnan(avg_rh):
+                text_lines.append(f"RH={avg_rh:.0f}%")
+
+        ax.text(
+            temp,
+            max_val + offset,
+            "\n".join(text_lines),
+            ha="center",
+            va="bottom",
+            fontsize=font_size,
+            color="black",
+        )
+
+
+def _build_temp_stats(
+    base_df: pd.DataFrame,
+    config_keys: list,
+    temp_map: dict,
+    value_cols: list,
+) -> dict:
+    """
+    Build per-temperature statistics used for the annotation pass.
+
+    Parameters:
+        base_df: Filtered results DataFrame (base W## configs only).
+        config_keys: Ordered list of config keys to include.
+        temp_map: Mapping config_key → numeric temperature.
+        value_cols: List of column names whose values contribute to max_val
+            (e.g. all E_total or beta_raw_mean columns for the figure).
+
+    Returns:
+        Dict mapping numeric temperature → {n, shower_on (Series), max_val}.
+    """
+    temp_stats: dict = {}
+    for config_key in config_keys:
+        temp = temp_map.get(config_key)
+        if temp is None:
+            continue
+        group_df = base_df[base_df["config_key"] == config_key]
+
+        # Aggregate values for max-val tracking
+        all_vals: list = []
+        for col in value_cols:
+            if col in group_df.columns:
+                all_vals.extend(group_df[col].dropna().values.tolist())
+
+        n = len(group_df)
+        max_val = float(np.max(all_vals)) if all_vals else np.nan
+
+        if temp in temp_stats:
+            temp_stats[temp]["n"] += n
+            if not np.isnan(max_val):
+                cur = temp_stats[temp].get("max_val", np.nan)
+                temp_stats[temp]["max_val"] = (
+                    max(cur, max_val) if not np.isnan(cur) else max_val
+                )
+            if "shower_on" in group_df.columns:
+                temp_stats[temp]["shower_on"] = pd.concat(
+                    [temp_stats[temp]["shower_on"], group_df["shower_on"]]
+                )
+        else:
+            temp_stats[temp] = {
+                "n": n,
+                "max_val": max_val,
+                "shower_on": group_df["shower_on"].copy()
+                if "shower_on" in group_df.columns
+                else pd.Series([], dtype="object"),
+            }
+    return temp_stats
+
+
 def plot_emission_boxplot(
     results_df: pd.DataFrame,
     particle_bins: Dict,
     output_path: Path,
+    rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
     """
     Create two box-and-whisker figures of total particle emission by water temperature.
@@ -898,11 +1036,18 @@ def plot_emission_boxplot(
     widest box and each successive bin is progressively narrower.  The y-axis
     auto-scales independently for each figure.
 
+    Above the highest data point in each temperature group the annotation
+    ``n=X\\nRH=XX%`` is added, where n is the event count and RH is the average
+    Aranet4 Bedroom relative humidity at shower-on time.  RH is omitted when
+    *rh_data* is None.
+
     Parameters:
         results_df: DataFrame with analysis results (must contain config_key and
                     bin{n}_E_total columns)
         particle_bins: Dictionary of particle bin information
         output_path: Base path used to derive the two output filenames
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns
+            used to annotate mean initial RH per temperature group.
     """
     import re
     from matplotlib.patches import Patch
@@ -916,7 +1061,7 @@ def plot_emission_boxplot(
     def _is_base(key: str) -> bool:
         return bool(re.match(r"^W\d+(_|$)", str(key)))
 
-    def _extract_temp(key: str) -> float | None:
+    def _extract_temp(key: str) -> "float | None":
         m = re.match(r"^W(\d+)", str(key))
         return float(m.group(1)) if m else None
 
@@ -947,6 +1092,10 @@ def plot_emission_boxplot(
     for group_bins, group_label in bin_groups:
         if not group_bins:
             continue
+
+        # Pre-compute per-temperature stats for annotations
+        value_cols = [f"bin{b}_E_total" for b in group_bins]
+        temp_stats = _build_temp_stats(base_df, config_keys, temp_map, value_cols)
 
         fig, ax = create_figure(figsize=(16, 9))
         if isinstance(ax, list):
@@ -995,6 +1144,9 @@ def plot_emission_boxplot(
                 med.set_color("black")
                 med.set_linewidth(1.5)
 
+        # Annotations: n= and RH= above the highest data point per temperature
+        _annotate_temp_groups(ax, temp_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
+
         ax.set_xlim(5, 60)
         ax.set_xticks(range(5, 65, 5))
         ax.set_xticklabels(
@@ -1012,6 +1164,169 @@ def plot_emission_boxplot(
         ax.tick_params(labelsize=FONT_SIZE_TICK)
 
         # Legend: one entry per bin in this group
+        legend_elements = [
+            Patch(
+                facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
+                alpha=0.7,
+                label=f"Bin {b} ({particle_bins[b]['name']} µm)",
+            )
+            for b in group_bins
+        ]
+        ax.legend(
+            handles=legend_elements,
+            loc="upper right",
+            fontsize=FONT_SIZE_LEGEND - 1,
+            ncol=1,
+        )
+
+        group_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
+        plt.tight_layout()
+        save_figure(fig, group_output)
+        plt.close(fig)
+
+
+def plot_deposition_rate_boxplot(
+    results_df: pd.DataFrame,
+    particle_bins: Dict,
+    output_path: Path,
+    rh_data: "Optional[pd.DataFrame]" = None,
+) -> None:
+    """
+    Create two box-and-whisker figures of particle deposition rate by water temperature.
+
+    Mirrors the structure of :func:`plot_emission_boxplot`, producing one figure
+    for small bins (Bin 0–2) and one for large bins (Bin 3–6), saved as
+    ``deposition_rate_boxplot_bin0-2.png`` and ``deposition_rate_boxplot_bin3-6.png``.
+
+    Uses the **unclamped** trimmed-mean deposition rate (``bin{n}_beta_raw_mean``),
+    which may be negative when particle growth dominates over deposition.
+
+    X-axis is a fixed numeric range 5–60 °C.  Only base W## events are included
+    (letter-suffix repeats such as W48b are excluded).
+
+    Above the highest data point in each temperature group the annotation
+    ``n=X\\nRH=XX%`` is added (RH omitted when *rh_data* is None).
+
+    Parameters:
+        results_df: DataFrame with analysis results (must contain config_key and
+                    bin{n}_beta_raw_mean columns).
+        particle_bins: Dictionary of particle bin information.
+        output_path: Base path used to derive the two output filenames.
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns
+            used to annotate mean initial RH per temperature group.
+    """
+    import re
+    from matplotlib.patches import Patch
+
+    apply_style()
+
+    if results_df.empty or "config_key" not in results_df.columns:
+        return
+
+    def _is_base(key: str) -> bool:
+        return bool(re.match(r"^W\d+(_|$)", str(key)))
+
+    def _extract_temp(key: str) -> "float | None":
+        m = re.match(r"^W(\d+)", str(key))
+        return float(m.group(1)) if m else None
+
+    base_df = results_df[results_df["config_key"].apply(_is_base)].copy()
+
+    if base_df.empty:
+        return
+
+    config_keys = sort_config_keys_by_water_temp(
+        [k for k in base_df["config_key"].dropna().unique()]
+    )
+
+    if not config_keys:
+        return
+
+    temp_map = {k: _extract_temp(k) for k in config_keys}
+    all_bin_nums = list(particle_bins.keys())
+
+    # Widths consistent with emission boxplot
+    all_bin_widths = np.linspace(2.5, 0.4, len(all_bin_nums))
+
+    bin_groups = [
+        ([b for b in all_bin_nums if b <= 2], "bin0-2"),
+        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
+    ]
+
+    for group_bins, group_label in bin_groups:
+        if not group_bins:
+            continue
+
+        value_cols = [f"bin{b}_beta_raw_mean" for b in group_bins]
+        temp_stats = _build_temp_stats(base_df, config_keys, temp_map, value_cols)
+
+        fig, ax = create_figure(figsize=(16, 9))
+        if isinstance(ax, list):
+            ax = ax[0]
+
+        for bin_num in group_bins:
+            global_idx = all_bin_nums.index(bin_num)
+            color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
+            col = f"bin{bin_num}_beta_raw_mean"
+            if col not in base_df.columns:
+                continue
+
+            box_width = float(all_bin_widths[global_idx])
+            positions = []
+            data = []
+
+            for config_key in config_keys:
+                temp = temp_map.get(config_key)
+                if temp is None:
+                    continue
+                values = base_df[base_df["config_key"] == config_key][col].dropna().values
+                if len(values) > 0:
+                    positions.append(temp)
+                    data.append(values)
+
+            if not data:
+                continue
+
+            bp = ax.boxplot(
+                data,
+                positions=positions,
+                widths=box_width,
+                patch_artist=True,
+                showfliers=True,
+                flierprops=dict(marker="o", markersize=3, alpha=0.5, color=color),
+            )
+            for patch in bp["boxes"]:
+                patch.set_facecolor(color)
+                patch.set_alpha(0.7)
+            for element in ("whiskers", "caps"):
+                for line in bp[element]:
+                    line.set_color(color)
+                    line.set_alpha(0.7)
+            for med in bp["medians"]:
+                med.set_color("black")
+                med.set_linewidth(1.5)
+
+        # Annotations: n= and RH= above the highest data point per temperature
+        _annotate_temp_groups(ax, temp_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
+
+        ax.set_xlim(5, 60)
+        ax.set_xticks(range(5, 65, 5))
+        ax.set_xticklabels(
+            [f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK
+        )
+        ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
+        ax.set_title(
+            f"Particle Deposition Rate by Water Temperature — "
+            f"{group_label.replace('-', '–').replace('bin', 'Bin ')}"
+            "\n(Box = median/IQR, whiskers = 1.5×IQR; β = unclamped trimmed mean)",
+            fontsize=FONT_SIZE_TITLE,
+            fontweight=TITLE_FONTWEIGHT,
+        )
+        ax.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.tick_params(labelsize=FONT_SIZE_TICK)
+
         legend_elements = [
             Patch(
                 facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
