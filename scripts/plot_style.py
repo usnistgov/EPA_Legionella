@@ -197,6 +197,35 @@ SHOWER_OFF_STYLE = {
 # Analysis window shaded region styles
 WINDOW_ALPHA = 0.15  # Transparency for shaded analysis windows
 
+# =============================================================================
+# Boxplot Configuration
+# =============================================================================
+
+# Shared settings for all summary boxplot functions (temperature-vs-metric figures).
+# Centralised here so that visual style is consistent across plot_emission_boxplot,
+# plot_deposition_rate_boxplot, plot_emission_rate_boxplot, and
+# plot_penetration_factor_boxplot without duplicating literal values.
+BOXPLOT_CONFIG = {
+    # Figure size (width, height) in inches
+    "figsize": (16, 9),
+    # Fixed water-temperature x-axis for W## config groups
+    "temp_xmin": 5,
+    "temp_xmax": 60,
+    "temp_xtick_step": 5,
+    # Box width range — linspace(box_width_max, box_width_min, n_bins)
+    "box_width_max": 2.5,
+    "box_width_min": 0.4,
+    # Box and whisker transparency
+    "box_alpha": 0.7,
+    # Median line appearance
+    "median_color": "black",
+    "median_linewidth": 1.5,
+    # Flier (outlier point) appearance
+    "flier_marker": "o",
+    "flier_markersize": 3,
+    "flier_alpha": 0.5,
+}
+
 
 # =============================================================================
 # Core Utility Functions

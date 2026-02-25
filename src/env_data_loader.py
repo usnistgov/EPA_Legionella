@@ -263,6 +263,19 @@ SENSOR_CONFIG = {
         "column": "Wind_Direction_deg",
         "variable_type": "wind_direction",
     },
+    # AIO2 RH and Temperature sensors
+    "AIO2 OutsideS RH": {
+        "instrument": "AIO2",
+        "location": "outdoor",
+        "column": "Relative_Humidity_%",
+        "variable_type": "rh",
+    },
+    "AIO2 OutsideS Temp": {
+        "instrument": "AIO2",
+        "location": "outdoor",
+        "column": "Ambient_Temperature_degC",
+        "variable_type": "temperature",
+    },
 }
 
 

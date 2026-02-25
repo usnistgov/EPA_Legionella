@@ -78,7 +78,7 @@ from scripts.plot_utils import (  # noqa: E402
     plot_pre_post_comparison,
     plot_sensor_summary_bars,
 )
-from src.data_paths import get_data_root  # noqa: E402
+from src.data_paths import get_data_root, get_event_figures_dir  # noqa: E402
 from src.env_data_loader import (  # noqa: E402
     SENSOR_CONFIG,
     identify_shower_events,
@@ -93,6 +93,30 @@ from src.env_data_loader import (  # noqa: E402
 # Analysis window parameters
 PRE_SHOWER_MINUTES = 30  # Minutes before shower ON for baseline
 POST_SHOWER_HOURS = 2  # Hours after shower OFF for analysis
+
+# Bedroom average conditions window: number of minutes before shower ON
+# to use when computing the per-event average bedroom RH and temperature.
+# Change this value to adjust the pre-shower averaging window length.
+BEDROOM_CONDITIONS_WINDOW_MINUTES = 5
+
+# SENSOR_CONFIG keys for the bedroom instruments used in the bedroom average.
+# These map to SENSOR_CONFIG in env_data_loader.py.
+BEDROOM_RH_SENSORS = [
+    "Vaisala Bed1 RH",
+    "HOBO Bedroom1 RH",
+    "HOBO Bedroom2 RH",
+    "HOBO Bedroom3 RH",
+    "Aranet4 Bedroom RH",
+    "QuantAQ Inside RH",
+]
+BEDROOM_TEMP_SENSORS = [
+    "Vaisala Bed1 Temp",
+    "HOBO Bedroom1 Temp",
+    "HOBO Bedroom2 Temp",
+    "HOBO Bedroom3 Temp",
+    "Aranet4 Bedroom Temp",
+    "QuantAQ Inside Temp",
+]
 
 # Global cache for pre-loaded sensor data (populated once at start)
 _SENSOR_DATA_CACHE: Dict[str, pd.DataFrame] = {}
@@ -114,6 +138,7 @@ SENSOR_DISPLAY_ORDER = [
     "Aranet4 Entry",
     "Aranet4 Outside",
     "QuantAQ Outside",
+    "AIO2 OutsideS",
 ]
 
 
@@ -203,6 +228,75 @@ def clear_sensor_cache():
     """Clear the global sensor data cache."""
     global _SENSOR_DATA_CACHE
     _SENSOR_DATA_CACHE = {}
+
+
+def calculate_bedroom_conditions(event: Dict) -> Dict:
+    """
+    Calculate average bedroom RH and temperature for a shower event.
+
+    Uses a window of BEDROOM_CONDITIONS_WINDOW_MINUTES before shower ON.
+    Only bedroom instruments with data in that window are included in the average.
+    Reports mean, std, and uncertainty (std / sqrt(n_instruments)) for each variable.
+
+    Args:
+        event: Shower event dict with timing information
+
+    Returns:
+        Dict with keys: rh_mean, rh_std, rh_uncertainty, rh_n_instruments,
+                        temp_mean, temp_std, temp_uncertainty, temp_n_instruments
+    """
+    shower_on = event["shower_on"]
+    window_start = shower_on - timedelta(minutes=BEDROOM_CONDITIONS_WINDOW_MINUTES)
+    window_end = shower_on
+
+    def _avg_sensor_group(sensor_keys: List[str]) -> Dict:
+        """Average across available sensors for the window."""
+        per_sensor_means = []
+        for sensor_name in sensor_keys:
+            data = get_cached_sensor_data(sensor_name, window_start, window_end)
+            if data is None or data.empty:
+                continue
+            window_vals = data.loc[
+                (data["datetime"] >= window_start) & (data["datetime"] <= window_end),
+                "value",
+            ].dropna()
+            if len(window_vals) == 0:
+                continue
+            per_sensor_means.append(float(window_vals.mean()))
+
+        n = len(per_sensor_means)
+        if n == 0:
+            return {
+                "mean": np.nan,
+                "std": np.nan,
+                "uncertainty": np.nan,
+                "n_instruments": 0,
+            }
+
+        arr = np.array(per_sensor_means)
+        mean_val = float(np.mean(arr))
+        std_val = float(np.std(arr, ddof=1)) if n > 1 else 0.0
+        uncertainty = std_val / np.sqrt(n) if n > 1 else np.nan
+        return {
+            "mean": mean_val,
+            "std": std_val,
+            "uncertainty": float(uncertainty) if not np.isnan(uncertainty) else np.nan,
+            "n_instruments": n,
+        }
+
+    rh_stats = _avg_sensor_group(BEDROOM_RH_SENSORS)
+    temp_stats = _avg_sensor_group(BEDROOM_TEMP_SENSORS)
+
+    return {
+        "rh_mean": rh_stats["mean"],
+        "rh_std": rh_stats["std"],
+        "rh_uncertainty": rh_stats["uncertainty"],
+        "rh_n_instruments": rh_stats["n_instruments"],
+        "temp_mean": temp_stats["mean"],
+        "temp_std": temp_stats["std"],
+        "temp_uncertainty": temp_stats["uncertainty"],
+        "temp_n_instruments": temp_stats["n_instruments"],
+    }
 
 
 # =============================================================================
@@ -449,7 +543,10 @@ def create_event_details_dataframe(
 
 
 def save_results_to_excel(
-    all_results: List[Dict], events: List[Dict], output_path: Path
+    all_results: List[Dict],
+    events: List[Dict],
+    output_path: Path,
+    bedroom_conditions: Optional[List[Dict]] = None,
 ):
     """
     Save all analysis results to an Excel workbook.
@@ -554,6 +651,35 @@ def save_results_to_excel(
         )
         event_df.to_excel(writer, sheet_name="Event_Log", index=False)
 
+        # Bedroom_Conditions sheet: per-event average bedroom RH and temperature
+        # computed over a BEDROOM_CONDITIONS_WINDOW_MINUTES window before shower ON.
+        # Also stores std and uncertainty (not used for figures, but saved for reference).
+        if bedroom_conditions is not None and len(bedroom_conditions) > 0:
+            bed_rows = []
+            for i, (cond, event) in enumerate(zip(bedroom_conditions, events)):
+                bed_rows.append(
+                    {
+                        "event_number": event.get("event_number", i + 1),
+                        "test_name": event.get("test_name", f"Event_{i + 1}"),
+                        "config_key": event.get("config_key", ""),
+                        "water_temp": event.get("water_temp", ""),
+                        "shower_on": event["shower_on"],
+                        "window_minutes": BEDROOM_CONDITIONS_WINDOW_MINUTES,
+                        "rh_mean (%)": cond.get("rh_mean", np.nan),
+                        "rh_std (%)": cond.get("rh_std", np.nan),
+                        "rh_uncertainty (%)": cond.get("rh_uncertainty", np.nan),
+                        "rh_n_instruments": cond.get("rh_n_instruments", 0),
+                        "temp_mean (degC)": cond.get("temp_mean", np.nan),
+                        "temp_std (degC)": cond.get("temp_std", np.nan),
+                        "temp_uncertainty (degC)": cond.get("temp_uncertainty", np.nan),
+                        "temp_n_instruments": cond.get("temp_n_instruments", 0),
+                    }
+                )
+            bedroom_df = pd.DataFrame(bed_rows)
+            bedroom_df.to_excel(
+                writer, sheet_name="Bedroom_Conditions", index=False
+            )
+
     print(f"Results saved to: {output_path}")
 
 
@@ -577,8 +703,8 @@ def generate_time_series_plots(
         max_events: Maximum events to plot (None=all, ignored if specific_events set)
         specific_events: List of specific event numbers to plot (1-indexed)
     """
-    plot_dir = output_dir / "plots"
-    plot_dir.mkdir(parents=True, exist_ok=True)
+    event_figures_dir = get_event_figures_dir(output_dir)
+    event_figures_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine which events to plot
     if specific_events:
@@ -631,7 +757,7 @@ def generate_time_series_plots(
 
                 formatted_name = format_test_name_for_filename(test_name)
                 output_path = (
-                    plot_dir
+                    event_figures_dir
                     / f"event_{event_num:02d}-{formatted_name}_{var_type}_timeseries.png"
                 )
                 plot_environmental_time_series(
@@ -939,6 +1065,7 @@ def run_rh_temp_analysis(
     # Analyze each event
     print(f"\nAnalyzing {len(events)} shower events...")
     all_results = []
+    all_bedroom_conditions = []
 
     for i, event in enumerate(events):
         event_num = event.get("event_number", i + 1)
@@ -974,11 +1101,16 @@ def run_rh_temp_analysis(
         if not sensor_data:
             print("    Warning: No sensor data available for this event")
             all_results.append({})
+            all_bedroom_conditions.append({})
             continue
 
         print(f"    Using data from {len(sensor_data)} sensors")
         event_results = analyze_shower_event(event, sensor_data)
         all_results.append(event_results)
+
+        # Calculate average bedroom conditions for this event
+        bed_cond = calculate_bedroom_conditions(event)
+        all_bedroom_conditions.append(bed_cond)
 
     # Save results
     print("\n" + "=" * 60)
@@ -986,13 +1118,14 @@ def run_rh_temp_analysis(
     print("=" * 60)
 
     excel_path = output_dir / "rh_temp_wind_summary.xlsx"
-    save_results_to_excel(all_results, events, excel_path)
+    save_results_to_excel(all_results, events, excel_path, all_bedroom_conditions)
 
     # Generate plots
     if generate_plots:
         generate_time_series_plots(events, output_dir, max_plot_events, specific_events)
         generate_comparison_plots(all_results, events, output_dir)
-        print(f"\nPlots saved to: {output_dir / 'plots'}")
+        print(f"\nEvent timeseries saved to: {get_event_figures_dir(output_dir)}")
+        print(f"Summary plots saved to: {output_dir / 'plots'}")
 
     # Print summary
     print("\n" + "=" * 60)

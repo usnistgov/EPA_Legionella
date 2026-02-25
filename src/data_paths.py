@@ -449,3 +449,23 @@ def get_outdoor_data_file(target_date: Union[date, str]) -> Path:
 def get_quantaq_data_path() -> Path:
     """Get path to QuantAQ data directory."""
     return get_instrument_path("QuantAQ_MODULAIR_PM")
+
+
+def get_event_figures_dir(output_dir: Path) -> Path:
+    """
+    Get the directory path for per-event figure files.
+
+    Per-event figures (CO2 decay, PM decay, RH/Temp/Wind timeseries) are saved
+    in a subdirectory of the main plots folder to keep the plots folder tidy.
+
+    Args:
+        output_dir: The analysis output directory (e.g. data_root/output)
+
+    Returns:
+        Path: output_dir / "plots" / event_figures_subfolder
+    """
+    config = _load_config()
+    subfolder = config.get("common_files", {}).get(
+        "event_figures_subfolder", "event_figures"
+    )
+    return output_dir / "plots" / subfolder

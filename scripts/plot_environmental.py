@@ -94,6 +94,7 @@ SENSOR_DISPLAY_NAMES = {
     "Aranet4 Entry": "Aranet4 Livingroom",
     "Aranet4 Outside": "Aranet4 OutsideN",
     "QuantAQ Outside": "QuantAQ OutsideS",
+    # AIO2 OutsideS stays the same (no rename needed)
     # Aranet4 Bedroom stays the same (no mapping needed)
 }
 
@@ -113,6 +114,7 @@ SENSOR_DISPLAY_ORDER = [
     "Aranet4 Livingroom",
     "Aranet4 OutsideN",
     "QuantAQ OutsideS",
+    "AIO2 OutsideS",
 ]
 
 

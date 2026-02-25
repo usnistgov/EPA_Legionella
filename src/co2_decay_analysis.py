@@ -92,6 +92,7 @@ from scripts.plot_utils import (  # noqa: E402
 from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
+    get_event_figures_dir,
     get_instrument_config,
     get_instrument_path,
 )
@@ -1055,6 +1056,7 @@ def run_co2_decay_analysis(
     print("\nAnalyzing injection events...")
     results = []
     plot_dir = output_dir / "plots"
+    event_figures_dir = get_event_figures_dir(output_dir)
 
     for i, event in enumerate(events):
         event_num = event.get("event_number", i + 1)
@@ -1133,8 +1135,10 @@ def run_co2_decay_analysis(
                 from scripts.plot_style import format_test_name_for_filename
 
                 formatted_name = format_test_name_for_filename(test_name)
+                event_figures_dir.mkdir(parents=True, exist_ok=True)
                 plot_path = (
-                    plot_dir / f"event_{event_num:02d}-{formatted_name}_co2_decay.png"
+                    event_figures_dir
+                    / f"event_{event_num:02d}-{formatted_name}_co2_decay.png"
                 )
                 plot_co2_decay_event_analytical(
                     co2_data=co2_data,

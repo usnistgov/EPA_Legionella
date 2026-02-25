@@ -144,7 +144,7 @@ from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
 )
-from src.data_paths import get_data_root  # noqa: E402
+from src.data_paths import get_data_root, get_event_figures_dir  # noqa: E402
 from src.particle_calculations import (  # noqa: E402
     BEDROOM_VOLUME_M3,
     DEPOSITION_WINDOW_HOURS,
@@ -177,7 +177,6 @@ def analyze_event_all_bins(
     particle_data: pd.DataFrame,
     event: Dict,
     lambda_ach: float,
-    allow_negative_beta: bool = False,
 ) -> Dict:
     """
     Analyze all particle bins for a single shower event.
@@ -203,8 +202,6 @@ def analyze_event_all_bins(
         particle_data (pd.DataFrame): DataFrame with particle concentrations
         event (Dict): Event timing information
         lambda_ach (float): Air change rate (h⁻¹)
-        allow_negative_beta (bool): If True, negative trimmed-mean beta is used
-            directly (particle growth); see calculate_deposition_rate for detail.
 
     Returns:
         Dict: Results for all bins
@@ -281,7 +278,6 @@ def analyze_event_all_bins(
             bin_num,
             p_mean,
             lambda_ach,
-            allow_negative_beta=allow_negative_beta,
         )
 
         results[f"bin{bin_num}_beta"] = beta_result.get("beta", np.nan)
@@ -360,7 +356,6 @@ def analyze_event_all_bins(
             beta_val,
             effective_E,
             peak_time,
-            allow_negative_ct=allow_negative_beta,
         )
         results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
         results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
@@ -423,7 +418,6 @@ def analyze_event_all_bins(
 def run_particle_analysis(
     output_dir: Optional[Path] = None,
     generate_plots: bool = True,
-    allow_negative_beta: bool = False,
 ) -> pd.DataFrame:
     """
     Run the complete particle decay and emission analysis.
@@ -431,10 +425,6 @@ def run_particle_analysis(
     Parameters:
         output_dir (Path): Optional output directory (defaults to data_root/output)
         generate_plots (bool): If True, generate plots for each event and summary
-        allow_negative_beta (bool): If True, negative trimmed-mean beta values are
-            used directly in all subsequent calculations (Ct prediction, emission)
-            rather than being clamped to 0.  Use when particle growth is expected
-            (e.g. condensation-dominant conditions).
 
     Returns:
         pd.DataFrame: DataFrame with analysis results for all events and bins
@@ -447,9 +437,7 @@ def run_particle_analysis(
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
     print("Penetration factor: averaged before/after windows (p capped at 1)")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
-    if allow_negative_beta:
-        print("NOTE: --allow-negative-beta active — beta clamp disabled; "
-              "negative beta (particle growth) propagated to Ct and E calculations.")
+    print("Beta selection: R²-based 3-step (unclamped → clamped ≥ 0 → 0; threshold 0.80)")
     print("\nValidation thresholds:")
     print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
     print(
@@ -547,8 +535,10 @@ def run_particle_analysis(
 
     # Setup plot directory
     plot_dir = output_dir / "plots"
+    event_figures_dir = get_event_figures_dir(output_dir)
     if generate_plots:
         plot_dir.mkdir(exist_ok=True)
+        event_figures_dir.mkdir(parents=True, exist_ok=True)
 
     for event in events:
         event_num = event.get("event_number", 0)
@@ -572,10 +562,7 @@ def run_particle_analysis(
             f"lambda={lambda_ach:.4f} h^-1"
         )
 
-        result = analyze_event_all_bins(
-            particle_data, event, lambda_ach,
-            allow_negative_beta=allow_negative_beta,
-        )
+        result = analyze_event_all_bins(particle_data, event, lambda_ach)
         results.append(result)
 
         # Print summary for this event with detailed skip reasons
@@ -610,7 +597,8 @@ def run_particle_analysis(
                 # Format filename: event_01-0114_hw_morning_pm_decay.png
                 formatted_name = format_test_name_for_filename(test_name)
                 plot_path = (
-                    plot_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
+                    event_figures_dir
+                    / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
                 )
                 plot_particle_decay_event(
                     particle_data=particle_data,
@@ -818,24 +806,33 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             plot_deposition_rate_boxplot,
             plot_deposition_summary,
             plot_emission_boxplot,
+            plot_emission_etotal_by_metric_boxplot,
+            plot_emission_rate_boxplot,
             plot_emission_summary,
+            plot_penetration_factor_boxplot,
             plot_penetration_summary,
         )
     except ImportError:
         print("  Warning: plot_particle module not found. Skipping plots.")
         return
 
-    # Load Aranet4 Bedroom RH data once for n= / RH= boxplot annotations.
-    # This is best-effort: if the Aranet4 files are unavailable the annotation
-    # will show n= only (no RH line).
+    # Load Bedroom_Conditions RH data once for n= / RH= boxplot annotations.
+    # This is best-effort: if the summary file is unavailable the annotation
+    # will show n= only (no RH line).  The Bedroom_Conditions sheet has columns
+    # "shower_on" (datetime) and "rh_mean (%)" which are renamed to the
+    # "datetime" / "RH_bedroom" convention expected by the boxplot helpers.
     rh_data = None
     try:
-        from src.co2_decay_analysis import load_and_merge_co2_data
-        _co2_data = load_and_merge_co2_data()
-        rh_data = _co2_data[["datetime", "RH_bedroom"]].copy()
-        print("  Loaded Aranet4 bedroom RH for boxplot annotations.")
+        import pandas as _pd
+        from src.data_paths import get_common_file
+        _summary_path = get_common_file("rh_temp_wind_summary")
+        _bc = _pd.read_excel(_summary_path, sheet_name="Bedroom_Conditions")
+        _bc = _bc.rename(columns={"shower_on": "datetime", "rh_mean (%)": "RH_bedroom"})
+        rh_data = _bc[["datetime", "RH_bedroom"]].copy()
+        rh_data["datetime"] = _pd.to_datetime(rh_data["datetime"])
+        print("  Loaded Bedroom_Conditions RH for boxplot annotations.")
     except Exception as _rh_err:
-        print(f"  Note: Could not load Aranet4 RH data (n= only annotations): {_rh_err}")
+        print(f"  Note: Could not load Bedroom_Conditions RH data (n= only annotations): {_rh_err}")
 
     # Bar-chart summary plots (no RH annotation needed)
     for plot_func, filename in [
@@ -853,10 +850,59 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
     for plot_func, filename in [
         (plot_emission_boxplot, "emission_etotal_boxplot.png"),
         (plot_deposition_rate_boxplot, "deposition_rate_boxplot.png"),
+        (plot_emission_rate_boxplot, "emission_rate_boxplot.png"),
+        (plot_penetration_factor_boxplot, "penetration_factor_boxplot.png"),
     ]:
         try:
             plot_func(results_df, PARTICLE_BINS, plot_dir / filename, rh_data=rh_data)
             print(f"  Generated: {filename}")
+        except Exception as e:
+            print(f"  Error generating {filename}: {e}")
+
+    # ── Task 7: emission E_total vs. continuous metric (10 figures) ───────────
+    # Add per-event computed columns to a local copy so results_df is not mutated.
+    _df7 = results_df.copy()
+    _bin_nums = list(PARTICLE_BINS.keys())
+
+    # Average beta and p across all 7 bins per event
+    _df7["avg_beta"] = _df7[
+        [f"bin{b}_beta" for b in _bin_nums if f"bin{b}_beta" in _df7.columns]
+    ].mean(axis=1)
+    _df7["avg_p"] = _df7[
+        [f"bin{b}_p_mean" for b in _bin_nums if f"bin{b}_p_mean" in _df7.columns]
+    ].mean(axis=1)
+
+    # Merge bedroom RH and temperature from Bedroom_Conditions sheet (best-effort)
+    try:
+        import pandas as _pd7
+        from src.data_paths import get_common_file as _gcf7
+        _bc7 = _pd7.read_excel(
+            _gcf7("rh_temp_wind_summary"), sheet_name="Bedroom_Conditions"
+        )
+        _bc7 = _bc7[["event_number", "rh_mean (%)", "temp_mean (degC)"]].rename(
+            columns={"rh_mean (%)": "bedroom_rh", "temp_mean (degC)": "bedroom_temp"}
+        )
+        _df7 = _df7.merge(_bc7, on="event_number", how="left")
+        print("  Merged Bedroom_Conditions for metric-axis figures.")
+    except Exception as _e7:
+        _df7["bedroom_rh"] = np.nan
+        _df7["bedroom_temp"] = np.nan
+        print(f"  Note: Bedroom_Conditions not merged for metric-axis figures: {_e7}")
+
+    _metric_axes = [
+        ("bedroom_rh",   "Bedroom RH (%)",               "emission_etotal_by_bedroom_rh_boxplot.png"),
+        ("bedroom_temp", "Bedroom Temperature (°C)",      "emission_etotal_by_bedroom_temp_boxplot.png"),
+        ("lambda_ach",   "Air Change Rate λ (h⁻¹)",       "emission_etotal_by_acr_boxplot.png"),
+        ("avg_beta",     "Avg. Deposition Rate β (h⁻¹)",  "emission_etotal_by_beta_boxplot.png"),
+        ("avg_p",        "Avg. Penetration Factor p",     "emission_etotal_by_p_boxplot.png"),
+    ]
+    for metric_col, metric_label, filename in _metric_axes:
+        try:
+            plot_emission_etotal_by_metric_boxplot(
+                _df7, PARTICLE_BINS, plot_dir / filename,
+                metric_col=metric_col, metric_label=metric_label, rh_data=rh_data,
+            )
+            print(f"  Generated: {filename} (bin0-2 and bin3-6)")
         except Exception as e:
             print(f"  Error generating {filename}: {e}")
 
@@ -879,16 +925,6 @@ def main():
         action="store_true",
         help="Disable plot generation",
     )
-    parser.add_argument(
-        "--allow-negative-beta",
-        action="store_true",
-        help=(
-            "Allow negative trimmed-mean beta (deposition rate). "
-            "By default beta is clamped to 0; this flag retains negative values "
-            "so that particle growth conditions are captured in all downstream "
-            "calculations (Ct prediction, emission rate, E_total)."
-        ),
-    )
 
     args = parser.parse_args()
 
@@ -897,7 +933,6 @@ def main():
     run_particle_analysis(
         output_dir=output_dir,
         generate_plots=not args.no_plot,
-        allow_negative_beta=args.allow_negative_beta,
     )
 
 
