@@ -67,8 +67,8 @@ COLORS = {
     "family": "#8c564b",  # Brown
     "bathroom": "#e377c2",  # Pink
     # Shower event colors
-    "shower_on": "#d62728",  # Red
-    "shower_off": "#2ca02c",  # Green
+    "shower_on": "#2ca02c",  # Green
+    "shower_off": "#d62728",  # Red
     "pre_shower": "#1f77b4",  # Blue
     "post_shower": "#ff7f0e",  # Orange
     # Wind data colors
@@ -181,14 +181,14 @@ MARKER_SIZE = 4
 # Shower/Activation event marker styles (centralized for consistency).
 # Dotted (:) distinguishes shower event markers from fitted/predicted lines (--).
 SHOWER_ON_STYLE = {
-    "color": "#2ca02c",  # Green
+    "color": COLORS["shower_on"],  # Green (from COLORS dict)
     "linestyle": ":",
     "linewidth": 2.0,
     "alpha": 0.8,
 }
 
 SHOWER_OFF_STYLE = {
-    "color": "#d62728",  # Red
+    "color": COLORS["shower_off"],  # Red (from COLORS dict)
     "linestyle": ":",
     "linewidth": 2.0,
     "alpha": 0.8,
