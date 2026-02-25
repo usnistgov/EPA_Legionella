@@ -57,14 +57,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Import existing event matching functions
-from scripts.event_matching import get_lambda_for_shower, match_shower_to_co2_event
+from scripts.event_matching import match_shower_to_co2_event
 
 # Lazy import for event_registry to avoid circular import
 # These are imported inside functions that use them
@@ -431,7 +430,7 @@ def check_fan_during_test(
 
     # Check if fan was ever on during this period
     if len(test_period_log) > 0:
-        return (test_period_log["bath_fan"] > 0).any()
+        return bool((test_period_log["bath_fan"] > 0).any())
 
     return False
 
@@ -817,7 +816,7 @@ def create_event_log(
     n_total = len(df)
     n_excluded = df["is_excluded"].sum()
 
-    print(f"\nEvent Log Summary:")
+    print("\nEvent Log Summary:")
     print(f"  Total shower events: {n_total}")
     print(f"  Excluded events: {n_excluded}")
 
@@ -912,7 +911,7 @@ def process_events_with_management(
                 for shower_idx in showers_missing_co2:
                     shower_event = shower_events[shower_idx]
                     # Use new registry function if available (with duration inference)
-                    if _HAS_REGISTRY:
+                    if _HAS_REGISTRY and create_synthetic_co2_event_v2 is not None:
                         synthetic_co2 = create_synthetic_co2_event_v2(
                             shower_event["shower_on"],
                             next_co2_num,
@@ -929,7 +928,11 @@ def process_events_with_management(
         if co2_missing_shower:
             print(f"  Found {len(co2_missing_shower)} CO2 events without shower data")
 
-            if create_synthetic and _HAS_REGISTRY:
+            if (
+                create_synthetic
+                and _HAS_REGISTRY
+                and create_synthetic_shower_event is not None
+            ):
                 print("  Creating synthetic shower events...")
                 next_shower_num = len(shower_events) + 1
 
