@@ -127,7 +127,7 @@ EXPERIMENT_START_DATE = datetime(2026, 1, 15, 15, 0, 0)
 # Water temperature transitions: (datetime, code)
 # Codes: "HW" (Hot Water), "CW" (Cold Water), "MW" (Mixed/Medium Water)
 WATER_TEMP_TRANSITIONS = [
-    (datetime(2026, 1, 14, 0, 0, 0), "W48"),  # Hot water from experiment start
+    (datetime(2026, 1, 14, 0, 0, 0), "W48"),  # Mixed waterexperiment start
     (datetime(2026, 1, 22, 14, 0, 0), "W11"),  # Cold water from Jan 22 2PM
     (datetime(2026, 2, 2, 17, 0, 0), "W25"),  # Mixed water from Feb 2 5PM
     (datetime(2026, 2, 5, 10, 0, 0), "W30"),  # Mixed water from Feb 5 10AM
@@ -136,15 +136,15 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 13, 11, 0, 0), "W22"),  # Mixed water from Feb 13 11AM
     (datetime(2026, 2, 16, 11, 0, 0), "W43"),  # Mixed water from Feb 16 11AM
     (datetime(2026, 2, 18, 10, 23, 0), "W14"),  # Mixed water from Feb 18 10:23AM
-    (datetime(2026, 2, 20, 8, 0, 0), "W53"),  # Mixed water from Feb 20 8AM
+    (datetime(2026, 2, 20, 8, 0, 0), "W53"),  # Hot water from Feb 20 8AM
     (
         datetime(2026, 2, 24, 8, 0, 0),
-        "W50b",
-    ),  # Mixed water from Feb 24 8AM (pepco shower head)
+        "W52pw",
+    ),  # Pepco wide spray from Feb 24 8AM
     (
-        datetime(2026, 2, 27, 8, 0, 0),
-        "W50c",
-    ),  # Mixed water from Feb 27 8AM (pepco shower head setting change)
+        datetime(2026, 2, 26, 10, 23, 0),
+        "W38pw",
+    ),  # Pepco wide spray from Feb 27 8AM
 ]
 
 # Door position transitions: (datetime, position)
