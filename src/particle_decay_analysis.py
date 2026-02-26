@@ -240,10 +240,10 @@ def analyze_event_all_bins(
 
         # Skip further calculations if p is invalid
         if np.isnan(p_result.get("p_mean", np.nan)):
-            results[f"bin{bin_num}_beta"] = np.nan
-            results[f"bin{bin_num}_beta_raw_mean"] = np.nan
-            results[f"bin{bin_num}_beta_std"] = np.nan
-            results[f"bin{bin_num}_beta_r_squared"] = np.nan
+            results[f"bin{bin_num}_beta_other"] = np.nan
+            results[f"bin{bin_num}_beta_other_raw_mean"] = np.nan
+            results[f"bin{bin_num}_beta_other_std"] = np.nan
+            results[f"bin{bin_num}_beta_other_r_squared"] = np.nan
             results[f"bin{bin_num}_E_mean"] = np.nan
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
@@ -648,7 +648,7 @@ def _print_overall_summary(results_df: pd.DataFrame, results: list) -> None:
     for bin_num, bin_info in PARTICLE_BINS.items():
         bin_name = bin_info["name"]
         p_col = f"bin{bin_num}_p_mean"
-        beta_col = f"bin{bin_num}_beta"
+        beta_col = f"bin{bin_num}_beta_other"
         E_col = f"bin{bin_num}_E_mean"
 
         valid_p = results_df[p_col].dropna()
@@ -698,11 +698,11 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
     for bin_num in PARTICLE_BINS.keys():
         column_rename[f"bin{bin_num}_p_mean"] = f"bin{bin_num}_p_mean (-)"
         column_rename[f"bin{bin_num}_p_std"] = f"bin{bin_num}_p_std (-)"
-        column_rename[f"bin{bin_num}_beta"] = f"bin{bin_num}_beta (h-1)"
-        column_rename[f"bin{bin_num}_beta_raw_mean"] = (
-            f"bin{bin_num}_beta_raw_mean (h-1)"
+        column_rename[f"bin{bin_num}_beta_other"] = f"bin{bin_num}_beta_other (h-1)"
+        column_rename[f"bin{bin_num}_beta_other_raw_mean"] = (
+            f"bin{bin_num}_beta_other_raw_mean (h-1)"
         )
-        column_rename[f"bin{bin_num}_beta_std"] = f"bin{bin_num}_beta_std (h-1)"
+        column_rename[f"bin{bin_num}_beta_other_std"] = f"bin{bin_num}_beta_other_std (h-1)"
         column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
         column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
         column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
@@ -721,10 +721,10 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         beta_cols = id_cols + [
             col
             for i in PARTICLE_BINS.keys()
-            for col in (f"bin{i}_beta (h-1)", f"bin{i}_beta_raw_mean (h-1)")
+            for col in (f"bin{i}_beta_other (h-1)", f"bin{i}_beta_other_raw_mean (h-1)")
         ]
         beta_r2_cols = id_cols + [
-            f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
+            f"bin{i}_beta_other_r_squared" for i in PARTICLE_BINS.keys()
         ]
         E_cols = id_cols + [f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()]
         E_total_cols = id_cols + [f"bin{i}_E_total (#)" for i in PARTICLE_BINS.keys()]
@@ -867,7 +867,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
 
     # Average beta and p across all 7 bins per event
     _df7["avg_beta"] = _df7[
-        [f"bin{b}_beta" for b in _bin_nums if f"bin{b}_beta" in _df7.columns]
+        [f"bin{b}_beta_other" for b in _bin_nums if f"bin{b}_beta_other" in _df7.columns]
     ].mean(axis=1)
     _df7["avg_p"] = _df7[
         [f"bin{b}_p_mean" for b in _bin_nums if f"bin{b}_p_mean" in _df7.columns]
