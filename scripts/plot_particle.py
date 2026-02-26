@@ -155,7 +155,7 @@ def plot_particle_decay_event(
 
         if col_inside in plot_data.columns:
             # Check if this bin has valid decay results
-            beta_val = result.get(f"bin{bin_num}_beta", np.nan)
+            beta_val = result.get(f"bin{bin_num}_beta_other", np.nan)
             is_valid = not np.isnan(beta_val)
             linestyle = "-" if is_valid else "--"
             alpha = 0.9 if is_valid else 0.4
@@ -246,10 +246,10 @@ def plot_particle_decay_event(
     valid_bins = 0
     decay_r2_lines = []
     for bin_num in particle_bins.keys():
-        beta_val = result.get(f"bin{bin_num}_beta", np.nan)
+        beta_val = result.get(f"bin{bin_num}_beta_other", np.nan)
         if not np.isnan(beta_val):
             valid_bins += 1
-            r2_val = result.get(f"bin{bin_num}_beta_r_squared", np.nan)
+            r2_val = result.get(f"bin{bin_num}_beta_other_r_squared", np.nan)
             r2_str = f"{r2_val:.3f}" if not np.isnan(r2_val) else "N/A"
             decay_r2_lines.append(f" B{bin_num}: R²={r2_str}")
 
@@ -334,17 +334,17 @@ def plot_particle_decay_event(
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(labelsize=FONT_SIZE_TICK)
 
-    # Set emission panel x-axis: 30 min before shower_on to 30 min after latest peak_time
+    # Set emission panel x-axis: 10 min before shower_on to 10 min after latest peak_time
     peak_times = []
     for bn in particle_bins.keys():
         pt = result.get(f"bin{bn}_peak_time", None)
         if pt is not None:
             peak_times.append(pd.Timestamp(pt))
-    ax2_left = event["shower_on"] - timedelta(minutes=30)
+    ax2_left = event["shower_on"] - timedelta(minutes=10)
     if peak_times:
-        ax2_right = max(peak_times) + timedelta(minutes=30)
+        ax2_right = max(peak_times) + timedelta(minutes=10)
     else:
-        ax2_right = event["shower_off"] + timedelta(minutes=30)
+        ax2_right = event["shower_off"] + timedelta(minutes=10)
     ax2.set_xlim(ax2_left, ax2_right)
     format_datetime_axis(ax2, interval_minutes=5)
 
