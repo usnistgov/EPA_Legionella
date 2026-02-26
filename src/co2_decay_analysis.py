@@ -899,7 +899,7 @@ def plot_air_change_rate_boxplot(
         ax.text(
             temp,
             max_val + offset,
-            f"n={n}",
+            f"W{int(temp)}\nn={n}",
             ha="center",
             va="bottom",
             fontsize=FONT_SIZE_ANNOTATION,

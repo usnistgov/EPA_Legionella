@@ -49,6 +49,7 @@ Institution: National Institute of Standards and Technology (NIST)
 Date: 2026
 """
 
+import re
 from datetime import timedelta
 from pathlib import Path
 from typing import Dict, Optional
@@ -56,6 +57,7 @@ from typing import Dict, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.patches import Patch
 
 from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
@@ -380,27 +382,63 @@ def plot_particle_decay_event(
     plt.close(fig)
 
 
-def plot_penetration_summary(
+# Configuration for the three per-bin summary bar charts.
+# Keys: col_template, ylabel, title, label_fmt, label_offset, ylim, log_scale
+_BAR_CHART_CONFIG = {
+    "penetration": dict(
+        col_template="bin{n}_p_mean",
+        ylabel="Penetration Factor (p)",
+        title="Penetration Factor by Particle Size\n(Mean ± Std Dev)",
+        label_fmt=".3f",
+        label_offset=0.02,
+        ylim=(0, 1.1),
+        log_scale=False,
+    ),
+    "deposition": dict(
+        col_template="bin{n}_beta",
+        ylabel="Deposition Rate β (h⁻¹)",
+        title="Deposition Rate by Particle Size\n(Mean ± Std Dev)",
+        label_fmt=".2f",
+        label_offset=0.1,
+        ylim=None,
+        log_scale=False,
+    ),
+    "emission": dict(
+        col_template="bin{n}_E_mean",
+        ylabel="Emission Rate E (#/min)",
+        title="Shower Emission Rate by Particle Size\n(Mean ± Std Dev)",
+        label_fmt=".1e",
+        label_offset=0,
+        ylim=None,
+        log_scale="auto",
+    ),
+}
+
+
+def _plot_summary_bar_chart(
     results_df: pd.DataFrame,
     particle_bins: Dict,
     output_path: Path,
+    cfg: dict,
 ) -> None:
     """
-    Create bar chart summarizing penetration factors across all bins.
+    Shared implementation for per-bin summary bar charts.
 
-    If config_key column exists, creates subplots (one per configuration).
+    Handles all three metric types (penetration, deposition, emission) via a
+    configuration dict.  If config_key is present, creates one subplot per
+    configuration; otherwise draws a single panel.
 
     Parameters:
-        results_df: DataFrame with analysis results
-        particle_bins: Dictionary of particle bin information
-        output_path: Path to save the figure
+        results_df: DataFrame with analysis results.
+        particle_bins: Dictionary of particle bin information.
+        output_path: Path to save the figure.
+        cfg: Configuration dict from _BAR_CHART_CONFIG.
     """
     apply_style()
 
     bin_nums = list(particle_bins.keys())
     bin_labels = [particle_bins[i]["name"] for i in bin_nums]
 
-    # Check if we have configuration data for subplots
     has_config = "config_key" in results_df.columns
     if has_config:
         config_keys = sort_config_keys_by_water_temp(
@@ -411,359 +449,123 @@ def plot_penetration_summary(
         config_keys = ["All"]
         n_configs = 1
 
-    # Create figure with subplots
     if n_configs > 1:
         fig, axes = plt.subplots(
             n_configs, 1, figsize=(12, 5 * n_configs), squeeze=False
         )
         axes = axes.flatten()
     else:
-        fig, ax = create_figure(figsize=(10, 6))
-        axes = [ax]
+        fig, _ax = create_figure(figsize=(10, 6))
+        if isinstance(_ax, list):
+            _ax = _ax[0]
+        axes = [_ax]
 
     for idx, config_key in enumerate(config_keys):
         ax = axes[idx]
-
-        # Filter data for this configuration
-        if has_config and config_key != "All":
-            config_df = results_df[results_df["config_key"] == config_key]
-        else:
-            config_df = results_df
-
-        # Get color for this configuration
+        config_df = (
+            results_df[results_df["config_key"] == config_key]
+            if has_config and config_key != "All"
+            else results_df
+        )
         bar_color = get_config_color(config_key, idx)
 
-        # Calculate mean and std for each bin
-        p_means = []
-        p_stds = []
+        means, stds = [], []
         for bin_num in bin_nums:
-            col = f"bin{bin_num}_p_mean"
+            col = cfg["col_template"].format(n=bin_num)
             if col in config_df.columns:
-                valid_values = config_df[col].dropna()
-                p_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
-                p_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
+                valid = config_df[col].dropna()
+                means.append(float(valid.mean()) if len(valid) > 0 else 0)
+                stds.append(float(valid.std()) if len(valid) > 0 else 0)
             else:
-                p_means.append(0)
-                p_stds.append(0)
+                means.append(0)
+                stds.append(0)
 
         x = np.arange(len(bin_nums))
         bars = ax.bar(
-            x,
-            p_means,
-            yerr=p_stds,
-            capsize=5,
-            color=bar_color,
-            alpha=0.7,
-            edgecolor="black",
-            linewidth=1,
+            x, means, yerr=stds, capsize=5,
+            color=bar_color, alpha=0.7, edgecolor="black", linewidth=1,
         )
 
-        # Add value labels on bars
-        for i, (bar, mean, std) in enumerate(zip(bars, p_means, p_stds)):
-            height = bar.get_height()
+        for bar, mean, std in zip(bars, means, stds):
             if mean > 0:
                 ax.text(
                     bar.get_x() + bar.get_width() / 2,
-                    height + std + 0.02,
-                    f"{mean:.3f}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=FONT_SIZE_TICK - 1,
+                    bar.get_height() + std + cfg["label_offset"],
+                    f"{mean:{cfg['label_fmt']}}",
+                    ha="center", va="bottom", fontsize=FONT_SIZE_TICK - 1,
                 )
 
         ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
-        ax.set_ylabel("Penetration Factor (p)", fontsize=FONT_SIZE_LABEL)
-
+        ax.set_ylabel(cfg["ylabel"], fontsize=FONT_SIZE_LABEL)
         if n_configs > 1:
             ax.set_title(
                 f"Configuration: {config_key} (n={len(config_df)})",
-                fontsize=FONT_SIZE_TITLE,
-                fontweight=TITLE_FONTWEIGHT,
+                fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT,
             )
         else:
-            ax.set_title(
-                "Penetration Factor by Particle Size\n(Mean ± Std Dev)",
-                fontsize=FONT_SIZE_TITLE,
-                fontweight=TITLE_FONTWEIGHT,
-            )
+            ax.set_title(cfg["title"], fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
 
         ax.set_xticks(x)
         ax.set_xticklabels(bin_labels, rotation=45, ha="right")
-        ax.set_ylim(0, 1.1)
+
+        if cfg["ylim"] is not None:
+            ax.set_ylim(*cfg["ylim"])
+        elif cfg["log_scale"] == "auto":
+            valid_means = [m for m in means if m > 0]
+            if valid_means and max(valid_means) / min(valid_means) > 100:
+                ax.set_yscale("log")
 
         ax.grid(True, alpha=0.3, axis="y")
         ax.tick_params(labelsize=FONT_SIZE_TICK)
 
     if n_configs > 1:
         fig.suptitle(
-            "Penetration Factor by Particle Size\n(Mean ± Std Dev)",
-            fontsize=FONT_SIZE_TITLE + 2,
-            fontweight=TITLE_FONTWEIGHT,
-            y=1.02,
+            cfg["title"], fontsize=FONT_SIZE_TITLE + 2,
+            fontweight=TITLE_FONTWEIGHT, y=1.02,
         )
 
     plt.tight_layout()
     save_figure(fig, output_path)
     plt.close(fig)
+
+
+def plot_penetration_summary(
+    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path
+) -> None:
+    """Bar chart of penetration factors across all bins (mean ± std per bin).
+
+    Parameters:
+        results_df: DataFrame with analysis results.
+        particle_bins: Dictionary of particle bin information.
+        output_path: Path to save the figure.
+    """
+    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["penetration"])
 
 
 def plot_deposition_summary(
-    results_df: pd.DataFrame,
-    particle_bins: Dict,
-    output_path: Path,
+    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path
 ) -> None:
-    """
-    Create bar chart summarizing deposition rates across all bins.
-
-    If config_key column exists, creates subplots (one per configuration).
+    """Bar chart of deposition rates across all bins (mean ± std per bin).
 
     Parameters:
-        results_df: DataFrame with analysis results
-        particle_bins: Dictionary of particle bin information
-        output_path: Path to save the figure
+        results_df: DataFrame with analysis results.
+        particle_bins: Dictionary of particle bin information.
+        output_path: Path to save the figure.
     """
-    apply_style()
-
-    bin_nums = list(particle_bins.keys())
-    bin_labels = [particle_bins[i]["name"] for i in bin_nums]
-
-    # Check if we have configuration data for subplots
-    has_config = "config_key" in results_df.columns
-    if has_config:
-        config_keys = sort_config_keys_by_water_temp(
-            list(results_df["config_key"].dropna().unique())
-        )
-        n_configs = len(config_keys)
-    else:
-        config_keys = ["All"]
-        n_configs = 1
-
-    # Create figure with subplots
-    if n_configs > 1:
-        fig, axes = plt.subplots(
-            n_configs, 1, figsize=(12, 5 * n_configs), squeeze=False
-        )
-        axes = axes.flatten()
-    else:
-        fig, ax = create_figure(figsize=(10, 6))
-        axes = [ax]
-
-    for idx, config_key in enumerate(config_keys):
-        ax = axes[idx]
-
-        # Filter data for this configuration
-        if has_config and config_key != "All":
-            config_df = results_df[results_df["config_key"] == config_key]
-        else:
-            config_df = results_df
-
-        # Get color for this configuration
-        bar_color = get_config_color(config_key, idx)
-
-        # Calculate mean and std for each bin
-        beta_means = []
-        beta_stds = []
-        for bin_num in bin_nums:
-            col = f"bin{bin_num}_beta"
-            if col in config_df.columns:
-                valid_values = config_df[col].dropna()
-                beta_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
-                beta_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
-            else:
-                beta_means.append(0)
-                beta_stds.append(0)
-
-        x = np.arange(len(bin_nums))
-        bars = ax.bar(
-            x,
-            beta_means,
-            yerr=beta_stds,
-            capsize=5,
-            color=bar_color,
-            alpha=0.7,
-            edgecolor="black",
-            linewidth=1,
-        )
-
-        # Add value labels on bars
-        for i, (bar, mean, std) in enumerate(zip(bars, beta_means, beta_stds)):
-            height = bar.get_height()
-            if mean > 0:
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    height + std + 0.1,
-                    f"{mean:.2f}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=FONT_SIZE_TICK - 1,
-                )
-
-        ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
-        ax.set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
-
-        if n_configs > 1:
-            ax.set_title(
-                f"Configuration: {config_key} (n={len(config_df)})",
-                fontsize=FONT_SIZE_TITLE,
-                fontweight=TITLE_FONTWEIGHT,
-            )
-        else:
-            ax.set_title(
-                "Deposition Rate by Particle Size\n(Mean ± Std Dev)",
-                fontsize=FONT_SIZE_TITLE,
-                fontweight=TITLE_FONTWEIGHT,
-            )
-
-        ax.set_xticks(x)
-        ax.set_xticklabels(bin_labels, rotation=45, ha="right")
-        ax.grid(True, alpha=0.3, axis="y")
-        ax.tick_params(labelsize=FONT_SIZE_TICK)
-
-    if n_configs > 1:
-        fig.suptitle(
-            "Deposition Rate by Particle Size\n(Mean ± Std Dev)",
-            fontsize=FONT_SIZE_TITLE + 2,
-            fontweight=TITLE_FONTWEIGHT,
-            y=1.02,
-        )
-
-    plt.tight_layout()
-    save_figure(fig, output_path)
-    plt.close(fig)
+    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["deposition"])
 
 
 def plot_emission_summary(
-    results_df: pd.DataFrame,
-    particle_bins: Dict,
-    output_path: Path,
+    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path
 ) -> None:
-    """
-    Create bar chart summarizing emission rates across all bins.
-
-    If config_key column exists, creates subplots (one per configuration).
+    """Bar chart of emission rates across all bins (mean ± std per bin).
 
     Parameters:
-        results_df: DataFrame with analysis results
-        particle_bins: Dictionary of particle bin information
-        output_path: Path to save the figure
+        results_df: DataFrame with analysis results.
+        particle_bins: Dictionary of particle bin information.
+        output_path: Path to save the figure.
     """
-    apply_style()
-
-    bin_nums = list(particle_bins.keys())
-    bin_labels = [particle_bins[i]["name"] for i in bin_nums]
-
-    # Check if we have configuration data for subplots
-    has_config = "config_key" in results_df.columns
-    if has_config:
-        config_keys = sort_config_keys_by_water_temp(
-            list(results_df["config_key"].dropna().unique())
-        )
-        n_configs = len(config_keys)
-    else:
-        config_keys = ["All"]
-        n_configs = 1
-
-    # Create figure with subplots
-    if n_configs > 1:
-        fig, axes = plt.subplots(
-            n_configs, 1, figsize=(12, 5 * n_configs), squeeze=False
-        )
-        axes = axes.flatten()
-    else:
-        fig, ax = create_figure(figsize=(10, 6))
-        axes = [ax]
-
-    for idx, config_key in enumerate(config_keys):
-        ax = axes[idx]
-
-        # Filter data for this configuration
-        if has_config and config_key != "All":
-            config_df = results_df[results_df["config_key"] == config_key]
-        else:
-            config_df = results_df
-
-        # Get color for this configuration
-        bar_color = get_config_color(config_key, idx)
-
-        # Calculate mean and std for each bin
-        E_means = []
-        E_stds = []
-        for bin_num in bin_nums:
-            col = f"bin{bin_num}_E_mean"
-            if col in config_df.columns:
-                valid_values = config_df[col].dropna()
-                E_means.append(valid_values.mean() if len(valid_values) > 0 else 0)
-                E_stds.append(valid_values.std() if len(valid_values) > 0 else 0)
-            else:
-                E_means.append(0)
-                E_stds.append(0)
-
-        x = np.arange(len(bin_nums))
-        bars = ax.bar(
-            x,
-            E_means,
-            yerr=E_stds,
-            capsize=5,
-            color=bar_color,
-            alpha=0.7,
-            edgecolor="black",
-            linewidth=1,
-        )
-
-        # Add value labels on bars (scientific notation)
-        for i, (bar, mean, std) in enumerate(zip(bars, E_means, E_stds)):
-            height = bar.get_height()
-            if mean > 0:
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    height + std,
-                    f"{mean:.1e}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=FONT_SIZE_TICK - 1,
-                    rotation=0,
-                )
-
-        ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
-        ax.set_ylabel("Emission Rate E (#/min)", fontsize=FONT_SIZE_LABEL)
-
-        if n_configs > 1:
-            ax.set_title(
-                f"Configuration: {config_key} (n={len(config_df)})",
-                fontsize=FONT_SIZE_TITLE,
-                fontweight=TITLE_FONTWEIGHT,
-            )
-        else:
-            ax.set_title(
-                "Shower Emission Rate by Particle Size\n(Mean ± Std Dev)",
-                fontsize=FONT_SIZE_TITLE,
-                fontweight=TITLE_FONTWEIGHT,
-            )
-
-        ax.set_xticks(x)
-        ax.set_xticklabels(bin_labels, rotation=45, ha="right")
-
-        # Use log scale if range is large
-        if (
-            max(E_means) > 0
-            and max(E_means) / min([m for m in E_means if m > 0] + [1]) > 100
-        ):
-            ax.set_yscale("log")
-
-        ax.grid(True, alpha=0.3, axis="y")
-        ax.tick_params(labelsize=FONT_SIZE_TICK)
-
-    if n_configs > 1:
-        fig.suptitle(
-            "Shower Emission Rate by Particle Size\n(Mean ± Std Dev)",
-            fontsize=FONT_SIZE_TITLE + 2,
-            fontweight=TITLE_FONTWEIGHT,
-            y=1.02,
-        )
-
-    plt.tight_layout()
-    save_figure(fig, output_path)
-    plt.close(fig)
+    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["emission"])
 
 
 def plot_size_distribution_summary(
@@ -879,6 +681,22 @@ def plot_size_distribution_summary(
     plt.tight_layout()
     save_figure(fig, output_path)
     plt.close(fig)
+
+
+# =============================================================================
+# PRIVATE HELPERS — shared by all temperature-axis boxplot functions
+# =============================================================================
+
+
+def _is_base_config(key: str) -> bool:
+    """Return True if config_key is a base W## with no letter suffix (e.g. W48, not W48b)."""
+    return bool(re.match(r"^W\d+(_|$)", str(key)))
+
+
+def _extract_config_temp(key: str) -> "Optional[float]":
+    """Extract numeric temperature from a W## config_key string."""
+    m = re.match(r"^W(\d+)", str(key))
+    return float(m.group(1)) if m else None
 
 
 def _get_rh_at_shower_on(
@@ -1026,75 +844,83 @@ def _build_temp_stats(
     return temp_stats
 
 
-def plot_emission_boxplot(
+# Configuration for the four fixed-temperature-axis boxplot functions.
+# Keys: col_template, ylabel, title_metric, title_note, hline (None or float)
+_TEMP_BOXPLOT_CONFIG = {
+    "emission_etotal": dict(
+        col_template="bin{n}_E_total",
+        ylabel="Total Emission E_total (#)",
+        title_metric="Particle Emission",
+        title_note="(Box = median/IQR, whiskers = 1.5×IQR)",
+        hline=None,
+    ),
+    "deposition_rate": dict(
+        col_template="bin{n}_beta_raw_mean",
+        ylabel="Deposition Rate β (h⁻¹)",
+        title_metric="Particle Deposition Rate",
+        title_note="(Box = median/IQR, whiskers = 1.5×IQR; β = unclamped trimmed mean)",
+        hline=0.0,
+    ),
+    "emission_rate": dict(
+        col_template="bin{n}_E_mean",
+        ylabel="Emission Rate E (#/min)",
+        title_metric="Particle Emission Rate",
+        title_note="(Box = median/IQR, whiskers = 1.5×IQR; E = mean over shower-on to peak)",
+        hline=None,
+    ),
+    "penetration_factor": dict(
+        col_template="bin{n}_p_mean",
+        ylabel="Penetration Factor p",
+        title_metric="Particle Penetration Factor",
+        title_note="(Box = median/IQR, whiskers = 1.5×IQR; p capped at 1)",
+        hline=1.0,
+    ),
+}
+
+
+def _draw_temp_axis_boxplot(
     results_df: pd.DataFrame,
     particle_bins: Dict,
     output_path: Path,
+    cfg: dict,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
     """
-    Create two box-and-whisker figures of total particle emission by water temperature.
+    Shared implementation for all four fixed-temperature-axis boxplot functions.
 
-    Produces one figure for small bins (Bin 0–2) and one for large bins (Bin 3–6),
-    each saved with the bin range appended to the output filename stem (e.g.,
-    emission_etotal_boxplot_bin0-2.png and emission_etotal_boxplot_bin3-6.png).
-
-    X-axis is a fixed numeric range 5–60 °C with ticks every 5 °C.  Only base W##
-    events are included (runs with letter suffixes such as W48b are excluded).
-    Within each figure, bins are drawn as nested/concentric boxes all centered at
-    the exact temperature value (no horizontal offset); the outermost bin gets the
-    widest box and each successive bin is progressively narrower.  The y-axis
-    auto-scales independently for each figure.
-
-    Above the highest data point in each temperature group the annotation
-    ``n=X\\nRH=XX%`` is added, where n is the event count and RH is the average
-    Aranet4 Bedroom relative humidity at shower-on time.  RH is omitted when
-    *rh_data* is None.
+    Produces two output files (bin0-2 and bin3-6) by appending the bin-range
+    suffix to *output_path*.  Only base W## events are included.  X-axis is the
+    fixed 5–60 °C range from BOXPLOT_CONFIG.
 
     Parameters:
-        results_df: DataFrame with analysis results (must contain config_key and
-                    bin{n}_E_total columns)
-        particle_bins: Dictionary of particle bin information
-        output_path: Base path used to derive the two output filenames
-        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns
-            used to annotate mean initial RH per temperature group.
+        results_df: DataFrame with analysis results (must contain config_key).
+        particle_bins: Dictionary of particle bin information.
+        output_path: Base path; suffix ``_bin0-2`` / ``_bin3-6`` is appended.
+        cfg: Configuration dict from _TEMP_BOXPLOT_CONFIG.
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns.
     """
-    import re
-
-    from matplotlib.patches import Patch
-
     apply_style()
 
     if results_df.empty or "config_key" not in results_df.columns:
         return
 
-    # Keep only base W## configs — no letter suffix after the digits
-    def _is_base(key: str) -> bool:
-        return bool(re.match(r"^W\d+(_|$)", str(key)))
-
-    def _extract_temp(key: str) -> "float | None":
-        m = re.match(r"^W(\d+)", str(key))
-        return float(m.group(1)) if m else None
-
-    base_df = results_df[results_df["config_key"].apply(_is_base)].copy()
-
+    base_df = results_df[results_df["config_key"].apply(_is_base_config)].copy()
     if base_df.empty:
         return
 
     config_keys = sort_config_keys_by_water_temp(
         [k for k in base_df["config_key"].dropna().unique()]
     )
-
     if not config_keys:
         return
 
-    temp_map = {k: _extract_temp(k) for k in config_keys}
+    temp_map = {k: _extract_config_temp(k) for k in config_keys}
     all_bin_nums = list(particle_bins.keys())
-
-    # Widths computed once across all bins so they are consistent between figures
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
-
-    # Two figures: small bins (0-2) and large bins (3-6)
+    all_bin_widths = np.linspace(
+        BOXPLOT_CONFIG["box_width_min"],
+        BOXPLOT_CONFIG["box_width_max"],
+        len(all_bin_nums),
+    )
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
         ([b for b in all_bin_nums if b >= 3], "bin3-6"),
@@ -1104,8 +930,7 @@ def plot_emission_boxplot(
         if not group_bins:
             continue
 
-        # Pre-compute per-temperature stats for annotations
-        value_cols = [f"bin{b}_E_total" for b in group_bins]
+        value_cols = [cfg["col_template"].format(n=b) for b in group_bins]
         temp_stats = _build_temp_stats(base_df, config_keys, temp_map, value_cols)
 
         fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
@@ -1113,24 +938,18 @@ def plot_emission_boxplot(
             ax = ax[0]
 
         for bin_num in group_bins:
-            # Use the bin's global index in all_bin_nums for a consistent color
             global_idx = all_bin_nums.index(bin_num)
             color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
-            col = f"bin{bin_num}_E_total"
+            col = cfg["col_template"].format(n=bin_num)
             if col not in base_df.columns:
                 continue
 
-            box_width = float(all_bin_widths[global_idx])
-            positions = []
-            data = []
-
+            positions, data = [], []
             for config_key in config_keys:
                 temp = temp_map.get(config_key)
                 if temp is None:
                     continue
-                values = (
-                    base_df[base_df["config_key"] == config_key][col].dropna().values
-                )
+                values = base_df[base_df["config_key"] == config_key][col].dropna().values
                 if len(values) > 0:
                     positions.append(temp)
                     data.append(values)
@@ -1141,10 +960,15 @@ def plot_emission_boxplot(
             bp = ax.boxplot(
                 data,
                 positions=positions,
-                widths=box_width,
+                widths=float(all_bin_widths[global_idx]),
                 patch_artist=True,
                 showfliers=True,
-                flierprops=dict(marker=BOXPLOT_CONFIG["flier_marker"], markersize=BOXPLOT_CONFIG["flier_markersize"], alpha=BOXPLOT_CONFIG["flier_alpha"], color=color),
+                flierprops=dict(
+                    marker=BOXPLOT_CONFIG["flier_marker"],
+                    markersize=BOXPLOT_CONFIG["flier_markersize"],
+                    alpha=BOXPLOT_CONFIG["flier_alpha"],
+                    color=color,
+                ),
             )
             for patch in bp["boxes"]:
                 patch.set_facecolor(color)
@@ -1157,28 +981,29 @@ def plot_emission_boxplot(
                 med.set_color(BOXPLOT_CONFIG["median_color"])
                 med.set_linewidth(BOXPLOT_CONFIG["median_linewidth"])
 
-        # Annotations: n= and RH= above the highest data point per temperature
         _annotate_temp_groups(ax, temp_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
 
-        _bxmin = BOXPLOT_CONFIG["temp_xmin"]
-        _bxmax = BOXPLOT_CONFIG["temp_xmax"]
-        _bxstep = BOXPLOT_CONFIG["temp_xtick_step"]
-        _bxticks = range(_bxmin, _bxmax + _bxstep, _bxstep)
-        ax.set_xlim(_bxmin, _bxmax)
-        ax.set_xticks(_bxticks)
-        ax.set_xticklabels([f"{t}°C" for t in _bxticks], fontsize=FONT_SIZE_TICK)
+        bxmin = BOXPLOT_CONFIG["temp_xmin"]
+        bxmax = BOXPLOT_CONFIG["temp_xmax"]
+        bxstep = BOXPLOT_CONFIG["temp_xtick_step"]
+        bxticks = range(bxmin, bxmax + bxstep, bxstep)
+        ax.set_xlim(bxmin, bxmax)
+        ax.set_xticks(bxticks)
+        ax.set_xticklabels([f"{t}°C" for t in bxticks], fontsize=FONT_SIZE_TICK)
         ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
-        ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel(cfg["ylabel"], fontsize=FONT_SIZE_LABEL)
+        bin_label = group_label.replace("-", "–").replace("bin", "Bin ")
         ax.set_title(
-            f"Particle Emission by Water Temperature — {group_label.replace('-', '–').replace('bin', 'Bin ')}"
-            "\n(Box = median/IQR, whiskers = 1.5×IQR)",
+            f"{cfg['title_metric']} by Water Temperature — {bin_label}"
+            f"\n{cfg['title_note']}",
             fontsize=FONT_SIZE_TITLE,
             fontweight=TITLE_FONTWEIGHT,
         )
+        if cfg["hline"] is not None:
+            ax.axhline(cfg["hline"], color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
         ax.grid(True, alpha=0.3, axis="y")
         ax.tick_params(labelsize=FONT_SIZE_TICK)
 
-        # Legend: one entry per bin in this group
         legend_elements = [
             Patch(
                 facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
@@ -1187,516 +1012,72 @@ def plot_emission_boxplot(
             )
             for b in group_bins
         ]
-        ax.legend(
-            handles=legend_elements,
-            loc="upper right",
-            fontsize=FONT_SIZE_LEGEND - 1,
-            ncol=1,
-        )
+        ax.legend(handles=legend_elements, loc="upper right", fontsize=FONT_SIZE_LEGEND - 1, ncol=1)
 
-        group_output = (
-            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
-        )
+        group_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
         plt.tight_layout()
         save_figure(fig, group_output)
         plt.close(fig)
+
+
+def plot_emission_boxplot(
+    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
+    rh_data: "Optional[pd.DataFrame]" = None,
+) -> None:
+    """Two box-and-whisker figures of total particle emission (E_total) by water temperature.
+
+    Parameters:
+        results_df: DataFrame with analysis results (must contain config_key and bin{n}_E_total).
+        particle_bins: Dictionary of particle bin information.
+        output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
+    """
+    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["emission_etotal"], rh_data)
 
 
 def plot_deposition_rate_boxplot(
-    results_df: pd.DataFrame,
-    particle_bins: Dict,
-    output_path: Path,
+    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
-    """
-    Create two box-and-whisker figures of particle deposition rate by water temperature.
-
-    Mirrors the structure of :func:`plot_emission_boxplot`, producing one figure
-    for small bins (Bin 0–2) and one for large bins (Bin 3–6), saved as
-    ``deposition_rate_boxplot_bin0-2.png`` and ``deposition_rate_boxplot_bin3-6.png``.
-
-    Uses the **unclamped** trimmed-mean deposition rate (``bin{n}_beta_raw_mean``),
-    which may be negative when particle growth dominates over deposition.
-
-    X-axis is a fixed numeric range 5–60 °C.  Only base W## events are included
-    (letter-suffix repeats such as W48b are excluded).
-
-    Above the highest data point in each temperature group the annotation
-    ``n=X\\nRH=XX%`` is added (RH omitted when *rh_data* is None).
+    """Two box-and-whisker figures of unclamped deposition rate (beta_raw_mean) by water temperature.
 
     Parameters:
-        results_df: DataFrame with analysis results (must contain config_key and
-                    bin{n}_beta_raw_mean columns).
+        results_df: DataFrame with analysis results (must contain config_key and bin{n}_beta_raw_mean).
         particle_bins: Dictionary of particle bin information.
-        output_path: Base path used to derive the two output filenames.
-        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns
-            used to annotate mean initial RH per temperature group.
+        output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
     """
-    import re
-
-    from matplotlib.patches import Patch
-
-    apply_style()
-
-    if results_df.empty or "config_key" not in results_df.columns:
-        return
-
-    def _is_base(key: str) -> bool:
-        return bool(re.match(r"^W\d+(_|$)", str(key)))
-
-    def _extract_temp(key: str) -> "float | None":
-        m = re.match(r"^W(\d+)", str(key))
-        return float(m.group(1)) if m else None
-
-    base_df = results_df[results_df["config_key"].apply(_is_base)].copy()
-
-    if base_df.empty:
-        return
-
-    config_keys = sort_config_keys_by_water_temp(
-        [k for k in base_df["config_key"].dropna().unique()]
-    )
-
-    if not config_keys:
-        return
-
-    temp_map = {k: _extract_temp(k) for k in config_keys}
-    all_bin_nums = list(particle_bins.keys())
-
-    # Widths consistent with emission boxplot
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
-
-    bin_groups = [
-        ([b for b in all_bin_nums if b <= 2], "bin0-2"),
-        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
-    ]
-
-    for group_bins, group_label in bin_groups:
-        if not group_bins:
-            continue
-
-        value_cols = [f"bin{b}_beta_raw_mean" for b in group_bins]
-        temp_stats = _build_temp_stats(base_df, config_keys, temp_map, value_cols)
-
-        fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
-        if isinstance(ax, list):
-            ax = ax[0]
-
-        for bin_num in group_bins:
-            global_idx = all_bin_nums.index(bin_num)
-            color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
-            col = f"bin{bin_num}_beta_raw_mean"
-            if col not in base_df.columns:
-                continue
-
-            box_width = float(all_bin_widths[global_idx])
-            positions = []
-            data = []
-
-            for config_key in config_keys:
-                temp = temp_map.get(config_key)
-                if temp is None:
-                    continue
-                values = (
-                    base_df[base_df["config_key"] == config_key][col].dropna().values
-                )
-                if len(values) > 0:
-                    positions.append(temp)
-                    data.append(values)
-
-            if not data:
-                continue
-
-            bp = ax.boxplot(
-                data,
-                positions=positions,
-                widths=box_width,
-                patch_artist=True,
-                showfliers=True,
-                flierprops=dict(marker=BOXPLOT_CONFIG["flier_marker"], markersize=BOXPLOT_CONFIG["flier_markersize"], alpha=BOXPLOT_CONFIG["flier_alpha"], color=color),
-            )
-            for patch in bp["boxes"]:
-                patch.set_facecolor(color)
-                patch.set_alpha(BOXPLOT_CONFIG["box_alpha"])
-            for element in ("whiskers", "caps"):
-                for line in bp[element]:
-                    line.set_color(color)
-                    line.set_alpha(BOXPLOT_CONFIG["box_alpha"])
-            for med in bp["medians"]:
-                med.set_color(BOXPLOT_CONFIG["median_color"])
-                med.set_linewidth(BOXPLOT_CONFIG["median_linewidth"])
-
-        # Annotations: n= and RH= above the highest data point per temperature
-        _annotate_temp_groups(ax, temp_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
-
-        _bxmin = BOXPLOT_CONFIG["temp_xmin"]
-        _bxmax = BOXPLOT_CONFIG["temp_xmax"]
-        _bxstep = BOXPLOT_CONFIG["temp_xtick_step"]
-        _bxticks = range(_bxmin, _bxmax + _bxstep, _bxstep)
-        ax.set_xlim(_bxmin, _bxmax)
-        ax.set_xticks(_bxticks)
-        ax.set_xticklabels([f"{t}°C" for t in _bxticks], fontsize=FONT_SIZE_TICK)
-        ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
-        ax.set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
-        ax.set_title(
-            f"Particle Deposition Rate by Water Temperature — "
-            f"{group_label.replace('-', '–').replace('bin', 'Bin ')}"
-            "\n(Box = median/IQR, whiskers = 1.5×IQR; β = unclamped trimmed mean)",
-            fontsize=FONT_SIZE_TITLE,
-            fontweight=TITLE_FONTWEIGHT,
-        )
-        ax.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
-        ax.grid(True, alpha=0.3, axis="y")
-        ax.tick_params(labelsize=FONT_SIZE_TICK)
-
-        legend_elements = [
-            Patch(
-                facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
-                alpha=0.7,
-                label=f"Bin {b} ({particle_bins[b]['name']} µm)",
-            )
-            for b in group_bins
-        ]
-        ax.legend(
-            handles=legend_elements,
-            loc="upper right",
-            fontsize=FONT_SIZE_LEGEND - 1,
-            ncol=1,
-        )
-
-        group_output = (
-            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
-        )
-        plt.tight_layout()
-        save_figure(fig, group_output)
-        plt.close(fig)
+    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["deposition_rate"], rh_data)
 
 
 def plot_emission_rate_boxplot(
-    results_df: pd.DataFrame,
-    particle_bins: Dict,
-    output_path: Path,
+    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
-    """
-    Create two box-and-whisker figures of mean particle emission rate by water temperature.
-
-    Mirrors the structure of :func:`plot_deposition_rate_boxplot`, producing one figure
-    for small bins (Bin 0–2) and one for large bins (Bin 3–6), saved as
-    ``emission_rate_boxplot_bin0-2.png`` and ``emission_rate_boxplot_bin3-6.png``.
-
-    Uses the mean emission rate during the shower-on-to-peak window
-    (``bin{n}_E_mean``, units: #/min).
-
-    X-axis is a fixed numeric range 5–60 °C.  Only base W## events are included.
+    """Two box-and-whisker figures of mean emission rate (E_mean, #/min) by water temperature.
 
     Parameters:
-        results_df: DataFrame with analysis results (must contain config_key and
-                    bin{n}_E_mean columns).
+        results_df: DataFrame with analysis results (must contain config_key and bin{n}_E_mean).
         particle_bins: Dictionary of particle bin information.
-        output_path: Base path used to derive the two output filenames.
-        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns
-            used to annotate mean initial RH per temperature group.
+        output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
     """
-    import re
-
-    from matplotlib.patches import Patch
-
-    apply_style()
-
-    if results_df.empty or "config_key" not in results_df.columns:
-        return
-
-    def _is_base(key: str) -> bool:
-        return bool(re.match(r"^W\d+(_|$)", str(key)))
-
-    def _extract_temp(key: str) -> "float | None":
-        m = re.match(r"^W(\d+)", str(key))
-        return float(m.group(1)) if m else None
-
-    base_df = results_df[results_df["config_key"].apply(_is_base)].copy()
-
-    if base_df.empty:
-        return
-
-    config_keys = sort_config_keys_by_water_temp(
-        [k for k in base_df["config_key"].dropna().unique()]
-    )
-
-    if not config_keys:
-        return
-
-    temp_map = {k: _extract_temp(k) for k in config_keys}
-    all_bin_nums = list(particle_bins.keys())
-
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
-
-    bin_groups = [
-        ([b for b in all_bin_nums if b <= 2], "bin0-2"),
-        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
-    ]
-
-    for group_bins, group_label in bin_groups:
-        if not group_bins:
-            continue
-
-        value_cols = [f"bin{b}_E_mean" for b in group_bins]
-        temp_stats = _build_temp_stats(base_df, config_keys, temp_map, value_cols)
-
-        fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
-        if isinstance(ax, list):
-            ax = ax[0]
-
-        for bin_num in group_bins:
-            global_idx = all_bin_nums.index(bin_num)
-            color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
-            col = f"bin{bin_num}_E_mean"
-            if col not in base_df.columns:
-                continue
-
-            box_width = float(all_bin_widths[global_idx])
-            positions = []
-            data = []
-
-            for config_key in config_keys:
-                temp = temp_map.get(config_key)
-                if temp is None:
-                    continue
-                values = (
-                    base_df[base_df["config_key"] == config_key][col].dropna().values
-                )
-                if len(values) > 0:
-                    positions.append(temp)
-                    data.append(values)
-
-            if not data:
-                continue
-
-            bp = ax.boxplot(
-                data,
-                positions=positions,
-                widths=box_width,
-                patch_artist=True,
-                showfliers=True,
-                flierprops=dict(marker=BOXPLOT_CONFIG["flier_marker"], markersize=BOXPLOT_CONFIG["flier_markersize"], alpha=BOXPLOT_CONFIG["flier_alpha"], color=color),
-            )
-            for patch in bp["boxes"]:
-                patch.set_facecolor(color)
-                patch.set_alpha(BOXPLOT_CONFIG["box_alpha"])
-            for element in ("whiskers", "caps"):
-                for line in bp[element]:
-                    line.set_color(color)
-                    line.set_alpha(BOXPLOT_CONFIG["box_alpha"])
-            for med in bp["medians"]:
-                med.set_color(BOXPLOT_CONFIG["median_color"])
-                med.set_linewidth(BOXPLOT_CONFIG["median_linewidth"])
-
-        _annotate_temp_groups(ax, temp_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
-
-        _bxmin = BOXPLOT_CONFIG["temp_xmin"]
-        _bxmax = BOXPLOT_CONFIG["temp_xmax"]
-        _bxstep = BOXPLOT_CONFIG["temp_xtick_step"]
-        _bxticks = range(_bxmin, _bxmax + _bxstep, _bxstep)
-        ax.set_xlim(_bxmin, _bxmax)
-        ax.set_xticks(_bxticks)
-        ax.set_xticklabels([f"{t}°C" for t in _bxticks], fontsize=FONT_SIZE_TICK)
-        ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
-        ax.set_ylabel("Emission Rate E (#/min)", fontsize=FONT_SIZE_LABEL)
-        ax.set_title(
-            f"Particle Emission Rate by Water Temperature — "
-            f"{group_label.replace('-', '–').replace('bin', 'Bin ')}"
-            "\n(Box = median/IQR, whiskers = 1.5×IQR; E = mean over shower-on to peak)",
-            fontsize=FONT_SIZE_TITLE,
-            fontweight=TITLE_FONTWEIGHT,
-        )
-        ax.grid(True, alpha=0.3, axis="y")
-        ax.tick_params(labelsize=FONT_SIZE_TICK)
-
-        legend_elements_er = [
-            Patch(
-                facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
-                alpha=0.7,
-                label=f"Bin {b} ({particle_bins[b]['name']} µm)",
-            )
-            for b in group_bins
-        ]
-        ax.legend(
-            handles=legend_elements_er,
-            loc="upper right",
-            fontsize=FONT_SIZE_LEGEND - 1,
-            ncol=1,
-        )
-
-        er_output = (
-            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
-        )
-        plt.tight_layout()
-        save_figure(fig, er_output)
-        plt.close(fig)
+    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["emission_rate"], rh_data)
 
 
 def plot_penetration_factor_boxplot(
-    results_df: pd.DataFrame,
-    particle_bins: Dict,
-    output_path: Path,
+    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
-    """
-    Create two box-and-whisker figures of penetration factor by water temperature.
-
-    Mirrors the structure of :func:`plot_deposition_rate_boxplot`, producing one figure
-    for small bins (Bin 0–2) and one for large bins (Bin 3–6), saved as
-    ``penetration_factor_boxplot_bin0-2.png`` and ``penetration_factor_boxplot_bin3-6.png``.
-
-    Uses the mean penetration factor (``bin{n}_p_mean``), physically bounded 0–1.
-    A horizontal reference line is drawn at p = 1.
-
-    X-axis is a fixed numeric range 5–60 °C.  Only base W## events are included.
+    """Two box-and-whisker figures of penetration factor (p_mean) by water temperature.
 
     Parameters:
-        results_df: DataFrame with analysis results (must contain config_key and
-                    bin{n}_p_mean columns).
+        results_df: DataFrame with analysis results (must contain config_key and bin{n}_p_mean).
         particle_bins: Dictionary of particle bin information.
-        output_path: Base path used to derive the two output filenames.
-        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns
-            used to annotate mean initial RH per temperature group.
+        output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
     """
-    import re
-
-    from matplotlib.patches import Patch
-
-    apply_style()
-
-    if results_df.empty or "config_key" not in results_df.columns:
-        return
-
-    def _is_base(key: str) -> bool:
-        return bool(re.match(r"^W\d+(_|$)", str(key)))
-
-    def _extract_temp(key: str) -> "float | None":
-        m = re.match(r"^W(\d+)", str(key))
-        return float(m.group(1)) if m else None
-
-    base_df = results_df[results_df["config_key"].apply(_is_base)].copy()
-
-    if base_df.empty:
-        return
-
-    config_keys = sort_config_keys_by_water_temp(
-        [k for k in base_df["config_key"].dropna().unique()]
-    )
-
-    if not config_keys:
-        return
-
-    temp_map = {k: _extract_temp(k) for k in config_keys}
-    all_bin_nums = list(particle_bins.keys())
-
-    all_bin_widths = np.linspace(BOXPLOT_CONFIG["box_width_min"], BOXPLOT_CONFIG["box_width_max"], len(all_bin_nums))
-
-    bin_groups = [
-        ([b for b in all_bin_nums if b <= 2], "bin0-2"),
-        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
-    ]
-
-    for group_bins, group_label in bin_groups:
-        if not group_bins:
-            continue
-
-        value_cols = [f"bin{b}_p_mean" for b in group_bins]
-        temp_stats = _build_temp_stats(base_df, config_keys, temp_map, value_cols)
-
-        fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
-        if isinstance(ax, list):
-            ax = ax[0]
-
-        for bin_num in group_bins:
-            global_idx = all_bin_nums.index(bin_num)
-            color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
-            col = f"bin{bin_num}_p_mean"
-            if col not in base_df.columns:
-                continue
-
-            box_width = float(all_bin_widths[global_idx])
-            positions = []
-            data = []
-
-            for config_key in config_keys:
-                temp = temp_map.get(config_key)
-                if temp is None:
-                    continue
-                values = (
-                    base_df[base_df["config_key"] == config_key][col].dropna().values
-                )
-                if len(values) > 0:
-                    positions.append(temp)
-                    data.append(values)
-
-            if not data:
-                continue
-
-            bp = ax.boxplot(
-                data,
-                positions=positions,
-                widths=box_width,
-                patch_artist=True,
-                showfliers=True,
-                flierprops=dict(marker=BOXPLOT_CONFIG["flier_marker"], markersize=BOXPLOT_CONFIG["flier_markersize"], alpha=BOXPLOT_CONFIG["flier_alpha"], color=color),
-            )
-            for patch in bp["boxes"]:
-                patch.set_facecolor(color)
-                patch.set_alpha(BOXPLOT_CONFIG["box_alpha"])
-            for element in ("whiskers", "caps"):
-                for line in bp[element]:
-                    line.set_color(color)
-                    line.set_alpha(BOXPLOT_CONFIG["box_alpha"])
-            for med in bp["medians"]:
-                med.set_color(BOXPLOT_CONFIG["median_color"])
-                med.set_linewidth(BOXPLOT_CONFIG["median_linewidth"])
-
-        _annotate_temp_groups(ax, temp_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
-
-        _bxmin = BOXPLOT_CONFIG["temp_xmin"]
-        _bxmax = BOXPLOT_CONFIG["temp_xmax"]
-        _bxstep = BOXPLOT_CONFIG["temp_xtick_step"]
-        _bxticks = range(_bxmin, _bxmax + _bxstep, _bxstep)
-        ax.set_xlim(_bxmin, _bxmax)
-        ax.set_xticks(_bxticks)
-        ax.set_xticklabels([f"{t}°C" for t in _bxticks], fontsize=FONT_SIZE_TICK)
-        ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
-        ax.set_ylabel("Penetration Factor p", fontsize=FONT_SIZE_LABEL)
-        ax.set_title(
-            f"Particle Penetration Factor by Water Temperature — "
-            f"{group_label.replace('-', '–').replace('bin', 'Bin ')}"
-            "\n(Box = median/IQR, whiskers = 1.5×IQR; p capped at 1)",
-            fontsize=FONT_SIZE_TITLE,
-            fontweight=TITLE_FONTWEIGHT,
-        )
-        ax.axhline(1.0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
-        ax.grid(True, alpha=0.3, axis="y")
-        ax.tick_params(labelsize=FONT_SIZE_TICK)
-
-        legend_elements_pf = [
-            Patch(
-                facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
-                alpha=0.7,
-                label=f"Bin {b} ({particle_bins[b]['name']} µm)",
-            )
-            for b in group_bins
-        ]
-        ax.legend(
-            handles=legend_elements_pf,
-            loc="upper right",
-            fontsize=FONT_SIZE_LEGEND - 1,
-            ncol=1,
-        )
-
-        pf_output = (
-            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
-        )
-        plt.tight_layout()
-        save_figure(fig, pf_output)
-        plt.close(fig)
+    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["penetration_factor"], rh_data)
 
 
 def plot_emission_etotal_by_metric_boxplot(
@@ -1706,6 +1087,7 @@ def plot_emission_etotal_by_metric_boxplot(
     metric_col: str,
     metric_label: str,
     rh_data: "Optional[pd.DataFrame]" = None,
+    x_range: "Optional[tuple]" = None,
 ) -> None:
     """
     Create two box-and-whisker figures of E_total positioned along a continuous metric axis.
@@ -1713,7 +1095,8 @@ def plot_emission_etotal_by_metric_boxplot(
     Produces one figure for small bins (Bin 0–2) and one for large bins (Bin 3–6).
     Unlike :func:`plot_emission_boxplot`, the x-axis is **not** fixed to the
     5–60 °C water-temperature range; instead each water-temperature group (W##) is
-    centred at the *group mean* of *metric_col*, and the x-axis auto-scales from data.
+    centred at the *group mean* of *metric_col*, and the x-axis auto-scales from data
+    unless *x_range* is provided.
     Box widths also scale proportionally to the data range.
 
     Intended for exploring how E_total relates to continuous predictors such as
@@ -1733,11 +1116,9 @@ def plot_emission_etotal_by_metric_boxplot(
         metric_label: Human-readable x-axis label (e.g. 'Bedroom RH (%)').
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for the
                  n=/RH= annotation (same as other boxplot functions).
+        x_range: Optional (xmin, xmax, xtick_step) tuple to fix the x-axis
+                 range and tick positions. When None the axis auto-scales.
     """
-    import re
-
-    from matplotlib.patches import Patch
-
     apply_style()
 
     if results_df.empty or "config_key" not in results_df.columns:
@@ -1745,10 +1126,7 @@ def plot_emission_etotal_by_metric_boxplot(
     if metric_col not in results_df.columns:
         return
 
-    def _is_base(key: str) -> bool:
-        return bool(re.match(r"^W\d+(_|$)", str(key)))
-
-    base_df = results_df[results_df["config_key"].apply(_is_base)].copy()
+    base_df = results_df[results_df["config_key"].apply(_is_base_config)].copy()
 
     if base_df.empty:
         return
@@ -1786,9 +1164,9 @@ def plot_emission_etotal_by_metric_boxplot(
         # Targets roughly the same visual proportion as the fixed-axis boxplots
         # (widest bin ≈ 4.5% of range, narrowest ≈ 0.7%).
         all_x_vals = sorted(group_x_pos.values())
-        x_range = max(all_x_vals[-1] - all_x_vals[0], 0.01)
-        width_max = 0.045 * x_range
-        width_min = 0.007 * x_range
+        x_data_span = max(all_x_vals[-1] - all_x_vals[0], 0.01)
+        width_max = 0.045 * x_data_span
+        width_min = 0.007 * x_data_span
         all_bin_widths = np.linspace(width_min, width_max, len(all_bin_nums))
 
         # Build annotation stats keyed by x position (not temperature)
@@ -1861,6 +1239,20 @@ def plot_emission_etotal_by_metric_boxplot(
 
         _annotate_temp_groups(ax, annot_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
 
+        # Apply fixed x-axis range when provided; otherwise auto-scale
+        if x_range is not None:
+            xmin, xmax, xstep = x_range
+            ticks = np.arange(xmin, xmax + xstep * 0.5, xstep)
+            ticks = np.round(ticks, 10)  # avoid floating-point drift
+            ax.set_xlim(xmin, xmax)
+            ax.set_xticks(ticks)
+            ax.set_xticklabels(
+                [f"{t:g}" for t in ticks],
+                fontsize=FONT_SIZE_TICK,
+                rotation=45,
+                ha="right",
+            )
+
         ax.set_xlabel(metric_label, fontsize=FONT_SIZE_LABEL)
         ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
         ax.set_title(
@@ -1871,7 +1263,9 @@ def plot_emission_etotal_by_metric_boxplot(
             fontweight=TITLE_FONTWEIGHT,
         )
         ax.grid(True, alpha=0.3, axis="y")
-        ax.tick_params(labelsize=FONT_SIZE_TICK)
+        ax.tick_params(axis="y", labelsize=FONT_SIZE_TICK)
+        if x_range is None:
+            ax.tick_params(axis="x", labelsize=FONT_SIZE_TICK)
 
         legend_elements_metric = [
             Patch(

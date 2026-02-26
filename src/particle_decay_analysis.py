@@ -890,17 +890,19 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         print(f"  Note: Bedroom_Conditions not merged for metric-axis figures: {_e7}")
 
     _metric_axes = [
-        ("bedroom_rh",   "Bedroom RH (%)",               "emission_etotal_by_bedroom_rh_boxplot.png"),
-        ("bedroom_temp", "Bedroom Temperature (°C)",      "emission_etotal_by_bedroom_temp_boxplot.png"),
-        ("lambda_ach",   "Air Change Rate λ (h⁻¹)",       "emission_etotal_by_acr_boxplot.png"),
-        ("avg_beta",     "Avg. Deposition Rate β (h⁻¹)",  "emission_etotal_by_beta_boxplot.png"),
-        ("avg_p",        "Avg. Penetration Factor p",     "emission_etotal_by_p_boxplot.png"),
+        # (metric_col, metric_label, filename, x_range=(xmin, xmax, step))
+        ("bedroom_rh",   "Bedroom RH (%)",               "emission_etotal_by_bedroom_rh_boxplot.png",   (20,   50,   5  )),
+        ("bedroom_temp", "Bedroom Temperature (°C)",      "emission_etotal_by_bedroom_temp_boxplot.png", (10,   30,   0.5)),
+        ("lambda_ach",   "Air Change Rate λ (h⁻¹)",       "emission_etotal_by_acr_boxplot.png",          (0.5,  1.80, 0.1)),
+        ("avg_beta",     "Avg. Deposition Rate β (h⁻¹)",  "emission_etotal_by_beta_boxplot.png",         (-0.5, 0.5,  0.1)),
+        ("avg_p",        "Avg. Penetration Factor p",     "emission_etotal_by_p_boxplot.png",            (0.3,  1.1,  0.1)),
     ]
-    for metric_col, metric_label, filename in _metric_axes:
+    for metric_col, metric_label, filename, x_range in _metric_axes:
         try:
             plot_emission_etotal_by_metric_boxplot(
                 _df7, PARTICLE_BINS, plot_dir / filename,
-                metric_col=metric_col, metric_label=metric_label, rh_data=rh_data,
+                metric_col=metric_col, metric_label=metric_label,
+                rh_data=rh_data, x_range=x_range,
             )
             print(f"  Generated: {filename} (bin0-2 and bin3-6)")
         except Exception as e:
