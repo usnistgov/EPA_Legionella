@@ -207,7 +207,7 @@ WINDOW_ALPHA = 0.15  # Transparency for shaded analysis windows
 
 # Shared settings for all summary boxplot functions (temperature-vs-metric figures).
 # Centralised here so that visual style is consistent across plot_emission_boxplot,
-# plot_deposition_rate_boxplot, plot_emission_rate_boxplot, and
+# plot_other_process_rate_boxplot, plot_emission_rate_boxplot, and
 # plot_penetration_factor_boxplot without duplicating literal values.
 BOXPLOT_CONFIG = {
     # Figure size (width, height) in inches

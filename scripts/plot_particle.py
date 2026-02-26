@@ -28,7 +28,7 @@ Plot Features:
     - Configuration-based subplot grouping; temperature-based colors from get_config_color()
 
 Methodology:
-    1. Extract data window around shower event (2 hr before to 1 hr after deposition end)
+    1. Extract data window around shower event (2 hr before to 1.5 hr after deposition end)
     2. Top panel: plot particle concentrations for all 7 size bins (solid = valid beta,
        dashed = invalid beta)
     3. Shade deposition window (2 hr post-shower)
@@ -41,7 +41,7 @@ Methodology:
 
 Output Files:
     - Individual event plots: {test_name}_particle_decay.png
-    - Summary charts: penetration_summary.png, deposition_summary.png,
+    - Summary charts: penetration_summary.png, other_process_summary.png,
       emission_summary.png, size_distribution_summary.png
 
 Author: Nathan Lima
@@ -126,9 +126,9 @@ def plot_particle_decay_event(
     """
     apply_style()
 
-    # Extract data for plotting window (2 hours before shower to 3 hours after)
+    # Extract data for plotting window (2 hours before shower to 1.5 hours after deposition end)
     plot_start = event["shower_on"] - timedelta(hours=2)
-    plot_end = event["deposition_end"] + timedelta(hours=1)
+    plot_end = event["deposition_end"] + timedelta(hours=1.5)
 
     mask = (particle_data["datetime"] >= plot_start) & (
         particle_data["datetime"] <= plot_end
@@ -273,13 +273,14 @@ def plot_particle_decay_event(
         loc="upper right",
         fontsize=FONT_SIZE_LEGEND - 1,
         framealpha=0.9,
-        ncol=2,
+        ncol=1,
     )
     ax1.set_yscale("log")
     ax1.set_ylim(bottom=0.001)
     ax1.grid(True, alpha=0.3, which="both")
     ax1.tick_params(labelsize=FONT_SIZE_TICK)
     format_datetime_axis(ax1)
+    ax1.set_xlim(plot_start, plot_end)
 
     # =========================================================================
     # Bottom panel: Per-step emission rates
@@ -331,9 +332,19 @@ def plot_particle_decay_event(
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(labelsize=FONT_SIZE_TICK)
 
-    # Match x-axis range to the full plot window (same as the concentration panel)
-    ax2.set_xlim(ax1.get_xlim())
-    format_datetime_axis(ax2, interval_minutes=30)
+    # Set emission panel x-axis: 30 min before shower_on to 30 min after latest peak_time
+    peak_times = []
+    for bn in particle_bins.keys():
+        pt = result.get(f"bin{bn}_peak_time", None)
+        if pt is not None:
+            peak_times.append(pd.Timestamp(pt))
+    ax2_left = event["shower_on"] - timedelta(minutes=30)
+    if peak_times:
+        ax2_right = max(peak_times) + timedelta(minutes=30)
+    else:
+        ax2_right = event["shower_off"] + timedelta(minutes=30)
+    ax2.set_xlim(ax2_left, ax2_right)
+    format_datetime_axis(ax2, interval_minutes=5)
 
     # Percentile-based y-axis limits to avoid extreme noise spikes dominating
     all_e_steps = []
@@ -422,7 +433,7 @@ def _plot_summary_bar_chart(
     """
     Shared implementation for per-bin summary bar charts.
 
-    Handles all three metric types (penetration, deposition, emission) via a
+    Handles all three metric types (penetration, other process, emission) via a
     configuration dict.  If config_key is present, creates one subplot per
     configuration; otherwise draws a single panel.
 
