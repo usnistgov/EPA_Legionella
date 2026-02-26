@@ -148,15 +148,15 @@ from src.data_paths import get_data_root, get_event_figures_dir  # noqa: E402
 from src.particle_calculations import (  # noqa: E402
     BEDROOM_VOLUME_M3,
     DEPOSITION_WINDOW_HOURS,
-    MAX_DEPOSITION_RATE,
-    MIN_POINTS_DEPOSITION,
+    MAX_OTHER_PROCESS_RATE,
     MIN_POINTS_EMISSION,
+    MIN_POINTS_OTHER_PROCESS,
     MIN_POINTS_PENETRATION,
     PARTICLE_BINS,
     TIME_STEP_MINUTES,
     calculate_ct_prediction,
-    calculate_deposition_rate,
     calculate_emission_rate,
+    calculate_other_process_rate,
     calculate_penetration_factor,
 )
 from src.particle_data_loader import (  # noqa: E402

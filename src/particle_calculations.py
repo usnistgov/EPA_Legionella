@@ -101,20 +101,20 @@ TIME_STEP_MINUTES = 1.0  # Time resolution for numerical calculations
 ROLLING_WINDOW_MIN = 0  # Rolling average window in minutes (0 = no smoothing)
 
 # Validation thresholds
-# MAX_DEPOSITION_RATE: upper cap on individual per-step beta estimates before
+# MAX_OTHER_PROCESS_RATE: upper cap on individual per-step beta estimates before
 # percentile-trimming.  Values above 15 h⁻¹ correspond to a half-life of
 # ~4 min for gravitational settling alone, which is physically unreasonable
 # for particles < 3 µm; these are almost certainly noise spikes.
-MAX_DEPOSITION_RATE = 15.0  # Maximum reasonable β (h⁻¹)
+MAX_OTHER_PROCESS_RATE = 15.0  # Maximum reasonable β (h⁻¹)
 
 # Minimum data point requirements
 # MIN_POINTS_PENETRATION: penetration windows are ~5 h long at 1-min resolution
 # (~300 data points); 10 is a very loose lower bound that only rejects windows
 # with severe data dropouts.
 MIN_POINTS_PENETRATION = 10  # Minimum points for penetration calculation
-# MIN_POINTS_DEPOSITION: the 2-hr decay window contains ~120 points; 10 ensures
+# MIN_POINTS_OTHER_PROCESS: the 2-hr decay window contains ~120 points; 10 ensures
 # at least a few minutes of continuous decay data for a meaningful beta estimate.
-MIN_POINTS_DEPOSITION = 10  # Minimum points for deposition calculation
+MIN_POINTS_OTHER_PROCESS = 10  # Minimum points for other process calculation
 # MIN_POINTS_EMISSION: the shower-on-to-peak window can be as short as 2-3 min;
 # requiring at least 3 consecutive valid steps avoids single-point estimates.
 MIN_POINTS_EMISSION = 3  # Minimum points for emission calculation
@@ -343,7 +343,7 @@ def calculate_other_process_rate(
     where dt is the time step in hours and C_out,t is the measured outdoor
     concentration at time t (time-varying, not averaged).
 
-    All per-step estimates at or below MAX_DEPOSITION_RATE are collected
+    All per-step estimates at or below MAX_OTHER_PROCESS_RATE are collected
     (no lower bound — negative values from noise or brief concentration
     rises are retained to avoid upward bias).  A symmetric 5th–95th
     percentile trim then removes extreme outliers on both sides.  R² is
@@ -351,10 +351,10 @@ def calculate_other_process_rate(
     and the measured (time-varying) outdoor concentration.
 
     QA filters applied:
-        - MIN_POINTS_DEPOSITION (10): minimum valid data points both in the
+        - MIN_POINTS_OTHER_PROCESS (10): minimum valid data points both in the
           full window and after peak; the 2-hr window at 1-min resolution
           yields ~120 points, so 10 rejects only severe dropouts.
-        - MAX_DEPOSITION_RATE (15.0 h⁻¹): upper cap on per-step estimates;
+        - MAX_OTHER_PROCESS_RATE (15.0 h⁻¹): upper cap on per-step estimates;
           values above this are physically unreasonable for sub-3 µm particles
           and indicate measurement noise spikes.
         - 5th–95th percentile trim on the retained estimates to remove
@@ -406,13 +406,13 @@ def calculate_other_process_rate(
     )
     window_data = particle_data[mask].copy()
 
-    if len(window_data) < MIN_POINTS_DEPOSITION:
+    if len(window_data) < MIN_POINTS_OTHER_PROCESS:
         return {
             **_nan_result,
             "n_points": len(window_data),
             "skip_reason": (
                 f"Insufficient data: {len(window_data)} points "
-                f"(minimum {MIN_POINTS_DEPOSITION} required)"
+                f"(minimum {MIN_POINTS_OTHER_PROCESS} required)"
             ),
         }
 
@@ -433,14 +433,14 @@ def calculate_other_process_rate(
     # Filter data from peak to end of window for decay calculation
     decay_data = window_data.iloc[peak_idx:].copy()
 
-    if len(decay_data) < MIN_POINTS_DEPOSITION:
+    if len(decay_data) < MIN_POINTS_OTHER_PROCESS:
         return {
             **_nan_result,
             "n_points": len(decay_data),
             "peak_time": peak_time,
             "skip_reason": (
                 f"Insufficient data after peak: {len(decay_data)} points "
-                f"(minimum {MIN_POINTS_DEPOSITION} required)"
+                f"(minimum {MIN_POINTS_OTHER_PROCESS} required)"
             ),
         }
 
@@ -453,7 +453,7 @@ def calculate_other_process_rate(
     #   beta = 1/dt_h - lambda - C_{t+1}/(C_t * dt_h) + p*lambda*(C_out,t/C_t)
     # where dt_h is the time step in hours.
     #
-    # All estimates at or below MAX_DEPOSITION_RATE are collected (no lower
+    # All estimates at or below MAX_OTHER_PROCESS_RATE are collected (no lower
     # bound, so negative values from noisy or rising-concentration steps are
     # included).  A 5th–95th percentile trim is then applied to remove
     # extreme outliers on both sides without introducing directional bias.
@@ -476,17 +476,17 @@ def calculate_other_process_rate(
         )
 
         # Reject only unphysically large positive outliers
-        if beta_t <= MAX_DEPOSITION_RATE:
+        if beta_t <= MAX_OTHER_PROCESS_RATE:
             beta_raw.append(beta_t)
 
-    if len(beta_raw) < MIN_POINTS_DEPOSITION:
+    if len(beta_raw) < MIN_POINTS_OTHER_PROCESS:
         return {
             **_nan_result,
             "n_points": len(beta_raw),
             "peak_time": peak_time,
             "skip_reason": (
                 f"Insufficient valid beta estimates: {len(beta_raw)} "
-                f"(minimum {MIN_POINTS_DEPOSITION} required)"
+                f"(minimum {MIN_POINTS_OTHER_PROCESS} required)"
             ),
         }
 

@@ -1,7 +1,35 @@
-To do list:
-1)	For the air_change_rate_boxplot.png figure, add the w## above the N-#.
-2)	For the two emission_etotal_by_act_boxplot_bin#-#.png figures, set the x-axis to be 0.5 – 1.80 with markers at every 0.1.
-3)	For the two emission_etotal_by_bedrom_rh_boxplot_bin#-#.png figures, set the x-axis to be 20 – 50 with markers every 5.
-4)	For the two emission_etotal_by_bedrom_temp_boxplot_bin#-#.png figures, set the x-axis to be 10 – 30 with markers every 0.5.
-5)	For the two emission_etotal_by_beta_boxplot_bin#-#.png figures, set the x-axis to be -0.5 – 0.5 with markers every 0.1.
-6)	For the emission_etotal_by_p_boxplot_bin#-#.png figures, set the x-axis to be 0.3 – 1.1 with markers every 0.1.
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\site-packages\pandas\core\indexes\base.py", line 3812, in get_loc
+    return self._engine.get_loc(casted_key)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
+KeyError: 'bin0_beta'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\src\particle_decay_analysis.py", line 974, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\src\particle_decay_analysis.py", line 967, in main
+    run_particle_analysis(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        output_dir=output_dir,
+        ^^^^^^^^^^^^^^^^^^^^^^
+        generate_plots=not args.no_plot,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\src\particle_decay_analysis.py", line 622, in run_particle_analysis
+    _print_overall_summary(results_df, results)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\src\particle_decay_analysis.py", line 655, in _print_overall_summary
+    valid_beta = results_df[beta_col].dropna()
+                 ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\site-packages\pandas\core\frame.py", line 4113, in __getitem__
+    indexer = self.columns.get_loc(key)
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\site-packages\pandas\core\indexes\base.py", line 3819, in get_loc
+    raise KeyError(key) from err
+KeyError: 'bin0_beta'
