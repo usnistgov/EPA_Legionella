@@ -30,7 +30,7 @@ Key Functions:
     - plot_sensor_summary_bars: Bar charts comparing sensor readings
     - plot_particle_decay_event: Individual particle decay curves per event/bin
     - plot_penetration_summary: Bar charts of penetration factors by size
-    - plot_deposition_summary: Bar charts of deposition rates by size
+    - plot_deposition_summary: Bar charts of other process rates by size
     - plot_emission_summary: Bar charts of emission rates by size
     - plot_size_distribution_summary: Multi-panel summary of all metrics
 

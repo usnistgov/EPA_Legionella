@@ -850,7 +850,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
     # Boxplots with n= / RH= annotations
     for plot_func, filename in [
         (plot_emission_boxplot, "emission_etotal_boxplot.png"),
-        (plot_deposition_rate_boxplot, "deposition_rate_boxplot.png"),
+        (plot_deposition_rate_boxplot, "other_process_rate_boxplot.png"),
         (plot_emission_rate_boxplot, "emission_rate_boxplot.png"),
         (plot_penetration_factor_boxplot, "penetration_factor_boxplot.png"),
     ]:
