@@ -255,8 +255,6 @@ def plot_particle_decay_event(
 
     # Build text box content: lambda, valid-bin count, and per-bin decay R²
     textstr = f"λ = {lambda_ach:.4f} h⁻¹\n"
-    textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
-    textstr += "(Solid=valid, Dashed=invalid)"
     if decay_r2_lines:
         textstr += "\n\nDecay R²:\n" + "\n".join(decay_r2_lines)
 
@@ -482,8 +480,14 @@ def _plot_summary_bar_chart(
 
         x = np.arange(len(bin_nums))
         bars = ax.bar(
-            x, means, yerr=stds, capsize=5,
-            color=bar_color, alpha=0.7, edgecolor="black", linewidth=1,
+            x,
+            means,
+            yerr=stds,
+            capsize=5,
+            color=bar_color,
+            alpha=0.7,
+            edgecolor="black",
+            linewidth=1,
         )
 
         for bar, mean, std in zip(bars, means, stds):
@@ -492,7 +496,9 @@ def _plot_summary_bar_chart(
                     bar.get_x() + bar.get_width() / 2,
                     bar.get_height() + std + cfg["label_offset"],
                     f"{mean:{cfg['label_fmt']}}",
-                    ha="center", va="bottom", fontsize=FONT_SIZE_TICK - 1,
+                    ha="center",
+                    va="bottom",
+                    fontsize=FONT_SIZE_TICK - 1,
                 )
 
         ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
@@ -500,10 +506,13 @@ def _plot_summary_bar_chart(
         if n_configs > 1:
             ax.set_title(
                 f"Configuration: {config_key} (n={len(config_df)})",
-                fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT,
+                fontsize=FONT_SIZE_TITLE,
+                fontweight=TITLE_FONTWEIGHT,
             )
         else:
-            ax.set_title(cfg["title"], fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
+            ax.set_title(
+                cfg["title"], fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
+            )
 
         ax.set_xticks(x)
         ax.set_xticklabels(bin_labels, rotation=45, ha="right")
@@ -520,8 +529,10 @@ def _plot_summary_bar_chart(
 
     if n_configs > 1:
         fig.suptitle(
-            cfg["title"], fontsize=FONT_SIZE_TITLE + 2,
-            fontweight=TITLE_FONTWEIGHT, y=1.02,
+            cfg["title"],
+            fontsize=FONT_SIZE_TITLE + 2,
+            fontweight=TITLE_FONTWEIGHT,
+            y=1.02,
         )
 
     plt.tight_layout()
@@ -539,7 +550,9 @@ def plot_penetration_summary(
         particle_bins: Dictionary of particle bin information.
         output_path: Path to save the figure.
     """
-    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["penetration"])
+    _plot_summary_bar_chart(
+        results_df, particle_bins, output_path, _BAR_CHART_CONFIG["penetration"]
+    )
 
 
 def plot_deposition_summary(
@@ -552,7 +565,9 @@ def plot_deposition_summary(
         particle_bins: Dictionary of particle bin information.
         output_path: Path to save the figure.
     """
-    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["deposition"])
+    _plot_summary_bar_chart(
+        results_df, particle_bins, output_path, _BAR_CHART_CONFIG["deposition"]
+    )
 
 
 def plot_emission_summary(
@@ -565,7 +580,9 @@ def plot_emission_summary(
         particle_bins: Dictionary of particle bin information.
         output_path: Path to save the figure.
     """
-    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["emission"])
+    _plot_summary_bar_chart(
+        results_df, particle_bins, output_path, _BAR_CHART_CONFIG["emission"]
+    )
 
 
 def plot_size_distribution_summary(
@@ -949,7 +966,9 @@ def _draw_temp_axis_boxplot(
                 temp = temp_map.get(config_key)
                 if temp is None:
                     continue
-                values = base_df[base_df["config_key"] == config_key][col].dropna().values
+                values = (
+                    base_df[base_df["config_key"] == config_key][col].dropna().values
+                )
                 if len(values) > 0:
                     positions.append(temp)
                     data.append(values)
@@ -1000,7 +1019,9 @@ def _draw_temp_axis_boxplot(
             fontweight=TITLE_FONTWEIGHT,
         )
         if cfg["hline"] is not None:
-            ax.axhline(cfg["hline"], color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
+            ax.axhline(
+                cfg["hline"], color="gray", linewidth=0.8, linestyle=":", alpha=0.6
+            )
         ax.grid(True, alpha=0.3, axis="y")
         ax.tick_params(labelsize=FONT_SIZE_TICK)
 
@@ -1012,16 +1033,25 @@ def _draw_temp_axis_boxplot(
             )
             for b in group_bins
         ]
-        ax.legend(handles=legend_elements, loc="upper right", fontsize=FONT_SIZE_LEGEND - 1, ncol=1)
+        ax.legend(
+            handles=legend_elements,
+            loc="upper right",
+            fontsize=FONT_SIZE_LEGEND - 1,
+            ncol=1,
+        )
 
-        group_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
+        group_output = (
+            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
+        )
         plt.tight_layout()
         save_figure(fig, group_output)
         plt.close(fig)
 
 
 def plot_emission_boxplot(
-    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
+    results_df: pd.DataFrame,
+    particle_bins: Dict,
+    output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
     """Two box-and-whisker figures of total particle emission (E_total) by water temperature.
@@ -1032,11 +1062,19 @@ def plot_emission_boxplot(
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
     """
-    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["emission_etotal"], rh_data)
+    _draw_temp_axis_boxplot(
+        results_df,
+        particle_bins,
+        output_path,
+        _TEMP_BOXPLOT_CONFIG["emission_etotal"],
+        rh_data,
+    )
 
 
 def plot_deposition_rate_boxplot(
-    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
+    results_df: pd.DataFrame,
+    particle_bins: Dict,
+    output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
     """Two box-and-whisker figures of unclamped deposition rate (beta_raw_mean) by water temperature.
@@ -1047,11 +1085,19 @@ def plot_deposition_rate_boxplot(
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
     """
-    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["deposition_rate"], rh_data)
+    _draw_temp_axis_boxplot(
+        results_df,
+        particle_bins,
+        output_path,
+        _TEMP_BOXPLOT_CONFIG["deposition_rate"],
+        rh_data,
+    )
 
 
 def plot_emission_rate_boxplot(
-    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
+    results_df: pd.DataFrame,
+    particle_bins: Dict,
+    output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
     """Two box-and-whisker figures of mean emission rate (E_mean, #/min) by water temperature.
@@ -1062,11 +1108,19 @@ def plot_emission_rate_boxplot(
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
     """
-    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["emission_rate"], rh_data)
+    _draw_temp_axis_boxplot(
+        results_df,
+        particle_bins,
+        output_path,
+        _TEMP_BOXPLOT_CONFIG["emission_rate"],
+        rh_data,
+    )
 
 
 def plot_penetration_factor_boxplot(
-    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path,
+    results_df: pd.DataFrame,
+    particle_bins: Dict,
+    output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
     """Two box-and-whisker figures of penetration factor (p_mean) by water temperature.
@@ -1077,7 +1131,13 @@ def plot_penetration_factor_boxplot(
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
     """
-    _draw_temp_axis_boxplot(results_df, particle_bins, output_path, _TEMP_BOXPLOT_CONFIG["penetration_factor"], rh_data)
+    _draw_temp_axis_boxplot(
+        results_df,
+        particle_bins,
+        output_path,
+        _TEMP_BOXPLOT_CONFIG["penetration_factor"],
+        rh_data,
+    )
 
 
 def plot_emission_etotal_by_metric_boxplot(
@@ -1224,7 +1284,12 @@ def plot_emission_etotal_by_metric_boxplot(
                 widths=box_width,
                 patch_artist=True,
                 showfliers=True,
-                flierprops=dict(marker=BOXPLOT_CONFIG["flier_marker"], markersize=BOXPLOT_CONFIG["flier_markersize"], alpha=BOXPLOT_CONFIG["flier_alpha"], color=color),
+                flierprops=dict(
+                    marker=BOXPLOT_CONFIG["flier_marker"],
+                    markersize=BOXPLOT_CONFIG["flier_markersize"],
+                    alpha=BOXPLOT_CONFIG["flier_alpha"],
+                    color=color,
+                ),
             )
             for patch in bp["boxes"]:
                 patch.set_facecolor(color)
