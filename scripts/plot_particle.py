@@ -255,6 +255,8 @@ def plot_particle_decay_event(
 
     # Build text box content: lambda, valid-bin count, and per-bin decay R²
     textstr = f"λ = {lambda_ach:.4f} h⁻¹\n"
+    textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
+    textstr += "(Solid=valid, Dashed=invalid)"
     if decay_r2_lines:
         textstr += "\n\nDecay R²:\n" + "\n".join(decay_r2_lines)
 
