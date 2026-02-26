@@ -404,7 +404,7 @@ _BAR_CHART_CONFIG = {
         log_scale=False,
     ),
     "deposition": dict(
-        col_template="bin{n}_beta",
+        col_template="bin{n}_beta_other",
         ylabel="Other Process Rate β (h⁻¹)",
         title="Other Process Rate by Particle Size\n(Mean ± Std Dev)",
         label_fmt=".2f",
@@ -883,7 +883,7 @@ _TEMP_BOXPLOT_CONFIG = {
         hline=None,
     ),
     "deposition_rate": dict(
-        col_template="bin{n}_beta_raw_mean",
+        col_template="bin{n}_beta_other_raw_mean",
         ylabel="Other Process Rate β (h⁻¹)",
         title_metric="Particle Other Process Rate",
         title_note="(Box = median/IQR, whiskers = 1.5×IQR; β = unclamped trimmed mean)",
