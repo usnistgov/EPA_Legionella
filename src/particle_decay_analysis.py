@@ -167,7 +167,6 @@ from src.particle_data_loader import (  # noqa: E402
     load_shower_log,
 )
 
-
 # =============================================================================
 # Event Analysis Orchestration
 # =============================================================================
@@ -281,7 +280,9 @@ def analyze_event_all_bins(
         )
 
         results[f"bin{bin_num}_beta"] = beta_result.get("beta", np.nan)
-        results[f"bin{bin_num}_beta_raw_mean"] = beta_result.get("beta_raw_mean", np.nan)
+        results[f"bin{bin_num}_beta_raw_mean"] = beta_result.get(
+            "beta_raw_mean", np.nan
+        )
         results[f"bin{bin_num}_beta_std"] = beta_result.get("beta_std", np.nan)
         results[f"bin{bin_num}_beta_r_squared"] = beta_result.get(
             "beta_r_squared", np.nan
@@ -392,9 +393,7 @@ def analyze_event_all_bins(
         # Measured concentration nearest to deposition_end
         depo_end = event["deposition_end"]
         if col_inside in particle_data.columns:
-            time_diffs_end = (
-                particle_data["datetime"] - pd.Timestamp(depo_end)
-            ).abs()
+            time_diffs_end = (particle_data["datetime"] - pd.Timestamp(depo_end)).abs()
             end_row = int(time_diffs_end.argmin())
             results[f"bin{bin_num}_deposition_end_measured"] = float(
                 col_values[end_row]
@@ -437,7 +436,9 @@ def run_particle_analysis(
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
     print("Penetration factor: averaged before/after windows (p capped at 1)")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
-    print("Beta selection: R²-based 3-step (unclamped → clamped ≥ 0 → 0; threshold 0.80)")
+    print(
+        "Beta selection: R²-based 3-step (unclamped → clamped ≥ 0 → 0; threshold 0.80)"
+    )
     print("\nValidation thresholds:")
     print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
     print(
@@ -698,7 +699,9 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         column_rename[f"bin{bin_num}_p_mean"] = f"bin{bin_num}_p_mean (-)"
         column_rename[f"bin{bin_num}_p_std"] = f"bin{bin_num}_p_std (-)"
         column_rename[f"bin{bin_num}_beta"] = f"bin{bin_num}_beta (h-1)"
-        column_rename[f"bin{bin_num}_beta_raw_mean"] = f"bin{bin_num}_beta_raw_mean (h-1)"
+        column_rename[f"bin{bin_num}_beta_raw_mean"] = (
+            f"bin{bin_num}_beta_raw_mean (h-1)"
+        )
         column_rename[f"bin{bin_num}_beta_std"] = f"bin{bin_num}_beta_std (h-1)"
         column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
         column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
@@ -723,15 +726,11 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         beta_r2_cols = id_cols + [
             f"bin{i}_beta_r_squared" for i in PARTICLE_BINS.keys()
         ]
-        E_cols = id_cols + [
-            f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()
-        ]
+        E_cols = id_cols + [f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()]
         E_total_cols = id_cols + [f"bin{i}_E_total (#)" for i in PARTICLE_BINS.keys()]
         E_total_cols = [c for c in E_total_cols if c in results_df_export.columns]
 
-        E_r2_cols = id_cols + [
-            f"bin{i}_E_r_squared" for i in PARTICLE_BINS.keys()
-        ]
+        E_r2_cols = id_cols + [f"bin{i}_E_r_squared" for i in PARTICLE_BINS.keys()]
         E_r2_cols = [c for c in E_r2_cols if c in results_df_export.columns]
 
         results_df_export[p_cols].to_excel(
@@ -743,9 +742,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         results_df_export[beta_r2_cols].to_excel(
             writer, sheet_name="beta_r_squared", index=False
         )
-        results_df_export[E_cols].to_excel(
-            writer, sheet_name="E_emission", index=False
-        )
+        results_df_export[E_cols].to_excel(writer, sheet_name="E_emission", index=False)
         results_df_export[E_total_cols].to_excel(
             writer, sheet_name="E_total_particles", index=False
         )
@@ -776,12 +773,12 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
                 )
             peak_df[f"bin{bin_num}_peak_pct_diff (%)"] = pct_pk.values
 
-            peak_df[f"bin{bin_num}_deposition_end_measured (#/cm3)"] = (
-                results_df[meas_de].values
-            )
-            peak_df[f"bin{bin_num}_deposition_end_predicted (#/cm3)"] = (
-                results_df[pred_de].values
-            )
+            peak_df[f"bin{bin_num}_deposition_end_measured (#/cm3)"] = results_df[
+                meas_de
+            ].values
+            peak_df[f"bin{bin_num}_deposition_end_predicted (#/cm3)"] = results_df[
+                pred_de
+            ].values
             with np.errstate(invalid="ignore", divide="ignore"):
                 pct_de = (
                     (results_df[pred_de] - results_df[meas_de])
@@ -824,7 +821,9 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
     rh_data = None
     try:
         import pandas as _pd
+
         from src.data_paths import get_common_file
+
         _summary_path = get_common_file("rh_temp_wind_summary")
         _bc = _pd.read_excel(_summary_path, sheet_name="Bedroom_Conditions")
         _bc = _bc.rename(columns={"shower_on": "datetime", "rh_mean (%)": "RH_bedroom"})
@@ -832,7 +831,9 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         rh_data["datetime"] = _pd.to_datetime(rh_data["datetime"])
         print("  Loaded Bedroom_Conditions RH for boxplot annotations.")
     except Exception as _rh_err:
-        print(f"  Note: Could not load Bedroom_Conditions RH data (n= only annotations): {_rh_err}")
+        print(
+            f"  Note: Could not load Bedroom_Conditions RH data (n= only annotations): {_rh_err}"
+        )
 
     # Bar-chart summary plots (no RH annotation needed)
     for plot_func, filename in [
@@ -875,7 +876,9 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
     # Merge bedroom RH and temperature from Bedroom_Conditions sheet (best-effort)
     try:
         import pandas as _pd7
+
         from src.data_paths import get_common_file as _gcf7
+
         _bc7 = _pd7.read_excel(
             _gcf7("rh_temp_wind_summary"), sheet_name="Bedroom_Conditions"
         )
@@ -891,18 +894,47 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
 
     _metric_axes = [
         # (metric_col, metric_label, filename, x_range=(xmin, xmax, step))
-        ("bedroom_rh",   "Bedroom RH (%)",               "emission_etotal_by_bedroom_rh_boxplot.png",   (20,   50,   5  )),
-        ("bedroom_temp", "Bedroom Temperature (°C)",      "emission_etotal_by_bedroom_temp_boxplot.png", (10,   30,   0.5)),
-        ("lambda_ach",   "Air Change Rate λ (h⁻¹)",       "emission_etotal_by_acr_boxplot.png",          (0.5,  1.80, 0.1)),
-        ("avg_beta",     "Avg. Deposition Rate β (h⁻¹)",  "emission_etotal_by_beta_boxplot.png",         (-0.5, 0.5,  0.1)),
-        ("avg_p",        "Avg. Penetration Factor p",     "emission_etotal_by_p_boxplot.png",            (0.3,  1.1,  0.1)),
+        (
+            "bedroom_rh",
+            "Bedroom RH (%)",
+            "emission_etotal_by_bedroom_rh_boxplot.png",
+            (20, 45, 2),
+        ),
+        (
+            "bedroom_temp",
+            "Bedroom Temperature (°C)",
+            "emission_etotal_by_bedroom_temp_boxplot.png",
+            (15, 19, 0.5),
+        ),
+        (
+            "lambda_ach",
+            "Air Change Rate λ (h⁻¹)",
+            "emission_etotal_by_acr_boxplot.png",
+            (0.7, 1.70, 0.1),
+        ),
+        (
+            "avg_beta",
+            "Avg. Deposition Rate β (h⁻¹)",
+            "emission_etotal_by_beta_boxplot.png",
+            (-0.3, 0.2, 0.05),
+        ),
+        (
+            "avg_p",
+            "Avg. Penetration Factor p",
+            "emission_etotal_by_p_boxplot.png",
+            (0.4, 0.85, 0.05),
+        ),
     ]
     for metric_col, metric_label, filename, x_range in _metric_axes:
         try:
             plot_emission_etotal_by_metric_boxplot(
-                _df7, PARTICLE_BINS, plot_dir / filename,
-                metric_col=metric_col, metric_label=metric_label,
-                rh_data=rh_data, x_range=x_range,
+                _df7,
+                PARTICLE_BINS,
+                plot_dir / filename,
+                metric_col=metric_col,
+                metric_label=metric_label,
+                rh_data=rh_data,
+                x_range=x_range,
             )
             print(f"  Generated: {filename} (bin0-2 and bin3-6)")
         except Exception as e:

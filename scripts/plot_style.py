@@ -42,11 +42,11 @@ FIGURE_FORMAT = "png"
 
 # Font settings (clean scientific style)
 FONT_FAMILY = "serif"
-FONT_SIZE_TITLE = 12
-FONT_SIZE_LABEL = 10
-FONT_SIZE_TICK = 9
-FONT_SIZE_LEGEND = 9
-FONT_SIZE_ANNOTATION = 8
+FONT_SIZE_TITLE = 24
+FONT_SIZE_LABEL = 18
+FONT_SIZE_TICK = 18
+FONT_SIZE_LEGEND = 12
+FONT_SIZE_ANNOTATION = 12
 
 # Title formatting - CONSISTENT ACROSS ALL PLOTS
 TITLE_FONTWEIGHT = "normal"  # Changed from 'bold' for consistency
@@ -100,11 +100,11 @@ SENSOR_COLORS = [
 # Maps configuration keys to colors for consistent visualization
 CONFIG_COLORS = {
     # Door position colors
-    "Open": "#2ca02c",    # Green for Open
+    "Open": "#2ca02c",  # Green for Open
     "Closed": "#ff7f0e",  # Orange for Closed
-    "Partial": "#bcbd22", # Yellow-green for Partial
+    "Partial": "#bcbd22",  # Yellow-green for Partial
     # Fan status colors
-    "FanOn": "#e377c2",   # Pink for Fan On
+    "FanOn": "#e377c2",  # Pink for Fan On
     "FanOff": "#7f7f7f",  # Gray for Fan Off
 }
 
@@ -157,7 +157,7 @@ def get_config_color(config_key: str, index: int = 0) -> str:
     """
     # Extract numeric temperature from W## or W##b codes
     if config_key and config_key[0] == "W":
-        water_part = config_key.split("_")[0]   # e.g., "W48b"
+        water_part = config_key.split("_")[0]  # e.g., "W48b"
         numeric_str = "".join(c for c in water_part[1:] if c.isdigit())
         if numeric_str:
             try:
@@ -169,6 +169,7 @@ def get_config_color(config_key: str, index: int = 0) -> str:
 
     # Fallback to indexed color
     return CONFIG_KEY_COLORS[index % len(CONFIG_KEY_COLORS)]
+
 
 # Line styles
 LINE_WIDTH_DATA = 1.5
@@ -386,10 +387,11 @@ def format_test_name_for_filename(test_name: str) -> str:
         Formatted filename string (lowercase, underscores, no replicate)
     """
     import re
+
     # Remove replicate number (_R01, _R02, _R??, etc.)
-    name = re.sub(r'_R[\d?]+$', '', test_name)
+    name = re.sub(r"_R[\d?]+$", "", test_name)
     # Remove invalid Windows filename characters: < > : " / \ | ? *
-    name = re.sub(r'[<>:"/\\|?*]', '', name)
+    name = re.sub(r'[<>:"/\\|?*]', "", name)
     # Convert to lowercase
     return name.lower()
 
@@ -409,9 +411,10 @@ def format_test_name_for_title(test_name: str) -> str:
     """
     # Remove replicate number (_R01, _R02, etc.)
     import re
-    name = re.sub(r'_R\d+$', '', test_name)
+
+    name = re.sub(r"_R\d+$", "", test_name)
     # Replace underscores with spaces
-    return name.replace('_', ' ')
+    return name.replace("_", " ")
 
 
 def add_vertical_marker(
