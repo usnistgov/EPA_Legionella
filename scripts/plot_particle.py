@@ -11,7 +11,7 @@ analyzing aerosol behavior during and after shower events.
 Key Functions:
     - plot_particle_decay_event: Individual event decay curves per bin (two panels)
     - plot_penetration_summary: Bar chart of penetration factors by size
-    - plot_deposition_summary: Bar chart of deposition rates by size
+    - plot_other_process_summary: Bar chart of other process rates by size
     - plot_emission_summary: Bar chart of emission rates by size
     - plot_emission_boxplot: Box-and-whisker of E_total by water temperature and bin
     - plot_size_distribution_summary: Multi-panel summary of all metrics
@@ -394,8 +394,8 @@ _BAR_CHART_CONFIG = {
     ),
     "deposition": dict(
         col_template="bin{n}_beta",
-        ylabel="Deposition Rate β (h⁻¹)",
-        title="Deposition Rate by Particle Size\n(Mean ± Std Dev)",
+        ylabel="Other Process Rate β (h⁻¹)",
+        title="Other Process Rate by Particle Size\n(Mean ± Std Dev)",
         label_fmt=".2f",
         label_offset=0.1,
         ylim=None,
@@ -558,7 +558,7 @@ def plot_penetration_summary(
 def plot_deposition_summary(
     results_df: pd.DataFrame, particle_bins: Dict, output_path: Path
 ) -> None:
-    """Bar chart of deposition rates across all bins (mean ± std per bin).
+    """Bar chart of other process rates across all bins (mean ± std per bin).
 
     Parameters:
         results_df: DataFrame with analysis results.
@@ -634,7 +634,7 @@ def plot_size_distribution_summary(
     axes[0].grid(True, alpha=0.3)
     axes[0].set_ylim(0, 1.1)
 
-    # Panel 2: Deposition rate
+    # Panel 2: Other Process Rate
     beta_means = []
     beta_stds = []
     for bin_num in bin_nums:
@@ -654,9 +654,9 @@ def plot_size_distribution_summary(
         linewidth=LINE_WIDTH_DATA,
     )
     axes[1].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
-    axes[1].set_ylabel("Deposition Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
+    axes[1].set_ylabel("Other Process Rate β (h⁻¹)", fontsize=FONT_SIZE_LABEL)
     axes[1].set_title(
-        "(b) Deposition Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
+        "(b) Other Process Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
     )
     axes[1].grid(True, alpha=0.3)
 
@@ -873,8 +873,8 @@ _TEMP_BOXPLOT_CONFIG = {
     ),
     "deposition_rate": dict(
         col_template="bin{n}_beta_raw_mean",
-        ylabel="Deposition Rate β (h⁻¹)",
-        title_metric="Particle Deposition Rate",
+        ylabel="Other Process Rate β (h⁻¹)",
+        title_metric="Particle Other Process Rate",
         title_note="(Box = median/IQR, whiskers = 1.5×IQR; β = unclamped trimmed mean)",
         hline=0.0,
     ),
@@ -1077,7 +1077,7 @@ def plot_deposition_rate_boxplot(
     output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
-    """Two box-and-whisker figures of unclamped deposition rate (beta_raw_mean) by water temperature.
+    """Two box-and-whisker figures of unclamped other process rate (beta_raw_mean) by water temperature.
 
     Parameters:
         results_df: DataFrame with analysis results (must contain config_key and bin{n}_beta_raw_mean).
@@ -1160,7 +1160,7 @@ def plot_emission_etotal_by_metric_boxplot(
     Box widths also scale proportionally to the data range.
 
     Intended for exploring how E_total relates to continuous predictors such as
-    bedroom RH, bedroom temperature, air-change rate, deposition rate, or penetration
+    bedroom RH, bedroom temperature, air-change rate, other process rate, or penetration
     factor — see the 10-figure Task 7 series.
 
     Only base W## events are included (letter-suffix repeats excluded).
