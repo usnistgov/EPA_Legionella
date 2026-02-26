@@ -120,8 +120,10 @@ WATER_TEMP_COLORS = {
     25: "#74c476",  # Green           (25 °C)
     30: "#fee090",  # Light amber     (30 °C)
     37: "#fdae61",  # Orange          (37 °C)
+    38: "#fca35c",  # Orange-amber    (38 °C — W38pw Pepco wide spray)
     43: "#f46d43",  # Dark orange     (43 °C)
     48: "#d73027",  # Red             (48 °C)
+    52: "#af0a26",  # Deep red        (52 °C — W52pw Pepco wide spray)
     53: "#a50026",  # Dark red        (53 °C)
 }
 
@@ -143,10 +145,11 @@ def get_config_color(config_key: str, index: int = 0) -> str:
     Get color for a configuration key based on water temperature.
 
     Extracts the numeric temperature from a W## code in the config_key
-    (e.g., "W48_DoorOpen_FanOff" -> 48 -> red, "W48b_DoorOpen_FanOff" -> 48 -> red)
-    and returns the nearest color from WATER_TEMP_COLORS.  Letter suffixes on
-    repeat-run codes (e.g., W48b) are stripped before lookup so both runs share
-    the same base color.  Falls back to CONFIG_KEY_COLORS for unrecognised keys.
+    (e.g., "W48_DoorOpen_FanOff" -> 48 -> red, "W48b_DoorOpen_FanOff" -> 48 -> red,
+    "W52pw_DoorOpen_FanOff" -> 52 -> deep red) and returns the nearest color from
+    WATER_TEMP_COLORS.  Any non-digit suffix on the W## code (single-letter repeats
+    such as W48b, or multi-character variants such as W52pw) is stripped before
+    lookup.  Falls back to CONFIG_KEY_COLORS for unrecognised keys.
 
     Parameters:
         config_key: Configuration key string (e.g., "W48_DoorOpen_FanOff")
@@ -155,7 +158,7 @@ def get_config_color(config_key: str, index: int = 0) -> str:
     Returns:
         Hex color string
     """
-    # Extract numeric temperature from W## or W##b codes
+    # Extract numeric temperature from W## codes; strip any suffix (W##b, W##pw, etc.)
     if config_key and config_key[0] == "W":
         water_part = config_key.split("_")[0]  # e.g., "W48b"
         numeric_str = "".join(c for c in water_part[1:] if c.isdigit())

@@ -27,9 +27,10 @@ Naming Convention Format:
 
     Repeat Temperature Convention:
     When the same water temperature is retested (e.g., after a shower head change),
-    a letter suffix is appended to the temperature code: W48 (first run), W48b (second
-    run), W48c (third run), etc. The numeric temperature value determines sort order,
-    so all W48 variants sort together at 48 degrees C. Each variant forms a separate
+    a suffix is appended to the temperature code: W48 (first run), W48b (second
+    run), W48c (third run), etc. Multi-character suffixes are also supported for
+    named variants, e.g. W52pw (Pepco wide-spray shower head at 52 °C). The
+    numeric temperature value determines sort order. Each variant forms a separate
     config_key group for independent replicate counting and plotting.
 
     Examples:
@@ -37,6 +38,7 @@ Naming Convention Format:
     - 0122_W11_Open_Night_R03
     - 0203_W25_Open_Day_R01
     - 0223_W48b_Open_Day_R01  (second W48 run, e.g. with new shower head)
+    - 0224_W52pw_Open_Day_R01 (Pepco wide-spray shower head at 52 °C)
 
 Time of Day Categories:
     - Day: 5am - 5pm
@@ -216,8 +218,8 @@ def get_water_temp_sort_key(config_key: str) -> float:
     parts = config_key.split("_")
     water_temp = parts[0]
 
-    # Extract numeric value from water temp code; strip letter suffixes for repeat
-    # runs (e.g., "W48b" -> 48, "W48" -> 48). Only digits are kept after the "W".
+    # Extract numeric value from water temp code; strip any suffix for repeat/variant
+    # runs (e.g., "W48b" -> 48, "W52pw" -> 52, "W48" -> 48). Only digits kept.
     if water_temp.startswith("W") and len(water_temp) > 1:
         numeric_str = "".join(c for c in water_temp[1:] if c.isdigit())
         if numeric_str:
