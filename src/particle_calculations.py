@@ -11,7 +11,7 @@ for the particle decay study without any I/O or event management logic.
 Key Calculations:
     - Penetration factor (p): C_inside / C_outside ratio averaged over
       before/after windows relative to the shower event
-    - Deposition rate (beta): Numerical step-by-step estimation from the
+    - Other Process Rate e (beta_other): Numerical step-by-step estimation from the
       discrete mass balance during post-shower decay; beta solved at each
       time step and averaged
     - Emission rate (E): Mass balance solved numerically during
@@ -29,12 +29,12 @@ Step-by-step methodology:
     Step 2 - Air change rate (lambda):
         Loaded from CO2 decay analysis results (h⁻¹).
 
-    Step 3 - Deposition rate (beta, numerical):
+    Step 3 - Other Process Rate (beta, numerical):
         Using the 2-hour post-shower window (peak concentration to end):
             (C_{t+1} - C_t)/dt = p*lambda*C_out,t - lambda*C_t - beta*C_t
         Rearranged to solve for beta at each time step:
             beta = 1/dt - lambda - C_{t+1}/(C_t*dt) + p*lambda*(C_out,t/C_t)
-        All estimates <= MAX_DEPOSITION_RATE are collected (no lower bound,
+        All estimates <= MAX_OTHER_PROCESS_RATE are collected (no lower bound,
         so negative values from noise or rising-concentration steps are
         included to avoid upward bias).  A 5th-95th percentile trim then
         removes extreme outliers on both sides symmetrically.  Beta is then
@@ -318,11 +318,11 @@ def calculate_penetration_factor(
 
 
 # =============================================================================
-# Deposition Rate Functions
+# Other Process Rate Functions
 # =============================================================================
 
 
-def calculate_deposition_rate(
+def calculate_other_process_rate(
     particle_data: pd.DataFrame,
     window_start: datetime,
     window_end: datetime,
@@ -331,7 +331,7 @@ def calculate_deposition_rate(
     lambda_ach: float,
 ) -> Dict:
     """
-    Calculate deposition rate (beta) using a numerical step-by-step approach.
+    Calculate other process rate (beta_other) using a numerical step-by-step approach.
 
     At each consecutive time step in the post-shower decay window the mass
     balance (with E = 0) is rearranged to solve for beta:
@@ -606,7 +606,7 @@ def calculate_emission_rate(
         bin_num (int): Particle bin number (0-6)
         p (float): Penetration factor
         lambda_ach (float): Air change rate (h⁻¹)
-        beta (float): Deposition rate (h⁻¹)
+        beta_other (float): Other process rate (h⁻¹)
 
     Returns:
         Dict: Dictionary with E_mean, E_std, E_total statistics (#/min, #);
@@ -757,7 +757,7 @@ def calculate_ct_prediction(
         bin_num (int): Particle bin number (0-6)
         p (float): Penetration factor
         lambda_ach (float): Air change rate (h⁻¹)
-        beta (float): Deposition rate (h⁻¹)
+        beta_other (float): Other process rate (h⁻¹)
         E_mean (float): Mean emission rate during shower (#/min); use 0.0
                         to compute a decay-only prediction
         peak_time (datetime): Time of peak concentration (E=0 after this)

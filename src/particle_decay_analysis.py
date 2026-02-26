@@ -5,7 +5,7 @@ Particle Decay & Emission Analysis
 ===================================
 
 This script analyzes particle concentration decay data from QuantAQ MODULAIR-PM
-sensors to calculate particle penetration factors, deposition rates, and shower
+sensors to calculate particle penetration factors, other process rates, and shower
 emission rates for the EPA Legionella study. The analysis uses a numerical
 approach to solve the mass balance equation for seven particle size bins.
 
@@ -20,7 +20,7 @@ Particle size bins analyzed (um):
 
 Key Metrics Calculated:
     - p: Particle penetration factor (dimensionless, 0-1 range)
-    - beta_deposition: Effective deposition loss rate (h-1)
+    - beta_other: Effective other process loss rate (h-1)
     - E: Shower emission rate (particles/minute)
     - lambda: Air change rate from CO2 analysis (h-1)
 
@@ -52,12 +52,12 @@ Methodology:
        - Load from CO2 decay analysis results
        - Units: h-1
 
-    3. Calculate deposition rate (beta_deposition) when E=0:
+    3. Calculate other process rate (beta_other) when E=0:
        - Use 2-hour window after shower ends (DEPOSITION_WINDOW_HOURS)
        - Start time from peak concentration within the window to end of window
        - Solve numerically for each time step:
            beta = 1/dt - lambda - C_{t+1}/(C_t*dt) + p*lambda*(C_out,t/C_t)
-       - Collect all estimates <= MAX_DEPOSITION_RATE (no lower bound to
+       - Collect all estimates <= MAX_OTHER_PROCESS_RATE (no lower bound to
          avoid upward bias from excluding negative/noisy steps)
        - Apply 5th-95th percentile trim to remove extreme outliers symmetrically
        - If trimmed-mean beta < 0, return NaN (skip_reason set); do NOT clamp
@@ -97,7 +97,7 @@ Output Files:
     - particle_analysis_summary.xlsx: Multi-sheet workbook with:
         * all_results: Full results table (all metrics per event and bin)
         * p_penetration: Penetration factors per event and bin (includes test_name)
-        * beta_deposition: Deposition rates per event and bin (includes test_name)
+        * beta_other: Other process rates per event and bin (includes test_name)
         * beta_r_squared: R² of forward Euler decay simulation (includes test_name)
         * E_emission: Emission rates per event and bin (includes test_name)
         * E_total_particles: Total emitted particle counts (E_total) per bin (includes test_name)
@@ -182,7 +182,7 @@ def analyze_event_all_bins(
 
     For each bin the following are computed in order:
         1. Penetration factor (p) from before/after windows
-        2. Deposition rate (beta) using the numerical step-by-step approach
+        2. Other process rate (beta_other) using the numerical step-by-step approach
         3. Emission rate (E_mean, E_std, E_total) from shower_on to peak
         4. Forward Euler Ct prediction (emission + decay phases); decay-only
            prediction (E=0) is generated even when emission calc fails, so
@@ -190,7 +190,7 @@ def analyze_event_all_bins(
 
     Per-bin result keys include:
         bin{n}_p_mean, bin{n}_p_std
-        bin{n}_beta, bin{n}_beta_raw_mean, bin{n}_beta_std, bin{n}_beta_r_squared
+        bin{n}_beta_other, bin{n}_beta_other_raw_mean, bin{n}_beta_other_std, bin{n}_beta_other_r_squared
         bin{n}_E_mean, bin{n}_E_std, bin{n}_E_total
         bin{n}_emission_datetimes, bin{n}_emission_predicted  (shower→peak)
         bin{n}_decay_datetimes, bin{n}_decay_predicted        (peak→deposition_end)
@@ -269,8 +269,8 @@ def analyze_event_all_bins(
 
         p_mean = p_result["p_mean"]
 
-        # Calculate deposition rate
-        beta_result = calculate_deposition_rate(
+        # Calculate other process rate
+        beta_result = calculate_other_process_rate(
             particle_data,
             event["deposition_start"],
             event["deposition_end"],
@@ -279,12 +279,12 @@ def analyze_event_all_bins(
             lambda_ach,
         )
 
-        results[f"bin{bin_num}_beta"] = beta_result.get("beta", np.nan)
-        results[f"bin{bin_num}_beta_raw_mean"] = beta_result.get(
+        results[f"bin{bin_num}_beta_other"] = beta_result.get("beta", np.nan)
+        results[f"bin{bin_num}_beta_other_raw_mean"] = beta_result.get(
             "beta_raw_mean", np.nan
         )
-        results[f"bin{bin_num}_beta_std"] = beta_result.get("beta_std", np.nan)
-        results[f"bin{bin_num}_beta_r_squared"] = beta_result.get(
+        results[f"bin{bin_num}_beta_other_std"] = beta_result.get("beta_std", np.nan)
+        results[f"bin{bin_num}_beta_other_r_squared"] = beta_result.get(
             "beta_r_squared", np.nan
         )
         results[f"bin{bin_num}_c_steady_state"] = beta_result.get(
@@ -440,9 +440,9 @@ def run_particle_analysis(
         "Beta selection: R²-based 3-step (unclamped → clamped ≥ 0 → 0; threshold 0.80)"
     )
     print("\nValidation thresholds:")
-    print(f"  Max deposition rate (beta): {MAX_DEPOSITION_RATE} h^-1")
+    print(f"  Max other process rate (beta_other): {MAX_OTHER_PROCESS_RATE} h^-1")
     print(
-        f"  Min data points: p={MIN_POINTS_PENETRATION}, beta={MIN_POINTS_DEPOSITION}, E={MIN_POINTS_EMISSION}"
+        f"  Min data points: p={MIN_POINTS_PENETRATION}, beta_other={MIN_POINTS_OTHER_PROCESS}, E={MIN_POINTS_EMISSION}"
     )
 
     # Set output directory
@@ -677,9 +677,9 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
     Sheets written:
         all_results       - Full results table (all metrics per event and bin)
         p_penetration     - Penetration factors
-        beta_deposition   - Deposition rates (h⁻¹): beta (clamped ≥ 0) and
-                            beta_raw_mean (unclamped trimmed mean) per bin
-        beta_r_squared    - R² of forward Euler decay simulation
+        beta_other        - Other process rates (h⁻¹): beta_other (clamped ≥ 0) and
+                            beta_other_raw_mean (unclamped trimmed mean) per bin
+        beta_other_r_squared    - R² of forward Euler decay simulation
         E_emission        - Mean emission rates (#/min)
         E_total_particles - Total emitted particle counts per bin (E_total, #)
         E_r_squared       - R² of forward Euler emission-phase simulation
@@ -914,7 +914,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         ),
         (
             "avg_beta",
-            "Avg. Deposition Rate β (h⁻¹)",
+            "Avg. Other Process Rate β (h⁻¹)",
             "emission_etotal_by_beta_boxplot.png",
             (-0.3, 0.2, 0.05),
         ),
