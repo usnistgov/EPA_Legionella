@@ -804,6 +804,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             plot_deposition_summary,
             plot_emission_boxplot,
             plot_emission_etotal_by_metric_boxplot,
+            plot_emission_etotal_by_showerhead_boxplot,
             plot_emission_rate_boxplot,
             plot_emission_summary,
             plot_penetration_factor_boxplot,
@@ -939,6 +940,19 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             print(f"  Generated: {filename} (bin0-2 and bin3-6)")
         except Exception as e:
             print(f"  Error generating {filename}: {e}")
+
+    # Shower head type comparison: W53 (base) vs. W52pw (Pepco)
+    try:
+        _sh_filename = "emission_etotal_by_showerhead_boxplot.png"
+        plot_emission_etotal_by_showerhead_boxplot(
+            results_df,
+            PARTICLE_BINS,
+            plot_dir / _sh_filename,
+            rh_data=rh_data,
+        )
+        print(f"  Generated: {_sh_filename} (bin0-2 and bin3-6)")
+    except Exception as e:
+        print(f"  Error generating emission_etotal_by_showerhead_boxplot: {e}")
 
     print(f"  Plots saved to: {plot_dir}")
 

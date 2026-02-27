@@ -1366,3 +1366,173 @@ def plot_emission_etotal_by_metric_boxplot(
         plt.tight_layout()
         save_figure(fig, metric_output)
         plt.close(fig)
+
+
+def plot_emission_etotal_by_showerhead_boxplot(
+    results_df: pd.DataFrame,
+    particle_bins: Dict,
+    output_path: Path,
+    rh_data: "Optional[pd.DataFrame]" = None,
+) -> None:
+    """
+    Create two box-and-whisker figures of E_total grouped by shower head type.
+
+    Produces one figure for small bins (Bin 0–2) and one for large bins (Bin 3–6).
+    Only W53 (base shower head) and W52pw (Pepco shower head) events are included.
+    The x-axis is categorical with positions 0 and 1. Annotations follow the
+    standard 'W##\\nn=#\\nRH=##%' style used by other boxplot functions.
+
+    Parameters:
+        results_df: DataFrame with analysis results; must contain 'config_key'
+                    and bin{n}_E_total columns.
+        particle_bins: Dictionary of particle bin information.
+        output_path: Base path used to derive the two output filenames (suffix
+                     ``_bin0-2`` and ``_bin3-6`` are appended to the stem).
+        rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for the
+                 n=/RH= annotation (same as other boxplot functions).
+    """
+    apply_style()
+
+    if results_df.empty or "config_key" not in results_df.columns:
+        return
+
+    # Ordered mapping: config_key → (categorical x position, x-tick label)
+    SHOWERHEAD_CONFIGS = {
+        "W53": (0, "Base\nShower Head"),
+        "W52pw": (1, "Pepco\nShower Head"),
+    }
+
+    sh_df = results_df[results_df["config_key"].isin(SHOWERHEAD_CONFIGS.keys())].copy()
+    if sh_df.empty:
+        return
+
+    all_bin_nums = list(particle_bins.keys())
+
+    # Proportional box widths over the unit span [0, 1]
+    x_data_span = 1.0
+    width_max = 0.045 * x_data_span
+    width_min = 0.007 * x_data_span
+    all_bin_widths = np.linspace(width_min, width_max, len(all_bin_nums))
+
+    bin_groups = [
+        ([b for b in all_bin_nums if b <= 2], "bin0-2"),
+        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
+    ]
+
+    for group_bins, group_label in bin_groups:
+        if not group_bins:
+            continue
+
+        value_cols = [f"bin{b}_E_total" for b in group_bins]
+
+        # Build annotation stats keyed by categorical x position
+        annot_stats: dict = {}
+        for config_key, (x_pos, _) in SHOWERHEAD_CONFIGS.items():
+            group_df = sh_df[sh_df["config_key"] == config_key]
+            if group_df.empty:
+                continue
+            all_vals: list = []
+            for col in value_cols:
+                if col in group_df.columns:
+                    all_vals.extend(group_df[col].dropna().values.tolist())
+            n = len(group_df)
+            max_val = float(np.max(all_vals)) if all_vals else np.nan
+            annot_stats[x_pos] = {
+                "n": n,
+                "max_val": max_val,
+                "shower_on": group_df["shower_on"].copy()
+                if "shower_on" in group_df.columns
+                else pd.Series([], dtype="object"),
+                "config_key": config_key,
+            }
+
+        fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
+        if isinstance(ax, list):
+            ax = ax[0]
+
+        for bin_num in group_bins:
+            global_idx = all_bin_nums.index(bin_num)
+            color = SENSOR_COLORS[global_idx % len(SENSOR_COLORS)]
+            col = f"bin{bin_num}_E_total"
+            if col not in sh_df.columns:
+                continue
+
+            box_width = float(all_bin_widths[global_idx])
+            positions = []
+            data = []
+
+            for config_key, (x_pos, _) in SHOWERHEAD_CONFIGS.items():
+                values = sh_df[sh_df["config_key"] == config_key][col].dropna().values
+                if len(values) > 0:
+                    positions.append(x_pos)
+                    data.append(values)
+
+            if not data:
+                continue
+
+            bp = ax.boxplot(
+                data,
+                positions=positions,
+                widths=box_width,
+                patch_artist=True,
+                showfliers=True,
+                flierprops=dict(
+                    marker=BOXPLOT_CONFIG["flier_marker"],
+                    markersize=BOXPLOT_CONFIG["flier_markersize"],
+                    alpha=BOXPLOT_CONFIG["flier_alpha"],
+                    color=color,
+                ),
+            )
+            for patch in bp["boxes"]:
+                patch.set_facecolor(color)
+                patch.set_alpha(BOXPLOT_CONFIG["box_alpha"])
+            for element in ("whiskers", "caps"):
+                for line in bp[element]:
+                    line.set_color(color)
+                    line.set_alpha(BOXPLOT_CONFIG["box_alpha"])
+            for med in bp["medians"]:
+                med.set_color(BOXPLOT_CONFIG["median_color"])
+                med.set_linewidth(BOXPLOT_CONFIG["median_linewidth"])
+
+        _annotate_temp_groups(ax, annot_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
+
+        # Categorical x-axis
+        x_positions = [cfg[0] for cfg in SHOWERHEAD_CONFIGS.values()]
+        x_tick_labels = [cfg[1] for cfg in SHOWERHEAD_CONFIGS.values()]
+        ax.set_xticks(x_positions)
+        ax.set_xticklabels(x_tick_labels, fontsize=FONT_SIZE_TICK)
+        ax.set_xlim(-0.5, 1.5)
+
+        ax.set_xlabel("Shower Head Type", fontsize=FONT_SIZE_LABEL)
+        ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
+        bin_label = group_label.replace("-", "–").replace("bin", "Bin ")
+        ax.set_title(
+            f"Particle Emission by Shower Head Type — {bin_label}"
+            "\n(Box = median/IQR, whiskers = 1.5×IQR)",
+            fontsize=FONT_SIZE_TITLE,
+            fontweight=TITLE_FONTWEIGHT,
+        )
+        ax.grid(True, alpha=0.3, axis="y")
+        ax.tick_params(axis="y", labelsize=FONT_SIZE_TICK)
+
+        legend_elements = [
+            Patch(
+                facecolor=SENSOR_COLORS[all_bin_nums.index(b) % len(SENSOR_COLORS)],
+                alpha=0.7,
+                label=f"Bin {b} ({particle_bins[b]['name']} µm)",
+            )
+            for b in group_bins
+        ]
+        ax.legend(
+            handles=legend_elements,
+            loc="upper right",
+            fontsize=FONT_SIZE_LEGEND - 1,
+            ncol=1,
+        )
+
+        sh_output = (
+            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
+        )
+        plt.tight_layout()
+        save_figure(fig, sh_output)
+        plt.close(fig)
