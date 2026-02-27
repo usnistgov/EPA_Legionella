@@ -1402,7 +1402,11 @@ def plot_emission_etotal_by_showerhead_boxplot(
         "W52pw": (1, "Pepco\nShower Head"),
     }
 
-    sh_df = results_df[results_df["config_key"].isin(SHOWERHEAD_CONFIGS.keys())].copy()
+    # config_key is a compound string like "W53_DoorOpen_FanOff"; extract the
+    # water-temp prefix (first "_"-delimited token) for matching.
+    wt_prefix = results_df["config_key"].str.split("_").str[0]
+    sh_df = results_df[wt_prefix.isin(SHOWERHEAD_CONFIGS.keys())].copy()
+    sh_df["_wt_prefix"] = sh_df["config_key"].str.split("_").str[0]
     if sh_df.empty:
         return
 
@@ -1428,7 +1432,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
         # Build annotation stats keyed by categorical x position
         annot_stats: dict = {}
         for config_key, (x_pos, _) in SHOWERHEAD_CONFIGS.items():
-            group_df = sh_df[sh_df["config_key"] == config_key]
+            group_df = sh_df[sh_df["_wt_prefix"] == config_key]
             if group_df.empty:
                 continue
             all_vals: list = []
@@ -1462,7 +1466,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
             data = []
 
             for config_key, (x_pos, _) in SHOWERHEAD_CONFIGS.items():
-                values = sh_df[sh_df["config_key"] == config_key][col].dropna().values
+                values = sh_df[sh_df["_wt_prefix"] == config_key][col].dropna().values
                 if len(values) > 0:
                     positions.append(x_pos)
                     data.append(values)
