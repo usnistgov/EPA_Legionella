@@ -318,10 +318,14 @@ def get_events_from_registry(output_dir: Path) -> tuple:
 
         events = []
         for _, row in registry_df.iterrows():
-            # Include all events (excluded ones will be skipped in analysis)
+            # Skip duration-excluded events (water temp testing): they have no
+            # event_number and are not used in analysis (retained in event_log.csv)
+            event_num = row.get("event_number")
+            if pd.isna(event_num):
+                continue
             events.append(
                 {
-                    "event_number": int(row["event_number"]),
+                    "event_number": int(event_num),
                     "test_name": row["test_name"],
                     "config_key": f"{row.get('water_temp', '')}_{row.get('door_position', 'Open')}_FanOff",
                     "water_temp": row.get("water_temp", ""),

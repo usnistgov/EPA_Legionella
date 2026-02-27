@@ -493,8 +493,11 @@ def run_particle_analysis(
     for event in events:
         shower_time = event["shower_on"]
 
-        # Check if excluded
+        # Check if excluded (time-based or duration-based)
         is_excluded_flag, exclusion_reason = is_event_excluded(shower_time)
+        if not is_excluded_flag:
+            is_excluded_flag = event.get("is_excluded", False)
+            exclusion_reason = event.get("exclusion_reason", "")
         if is_excluded_flag:
             excluded_count += 1
             print(
@@ -547,8 +550,11 @@ def run_particle_analysis(
         shower_time = event["shower_on"]
         lambda_ach = event.get("lambda_ach", np.nan)
 
-        # Skip excluded events
+        # Skip excluded events (time-based or duration-based)
         is_excluded_flag, exclusion_reason = is_event_excluded(shower_time)
+        if not is_excluded_flag:
+            is_excluded_flag = event.get("is_excluded", False)
+            exclusion_reason = event.get("exclusion_reason", "")
         if is_excluded_flag:
             print(f"  {test_name}: Skipped (excluded: {exclusion_reason})")
             continue

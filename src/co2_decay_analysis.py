@@ -472,6 +472,10 @@ def get_events_from_registry(output_dir: Path) -> tuple:
 
         events = []
         for _, row in registry_df.iterrows():
+            # Skip duration-excluded events (water temp testing): no event_number
+            if pd.isna(row.get("event_number")):
+                continue
+
             # Skip events without CO2 data
             if pd.isna(row.get("co2_injection_start")):
                 continue
@@ -1073,6 +1077,10 @@ def run_co2_decay_analysis(
         # CO2 injection happens ~20 minutes before shower
         expected_shower_time = injection_time + timedelta(minutes=20)
         is_excluded_flag, exclusion_reason = is_event_excluded(expected_shower_time)
+        # Also check pre-computed exclusion flag (e.g. duration-based)
+        if not is_excluded_flag:
+            is_excluded_flag = event.get("is_excluded", False)
+            exclusion_reason = event.get("exclusion_reason", "")
 
         if is_excluded_flag:
             print(

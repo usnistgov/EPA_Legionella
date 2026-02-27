@@ -957,6 +957,10 @@ def get_events_from_registry(output_dir: Path) -> tuple:
 
         events = []
         for _, row in registry_df.iterrows():
+            # Skip duration-excluded events (water temp testing): no event_number
+            if pd.isna(row.get("event_number")):
+                continue
+
             # Calculate analysis windows if not in registry
             shower_on = pd.to_datetime(row["shower_on"])
             shower_off = pd.to_datetime(row["shower_off"])
@@ -1075,8 +1079,11 @@ def run_rh_temp_analysis(
         test_name = event.get("test_name", f"Event_{event_num}")
         shower_time = event["shower_on"]
 
-        # Check if excluded
+        # Check if excluded (time-based or duration-based)
         is_excluded_flag, exclusion_reason = is_event_excluded(shower_time)
+        if not is_excluded_flag:
+            is_excluded_flag = event.get("is_excluded", False)
+            exclusion_reason = event.get("exclusion_reason", "")
         if is_excluded_flag:
             print(f"\n  {test_name}: Skipped (excluded: {exclusion_reason})")
             continue

@@ -188,6 +188,10 @@ EXCLUDED_EVENTS = {
 # Expected CO2 to shower timing offset (minutes)
 EXPECTED_CO2_BEFORE_SHOWER = 20
 
+# Expected shower duration for analysis events (computer-controlled, 10 min ± 5 sec)
+EXPECTED_SHOWER_DURATION_MIN = 10.0  # minutes
+SHOWER_DURATION_TOLERANCE_SEC = 5  # seconds
+
 
 # =============================================================================
 # Helper Functions
@@ -543,6 +547,40 @@ def is_event_excluded(event_time: datetime) -> Tuple[bool, Optional[str]]:
     return False, None
 
 
+def is_duration_excluded(
+    duration_min: Optional[float],
+) -> Tuple[bool, Optional[str]]:
+    """
+    Check if a shower event should be excluded based on its duration.
+
+    Analysis showers are computer-controlled at exactly 10 minutes.
+    Events outside ±5 seconds of 10 min are water temperature testing
+    runs and should be excluded from analysis (but retained in the log).
+
+    Parameters:
+        duration_min: Shower duration in minutes (None = unknown/synthetic)
+
+    Returns:
+        Tuple of (is_excluded: bool, reason: str or None)
+    """
+    if duration_min is None:
+        return False, None
+
+    tolerance_min = SHOWER_DURATION_TOLERANCE_SEC / 60.0
+    lower = EXPECTED_SHOWER_DURATION_MIN - tolerance_min
+    upper = EXPECTED_SHOWER_DURATION_MIN + tolerance_min
+
+    if not (lower <= duration_min <= upper):
+        return True, (
+            f"Water temperature testing "
+            f"(duration: {duration_min:.1f} min, expected: "
+            f"{EXPECTED_SHOWER_DURATION_MIN:.0f} min "
+            f"\u00b1{SHOWER_DURATION_TOLERANCE_SEC}s)"
+        )
+
+    return False, None
+
+
 # =============================================================================
 # Missing Event Detection and Synthetic Event Creation
 # =============================================================================
@@ -679,6 +717,23 @@ def assign_test_names(
         shower_time = event["shower_on"]
         shower_off = event["shower_off"]
 
+        # Check duration-based exclusion first — water temp testing events are
+        # not named or counted as replicates
+        duration_min = event.get("duration_min", event.get("shower_duration_min"))
+        dur_excluded, dur_reason = is_duration_excluded(duration_min)
+        if dur_excluded:
+            event["is_excluded"] = True
+            event["exclusion_reason"] = dur_reason
+            event["test_name"] = ""
+            event["water_temp"] = get_water_temperature_code(shower_time)
+            event["door_position"] = get_door_position(shower_time)
+            event["planned_fan"] = get_planned_fan_status(shower_time)
+            event["fan_during_test"] = False
+            event["time_of_day"] = get_time_of_day(shower_time)
+            event["config_key"] = ""
+            event["replicate_num"] = 0
+            continue
+
         # Get full test configuration
         config = get_test_configuration(shower_time)
         water_temp = config["water_temp"]
@@ -763,8 +818,12 @@ def create_event_log(
         shower_off = shower_event.get("shower_off")
         co2_idx = matched_pairs.get(i)
 
-        # Check if excluded
-        is_excluded, exclusion_reason = is_event_excluded(shower_time)
+        # Check time-based exclusion and pre-computed exclusion (e.g. duration)
+        is_time_excluded, time_reason = is_event_excluded(shower_time)
+        is_pre_excluded = shower_event.get("is_excluded", False)
+        pre_reason = shower_event.get("exclusion_reason", "")
+        is_excluded = is_time_excluded or is_pre_excluded
+        exclusion_reason = time_reason or pre_reason
 
         # Get matched CO2 info
         co2_time = None
@@ -786,7 +845,7 @@ def create_event_log(
         log_entries.append(
             {
                 "event_type": "shower",
-                "event_number": shower_event.get("event_number", i + 1),
+                "event_number": shower_event.get("event_number"),
                 "test_name": shower_event.get("test_name", ""),
                 "config_key": shower_event.get("config_key", ""),
                 "datetime": shower_time,
@@ -893,6 +952,15 @@ def process_events_with_management(
     print("\nAssigning test condition names...")
     shower_events = assign_test_names(shower_events, shower_log)
 
+    # Clear event_number for duration-excluded events so they are not numbered
+    dur_excluded_count = 0
+    for event in shower_events:
+        if event.get("is_excluded", False):
+            event["event_number"] = None
+            dur_excluded_count += 1
+    if dur_excluded_count:
+        print(f"  Duration-excluded (water temp testing): {dur_excluded_count}")
+
     # Step 3: Detect missing events (bidirectional) - only if CO2 processing is enabled
     showers_missing_co2 = []
     co2_missing_shower = []
@@ -978,8 +1046,10 @@ def process_events_with_management(
         for i, shower_event in enumerate(shower_events):
             shower_time = shower_event["shower_on"]
 
-            # Skip excluded events
+            # Skip excluded events (time-based or duration-based)
             is_excluded, _ = is_event_excluded(shower_time)
+            if not is_excluded:
+                is_excluded = shower_event.get("is_excluded", False)
             if is_excluded:
                 matched_pairs[i] = None
                 continue

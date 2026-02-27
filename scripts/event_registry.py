@@ -43,6 +43,7 @@ from scripts.event_manager import (
     get_door_position,
     get_time_of_day,
     get_water_temperature_code,
+    is_duration_excluded,
     is_event_excluded,
 )
 
@@ -450,12 +451,28 @@ def build_unified_event_registry(
     all_co2_events = co2_events + synthetic_co2_events
 
     # Step 5: Sort by time and assign UNIFIED event numbers
-    # Event numbers are based on SHOWER events only (primary source of truth)
+    # Event numbers are based on SHOWER events only (primary source of truth).
+    # Duration-excluded events (water temperature testing) do not receive a
+    # number and are excluded from analysis.
     all_shower_events.sort(key=lambda e: e["shower_on"])
     all_co2_events.sort(key=lambda e: e["injection_start"])
 
-    for i, event in enumerate(all_shower_events):
-        event["event_number"] = i + 1
+    analysis_event_num = 1
+    dur_excluded_count = 0
+    for event in all_shower_events:
+        duration_min = event.get("duration_min", event.get("shower_duration_min"))
+        dur_excluded, dur_reason = is_duration_excluded(duration_min)
+        if dur_excluded:
+            event["event_number"] = None
+            event["is_excluded"] = True
+            event["exclusion_reason"] = dur_reason
+            dur_excluded_count += 1
+        else:
+            event["event_number"] = analysis_event_num
+            analysis_event_num += 1
+
+    if dur_excluded_count:
+        print(f"  Duration-excluded (water temp testing): {dur_excluded_count}")
 
     # NOTE: CO2 events get their event_number from matched showers in Step 7 below
     # This ensures unified numbering across all analysis scripts
@@ -468,8 +485,16 @@ def build_unified_event_registry(
         shower_time = event["shower_on"]
         shower_off = event["shower_off"]
 
-        # Skip excluded events for naming (but still number them)
-        is_excluded, _ = is_event_excluded(shower_time)
+        # Duration-excluded events (water temperature testing) do not get test
+        # names or replicate numbers — set minimal metadata and skip naming
+        if event.get("is_excluded", False):
+            event.setdefault("test_name", "")
+            event.setdefault("water_temp", get_water_temperature_code(shower_time))
+            event.setdefault("door_position", get_door_position(shower_time))
+            event.setdefault("time_of_day", get_time_of_day(shower_time))
+            event.setdefault("fan_during_test", False)
+            event.setdefault("replicate_num", 0)
+            continue
 
         # Determine test parameters
         water_temp = get_water_temperature_code(shower_time)
@@ -546,7 +571,12 @@ def build_unified_event_registry(
 
     for event in all_shower_events:
         shower_time = event["shower_on"]
-        is_excluded, exclusion_reason = is_event_excluded(shower_time)
+        # Combine time-based exclusion with pre-computed flags (e.g. duration)
+        is_time_excluded, time_reason = is_event_excluded(shower_time)
+        is_pre_excluded = event.get("is_excluded", False)
+        pre_reason = event.get("exclusion_reason", "")
+        is_excluded = is_time_excluded or is_pre_excluded
+        exclusion_reason = time_reason or pre_reason
 
         # Find matched CO2
         matched_co2 = None
@@ -588,11 +618,15 @@ def build_unified_event_registry(
     n_total = len(all_shower_events)
     n_synthetic = sum(1 for e in all_shower_events if e.get("is_synthetic", False))
     n_excluded = sum(
-        1 for e in all_shower_events if is_event_excluded(e["shower_on"])[0]
+        1
+        for e in all_shower_events
+        if is_event_excluded(e["shower_on"])[0] or e.get("is_excluded", False)
     )
+    n_numbered = sum(1 for e in all_shower_events if e.get("event_number") is not None)
 
     print("\nRegistry Summary:")
     print(f"  Total shower events: {n_total}")
+    print(f"  Analysis events (numbered): {n_numbered}")
     print(f"  Real events: {n_total - n_synthetic}")
     print(f"  Synthetic events: {n_synthetic}")
     print(f"  Excluded events: {n_excluded}")
@@ -640,8 +674,12 @@ def save_event_registry(
         event_num = shower["event_number"]
         shower_time = shower["shower_on"]
 
-        # Check exclusion status
-        is_excluded, exclusion_reason = is_event_excluded(shower_time)
+        # Check exclusion status (time-based + pre-computed, e.g. duration)
+        is_time_excluded, time_reason = is_event_excluded(shower_time)
+        is_pre_excluded = shower.get("is_excluded", False)
+        pre_reason = shower.get("exclusion_reason", "")
+        is_excluded = is_time_excluded or is_pre_excluded
+        exclusion_reason = time_reason or pre_reason
 
         # Find matched CO2 event
         co2_idx = shower_to_co2.get(i)
