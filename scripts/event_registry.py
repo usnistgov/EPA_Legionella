@@ -116,14 +116,28 @@ def infer_duration_from_neighbors(
     after_duration = None
 
     if before_events:
+        # Determine the closest preceding event based on shower start or injection start.
+        # Use datetime.min as a fallback to ensure comparable values.
         closest_before = max(
-            before_events, key=lambda e: e.get("shower_on", e.get("injection_start"))
+            before_events,
+            key=lambda e: (
+                e.get("shower_on", datetime.min)
+                if e.get("shower_on") is not None
+                else e.get("injection_start", datetime.min)
+            ),
         )
         before_duration = closest_before.get(duration_key)
 
     if after_events:
+        # Determine the closest following event based on shower start or injection start.
+        # Use datetime.max as a fallback to ensure comparable values.
         closest_after = min(
-            after_events, key=lambda e: e.get("shower_on", e.get("injection_start"))
+            after_events,
+            key=lambda e: (
+                e.get("shower_on", datetime.max)
+                if e.get("shower_on") is not None
+                else e.get("injection_start", datetime.max)
+            ),
         )
         after_duration = closest_after.get(duration_key)
 
@@ -519,7 +533,11 @@ def build_unified_event_registry(
 
         # Generate test name
         test_name = generate_test_name(
-            shower_time, water_temp, time_of_day, replicate_num, fan_status,
+            shower_time,
+            water_temp,
+            time_of_day,
+            replicate_num,
+            fan_status,
             door_position,
         )
 
@@ -559,7 +577,9 @@ def build_unified_event_registry(
             door_pos = get_door_position(expected_shower)
             time_of_day = get_time_of_day(expected_shower)
             date_str = expected_shower.strftime("%m%d")
-            co2_event["test_name"] = f"{date_str}_{water_temp}_{door_pos}_{time_of_day}_R??"
+            co2_event["test_name"] = (
+                f"{date_str}_{water_temp}_{door_pos}_{time_of_day}_R??"
+            )
             co2_event["water_temp"] = water_temp
             co2_event["door_position"] = door_pos
             co2_event["time_of_day"] = time_of_day
@@ -895,7 +915,9 @@ def main():
     # Set output directory
     from src.data_paths import get_data_root
 
-    output_dir = Path(args.output_dir) if args.output_dir else get_data_root() / "output"
+    output_dir = (
+        Path(args.output_dir) if args.output_dir else get_data_root() / "output"
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     registry_path = output_dir / REGISTRY_FILENAME
@@ -909,7 +931,9 @@ def main():
         existing = load_event_registry(registry_path)
         print(f"\nExisting registry summary:")
         print(f"  Total events: {len(existing)}")
-        print(f"  Date range: {existing['shower_on'].min()} to {existing['shower_on'].max()}")
+        print(
+            f"  Date range: {existing['shower_on'].min()} to {existing['shower_on'].max()}"
+        )
         return
 
     print("=" * 70)
