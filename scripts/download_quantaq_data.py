@@ -108,10 +108,12 @@ def generate_week_chunks(
 
     while chunk_start <= end:
         chunk_end = min(chunk_start + timedelta(days=chunk_days - 1), end)
-        chunks.append((
-            chunk_start.strftime("%Y-%m-%d"),
-            chunk_end.strftime("%Y-%m-%d"),
-        ))
+        chunks.append(
+            (
+                chunk_start.strftime("%Y-%m-%d"),
+                chunk_end.strftime("%Y-%m-%d"),
+            )
+        )
         chunk_start = chunk_end + timedelta(days=1)
 
     return chunks
@@ -174,10 +176,12 @@ def find_existing_chunks(
             try:
                 s = date(int(start_str[:4]), int(start_str[4:6]), int(start_str[6:8]))
                 e = date(int(end_str[:4]), int(end_str[4:6]), int(end_str[6:8]))
-                existing.add((
-                    s.strftime("%Y-%m-%d"),
-                    e.strftime("%Y-%m-%d"),
-                ))
+                existing.add(
+                    (
+                        s.strftime("%Y-%m-%d"),
+                        e.strftime("%Y-%m-%d"),
+                    )
+                )
             except ValueError:
                 continue
 
@@ -296,20 +300,22 @@ class QuantAQDownloader:
         for attempt in range(max_retries + 1):
             response = None
             try:
-                response = requests.get(
-                    url, auth=auth, params=params, timeout=timeout
-                )
+                response = requests.get(url, auth=auth, params=params, timeout=timeout)
 
                 # Handle rate limiting (429) with retry
                 if response.status_code == 429:
                     if attempt < max_retries:
-                        delay = base_delay * (2 ** attempt)
-                        print(f"  Rate limited (429). Retrying in {delay:.0f}s "
-                              f"(attempt {attempt + 1}/{max_retries})...")
+                        delay = base_delay * (2**attempt)
+                        print(
+                            f"  Rate limited (429). Retrying in {delay:.0f}s "
+                            f"(attempt {attempt + 1}/{max_retries})..."
+                        )
                         time.sleep(delay)
                         continue
                     else:
-                        print(f"  Rate limited (429). All {max_retries} retries exhausted.")
+                        print(
+                            f"  Rate limited (429). All {max_retries} retries exhausted."
+                        )
                         return None
 
                 # Do not retry 4xx client errors (auth, not found, etc.)
@@ -320,15 +326,19 @@ class QuantAQDownloader:
                 # Retry 5xx server errors
                 if response.status_code >= 500:
                     if attempt < max_retries:
-                        delay = base_delay * (2 ** attempt)
-                        print(f"  Server error ({response.status_code}). "
-                              f"Retrying in {delay:.0f}s "
-                              f"(attempt {attempt + 1}/{max_retries})...")
+                        delay = base_delay * (2**attempt)
+                        print(
+                            f"  Server error ({response.status_code}). "
+                            f"Retrying in {delay:.0f}s "
+                            f"(attempt {attempt + 1}/{max_retries})..."
+                        )
                         time.sleep(delay)
                         continue
                     else:
-                        print(f"  Server error ({response.status_code}). "
-                              f"All {max_retries} retries exhausted.")
+                        print(
+                            f"  Server error ({response.status_code}). "
+                            f"All {max_retries} retries exhausted."
+                        )
                         return None
 
                 response.raise_for_status()
@@ -336,9 +346,11 @@ class QuantAQDownloader:
 
             except requests.exceptions.Timeout:
                 if attempt < max_retries:
-                    delay = base_delay * (2 ** attempt)
-                    print(f"  Timeout. Retrying in {delay:.0f}s "
-                          f"(attempt {attempt + 1}/{max_retries})...")
+                    delay = base_delay * (2**attempt)
+                    print(
+                        f"  Timeout. Retrying in {delay:.0f}s "
+                        f"(attempt {attempt + 1}/{max_retries})..."
+                    )
                     time.sleep(delay)
                     continue
                 else:
@@ -347,9 +359,11 @@ class QuantAQDownloader:
 
             except requests.exceptions.ConnectionError:
                 if attempt < max_retries:
-                    delay = base_delay * (2 ** attempt)
-                    print(f"  Connection error. Retrying in {delay:.0f}s "
-                          f"(attempt {attempt + 1}/{max_retries})...")
+                    delay = base_delay * (2**attempt)
+                    print(
+                        f"  Connection error. Retrying in {delay:.0f}s "
+                        f"(attempt {attempt + 1}/{max_retries})..."
+                    )
                     time.sleep(delay)
                     continue
                 else:
@@ -579,15 +593,19 @@ class QuantAQDownloader:
 
             # Skip if chunk exists AND chunk is fully in the past
             if (chunk_start, chunk_end) in existing and not is_current_chunk:
-                print(f"  Chunk {i}/{len(all_chunks)} [{chunk_start} to {chunk_end}]: "
-                      f"SKIP (already downloaded)")
+                print(
+                    f"  Chunk {i}/{len(all_chunks)} [{chunk_start} to {chunk_end}]: "
+                    f"SKIP (already downloaded)"
+                )
                 saved_paths.append(filepath)
                 continue
 
             # Download this chunk
             action = "RE-DOWNLOAD (current week)" if is_current_chunk else "DOWNLOAD"
-            print(f"  Chunk {i}/{len(all_chunks)} [{chunk_start} to {chunk_end}]: "
-                  f"{action}")
+            print(
+                f"  Chunk {i}/{len(all_chunks)} [{chunk_start} to {chunk_end}]: "
+                f"{action}"
+            )
 
             df = self.download_all_data(
                 serial_number=serial_number,
@@ -605,11 +623,14 @@ class QuantAQDownloader:
                 # Remove stale partial chunks with same start but older end date
                 if is_current_chunk:
                     remove_stale_partial_chunks(
-                        chunks_dir, device_name, data_type,
-                        chunk_start, chunk_end,
+                        chunks_dir,
+                        device_name,
+                        data_type,
+                        chunk_start,
+                        chunk_end,
                     )
             else:
-                print(f"    No data for this chunk.")
+                print("    No data for this chunk.")
 
         return saved_paths
 

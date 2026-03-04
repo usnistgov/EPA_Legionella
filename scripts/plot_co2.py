@@ -39,13 +39,14 @@ Date: 2026
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from scripts.event_manager import sort_config_keys_by_water_temp
@@ -60,11 +61,11 @@ from scripts.plot_style import (
     LINE_WIDTH_FIT,
     TITLE_FONTWEIGHT,
     apply_style,
-    get_config_color,
     create_figure,
     format_datetime_axis,
     format_test_name_for_title,
     format_title,
+    get_config_color,
     save_figure,
 )
 
@@ -214,6 +215,7 @@ def plot_co2_decay_event(
         return None
 
     fig, ax = create_figure(figsize=(10, 5))
+    ax = cast(Axes, ax)
 
     # Plot CO2 concentrations
     ax.plot(
@@ -333,9 +335,10 @@ def plot_co2_decay_event_analytical(
         Matplotlib figure object or None if no data
     """
     # Use create_figure with height_ratios for consistent styling
-    fig, (ax1, ax2) = create_figure(
-        nrows=2, ncols=1, figsize=(10, 8), height_ratios=[2, 1]
-    )
+    fig, axes = create_figure(nrows=2, ncols=1, figsize=(10, 8), height_ratios=[2, 1])
+    # Ensure axes is a list of Axes objects
+    axes = cast(list[Axes], axes)
+    ax1, ax2 = axes
 
     injection_time = event["injection_start"]
     decay_start = event["decay_start"]
@@ -534,19 +537,19 @@ def plot_lambda_summary(
     # Create figure with subplots (one row per configuration)
     if n_configs > 1:
         fig, axes = plt.subplots(
-            n_configs, 1,
-            figsize=(12, 4 * n_configs),
-            sharex=False,
-            squeeze=False
+            n_configs, 1, figsize=(12, 4 * n_configs), sharex=False, squeeze=False
         )
         axes = axes.flatten()
+        # Cast ndarray of Axes to list[Axes] for type checking
+        axes = cast(list[Axes], list(axes))
     else:
         fig, ax = create_figure(figsize=(12, 5))
         axes = [ax]
+        axes = cast(list[Axes], axes)
 
     # Plot each configuration
     for idx, config_key in enumerate(config_keys):
-        ax = axes[idx]
+        ax = cast(Axes, axes[idx])
 
         # Filter data for this configuration
         if has_config and config_key != "All":
@@ -555,7 +558,9 @@ def plot_lambda_summary(
             config_df = results_df
 
         if len(config_df) == 0:
-            ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
+            ax.text(
+                0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes
+            )
             continue
 
         # Get event numbers

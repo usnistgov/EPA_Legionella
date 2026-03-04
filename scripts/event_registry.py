@@ -929,7 +929,7 @@ def main():
 
         # Show summary of existing registry
         existing = load_event_registry(registry_path)
-        print(f"\nExisting registry summary:")
+        print("\nExisting registry summary:")
         print(f"  Total events: {len(existing)}")
         print(
             f"  Date range: {existing['shower_on'].min()} to {existing['shower_on'].max()}"
@@ -996,9 +996,9 @@ def main():
     print("\n" + "=" * 70)
     print("Event Registry Complete")
     print("=" * 70)
-    print(f"\nTo use in analysis scripts:")
-    print(f"  from scripts.event_registry import load_event_registry")
-    print(f"  registry = load_event_registry()")
+    print("\nTo use in analysis scripts:")
+    print("  from scripts.event_registry import load_event_registry")
+    print("  registry = load_event_registry()")
 
 
 if __name__ == "__main__":
