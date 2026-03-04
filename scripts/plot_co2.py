@@ -52,7 +52,6 @@ from matplotlib.figure import Figure
 from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
     COLORS,
-    CONFIG_KEY_COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
     FONT_SIZE_TITLE,
