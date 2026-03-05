@@ -945,13 +945,15 @@ def _draw_temp_axis_boxplot(
     output_path: Path,
     cfg: dict,
     rh_data: "Optional[pd.DataFrame]" = None,
+    x_range: "Optional[tuple]" = None,
 ) -> None:
     """
     Shared implementation for all four fixed-temperature-axis boxplot functions.
 
     Produces two output files (bin0-2 and bin3-6) by appending the bin-range
     suffix to *output_path*.  Only base W## events are included.  X-axis is the
-    fixed 5–60 °C range from BOXPLOT_CONFIG.
+    fixed temperature range from BOXPLOT_CONFIG (5–60 °C) unless *x_range* is
+    provided.
 
     Parameters:
         results_df: DataFrame with analysis results (must contain config_key).
@@ -959,6 +961,8 @@ def _draw_temp_axis_boxplot(
         output_path: Base path; suffix ``_bin0-2`` / ``_bin3-6`` is appended.
         cfg: Configuration dict from _TEMP_BOXPLOT_CONFIG.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' columns.
+        x_range: Optional (xmin, xmax, xtick_step) tuple in °C to override the
+                 BOXPLOT_CONFIG temp axis range.
     """
     apply_style()
 
@@ -1046,9 +1050,12 @@ def _draw_temp_axis_boxplot(
 
         _annotate_temp_groups(ax, temp_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
 
-        bxmin = BOXPLOT_CONFIG["temp_xmin"]
-        bxmax = BOXPLOT_CONFIG["temp_xmax"]
-        bxstep = BOXPLOT_CONFIG["temp_xtick_step"]
+        if x_range is not None:
+            bxmin, bxmax, bxstep = x_range
+        else:
+            bxmin = BOXPLOT_CONFIG["temp_xmin"]
+            bxmax = BOXPLOT_CONFIG["temp_xmax"]
+            bxstep = BOXPLOT_CONFIG["temp_xtick_step"]
         bxticks = range(bxmin, bxmax + bxstep, bxstep)
         ax.set_xlim(bxmin, bxmax)
         ax.set_xticks(bxticks)
@@ -1097,6 +1104,7 @@ def plot_emission_boxplot(
     particle_bins: Dict,
     output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
+    x_range: "Optional[tuple]" = None,
 ) -> None:
     """Two box-and-whisker figures of total particle emission (E_total) by water temperature.
 
@@ -1105,6 +1113,7 @@ def plot_emission_boxplot(
         particle_bins: Dictionary of particle bin information.
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
+        x_range: Optional (xmin, xmax, xtick_step) in °C to override the default 5–60 °C axis.
     """
     _draw_temp_axis_boxplot(
         results_df,
@@ -1112,6 +1121,7 @@ def plot_emission_boxplot(
         output_path,
         _TEMP_BOXPLOT_CONFIG["emission_etotal"],
         rh_data,
+        x_range,
     )
 
 
@@ -1120,6 +1130,7 @@ def plot_deposition_rate_boxplot(
     particle_bins: Dict,
     output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
+    x_range: "Optional[tuple]" = None,
 ) -> None:
     """Two box-and-whisker figures of unclamped other process rate (beta_raw_mean) by water temperature.
 
@@ -1128,6 +1139,7 @@ def plot_deposition_rate_boxplot(
         particle_bins: Dictionary of particle bin information.
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
+        x_range: Optional (xmin, xmax, xtick_step) in °C to override the default 5–60 °C axis.
     """
     _draw_temp_axis_boxplot(
         results_df,
@@ -1135,6 +1147,7 @@ def plot_deposition_rate_boxplot(
         output_path,
         _TEMP_BOXPLOT_CONFIG["deposition_rate"],
         rh_data,
+        x_range,
     )
 
 
@@ -1143,6 +1156,7 @@ def plot_emission_rate_boxplot(
     particle_bins: Dict,
     output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
+    x_range: "Optional[tuple]" = None,
 ) -> None:
     """Two box-and-whisker figures of mean emission rate (E_mean, #/min) by water temperature.
 
@@ -1151,6 +1165,7 @@ def plot_emission_rate_boxplot(
         particle_bins: Dictionary of particle bin information.
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
+        x_range: Optional (xmin, xmax, xtick_step) in °C to override the default 5–60 °C axis.
     """
     _draw_temp_axis_boxplot(
         results_df,
@@ -1158,6 +1173,7 @@ def plot_emission_rate_boxplot(
         output_path,
         _TEMP_BOXPLOT_CONFIG["emission_rate"],
         rh_data,
+        x_range,
     )
 
 
@@ -1166,6 +1182,7 @@ def plot_penetration_factor_boxplot(
     particle_bins: Dict,
     output_path: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
+    x_range: "Optional[tuple]" = None,
 ) -> None:
     """Two box-and-whisker figures of penetration factor (p_mean) by water temperature.
 
@@ -1174,6 +1191,7 @@ def plot_penetration_factor_boxplot(
         particle_bins: Dictionary of particle bin information.
         output_path: Base path; ``_bin0-2`` / ``_bin3-6`` suffixes are appended.
         rh_data: Optional DataFrame with 'datetime' and 'RH_bedroom' for RH annotation.
+        x_range: Optional (xmin, xmax, xtick_step) in °C to override the default 5–60 °C axis.
     """
     _draw_temp_axis_boxplot(
         results_df,
@@ -1181,6 +1199,7 @@ def plot_penetration_factor_boxplot(
         output_path,
         _TEMP_BOXPLOT_CONFIG["penetration_factor"],
         rh_data,
+        x_range,
     )
 
 

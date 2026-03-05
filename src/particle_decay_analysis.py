@@ -865,19 +865,6 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         except Exception as e:
             print(f"  Error generating {filename}: {e}")
 
-    # Boxplots with n= / RH= annotations
-    for plot_func, filename in [
-        (plot_emission_boxplot, "emission_etotal_boxplot.png"),
-        (plot_deposition_rate_boxplot, "other_process_rate_boxplot.png"),
-        (plot_emission_rate_boxplot, "emission_rate_boxplot.png"),
-        (plot_penetration_factor_boxplot, "penetration_factor_boxplot.png"),
-    ]:
-        try:
-            plot_func(results_df, PARTICLE_BINS, plot_dir / filename, rh_data=rh_data)
-            print(f"  Generated: {filename}")
-        except Exception as e:
-            print(f"  Error generating {filename}: {e}")
-
     # ── Task 7: emission E_total vs. continuous metric (10 figures) ───────────
     # Add per-event computed columns to a local copy so results_df is not mutated.
     _df7 = results_df.copy()
@@ -914,6 +901,22 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         _df7["bedroom_temp"] = np.nan
         print(f"  Note: Bedroom_Conditions not merged for metric-axis figures: {_e7}")
 
+    # ── Boxplot x-range configuration ────────────────────────────────────────
+    # Fixed water-temperature axis: x_range=(xmin, xmax, xtick_step) in °C
+    _fixed_axis_boxplots = [
+        (plot_emission_boxplot,           "emission_etotal_boxplot.png",      (5, 60, 5)),
+        (plot_deposition_rate_boxplot,    "other_process_rate_boxplot.png",   (5, 60, 5)),
+        (plot_emission_rate_boxplot,      "emission_rate_boxplot.png",        (5, 60, 5)),
+        (plot_penetration_factor_boxplot, "penetration_factor_boxplot.png",   (5, 60, 5)),
+    ]
+    for plot_func, filename, x_range in _fixed_axis_boxplots:
+        try:
+            plot_func(results_df, PARTICLE_BINS, plot_dir / filename, rh_data=rh_data, x_range=x_range)
+            print(f"  Generated: {filename}")
+        except Exception as e:
+            print(f"  Error generating {filename}: {e}")
+
+    # Continuous metric axis: x_range=(xmin, xmax, step) in metric units
     _metric_axes = [
         # (metric_col, metric_label, filename, x_range=(xmin, xmax, step))
         (
@@ -938,7 +941,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "avg_beta",
             "Avg. Other Process Rate β (h⁻¹)",
             "emission_etotal_by_beta_boxplot.png",
-            (-0.1, 0.35, 0.05),
+            (-0.35, 0.35, 0.05),
         ),
         (
             "avg_p",
