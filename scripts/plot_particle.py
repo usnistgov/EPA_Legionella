@@ -59,6 +59,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.patches import Patch
 
+import scripts.sig_figs as sf
 from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
     BOXPLOT_CONFIG,
@@ -250,11 +251,11 @@ def plot_particle_decay_event(
         if not np.isnan(beta_val):
             valid_bins += 1
             r2_val = result.get(f"bin{bin_num}_beta_other_r_squared", np.nan)
-            r2_str = f"{r2_val:.3f}" if not np.isnan(r2_val) else "N/A"
+            r2_str = sf.fmt_fig(r2_val, fallback=".3f") if not np.isnan(r2_val) else "N/A"
             decay_r2_lines.append(f" B{bin_num}: R²={r2_str}")
 
     # Build text box content: lambda, valid-bin count, and per-bin decay R²
-    textstr = f"λ = {lambda_ach:.4f} h⁻¹\n"
+    textstr = f"λ = {sf.fmt_fig(lambda_ach, fallback='.4f')} h⁻¹\n"
     textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
     textstr += "(Solid=valid, Dashed=invalid)"
     if decay_r2_lines:
@@ -322,7 +323,7 @@ def plot_particle_decay_event(
                 linestyle="--",
                 alpha=0.9,
             )
-            r2_str = f"{E_r2_val:.3f}" if not np.isnan(E_r2_val) else "N/A"
+            r2_str = sf.fmt_fig(E_r2_val, fallback=".3f") if not np.isnan(E_r2_val) else "N/A"
             E_r2_lines.append(f"B{bin_num}: R²={r2_str}")
 
     # Add shower ON/OFF markers to emission panel
@@ -508,7 +509,7 @@ def _plot_summary_bar_chart(
                 ax.text(
                     bar.get_x() + bar.get_width() / 2,
                     bar.get_height() + std + cfg["label_offset"],
-                    f"{mean:{cfg['label_fmt']}}",
+                    sf.fmt_fig(mean, fallback=cfg["label_fmt"]),
                     ha="center",
                     va="bottom",
                     fontsize=FONT_SIZE_TICK - 1,
@@ -803,7 +804,7 @@ def _annotate_temp_groups(
         if rh_data is not None and "shower_on" in stats:
             avg_rh = _get_rh_at_shower_on(stats["shower_on"], rh_data)
             if not np.isnan(avg_rh):
-                text_lines.append(f"RH={avg_rh:.0f}%")
+                text_lines.append(f"RH={sf.fmt_fig(avg_rh, fallback='.0f')}%")
 
         ax.text(
             temp,

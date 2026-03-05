@@ -220,6 +220,8 @@ $RECYCLE.BIN/
 
 # Temporary files
 python_script_style.txt
+reorganization_task_prompt.txt
+instrument_informed_sig_figs_prompt.txt
 *.tmp
 ~$*.xlsx
 ~$*.docx
