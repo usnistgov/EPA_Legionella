@@ -920,13 +920,13 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "bedroom_rh",
             "Bedroom RH (%)",
             "emission_etotal_by_bedroom_rh_boxplot.png",
-            (20, 45, 2),
+            (22, 44, 2),
         ),
         (
             "bedroom_temp",
             "Bedroom Temperature (°C)",
             "emission_etotal_by_bedroom_temp_boxplot.png",
-            (15, 19, 0.5),
+            (15, 19, 0.2),
         ),
         (
             "lambda_ach",
@@ -944,7 +944,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "avg_p",
             "Avg. Penetration Factor p",
             "emission_etotal_by_p_boxplot.png",
-            (0.4, 0.85, 0.05),
+            (0.4, 0.8, 0.05),
         ),
     ]
     for metric_col, metric_label, filename, x_range in _metric_axes:
