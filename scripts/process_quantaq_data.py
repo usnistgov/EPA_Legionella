@@ -21,6 +21,7 @@ Processing Features:
     - Reorders PM columns: pm1, pm2.5, pm10
     - Prefixes calibrated values with final_ (final_pm1, final_pm2.5, final_pm10)
     - Outer join preserves all timestamps from both datasets
+    - Applies rolling average to all numeric columns using a window of ROLLING_WINDOW_MIN data points
 
 Methodology:
     1. Find matching raw/final file pairs in data directory
