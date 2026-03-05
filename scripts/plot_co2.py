@@ -619,7 +619,7 @@ def plot_lambda_summary(
                 color=COLORS["fit"],
                 linestyle="--",
                 linewidth=LINE_WIDTH_FIT,
-                label=f"Mean: {sf.fmt_fig(config_mean, fallback='.3f')} h⁻¹",
+                label=f"Mean: {sf.fmt_fig(float(config_mean), fallback='.3f')} h⁻¹",
             )
 
         ax.set_xlabel("Event Number", fontsize=FONT_SIZE_LABEL)
