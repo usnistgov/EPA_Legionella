@@ -715,7 +715,9 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         column_rename[f"bin{bin_num}_beta_other_raw_mean"] = (
             f"bin{bin_num}_beta_other_raw_mean (h-1)"
         )
-        column_rename[f"bin{bin_num}_beta_other_std"] = f"bin{bin_num}_beta_other_std (h-1)"
+        column_rename[f"bin{bin_num}_beta_other_std"] = (
+            f"bin{bin_num}_beta_other_std (h-1)"
+        )
         column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
         column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
         column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
@@ -883,7 +885,11 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
 
     # Average beta and p across all 7 bins per event
     _df7["avg_beta"] = _df7[
-        [f"bin{b}_beta_other" for b in _bin_nums if f"bin{b}_beta_other" in _df7.columns]
+        [
+            f"bin{b}_beta_other"
+            for b in _bin_nums
+            if f"bin{b}_beta_other" in _df7.columns
+        ]
     ].mean(axis=1)
     _df7["avg_p"] = _df7[
         [f"bin{b}_p_mean" for b in _bin_nums if f"bin{b}_p_mean" in _df7.columns]
@@ -932,7 +938,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "avg_beta",
             "Avg. Other Process Rate β (h⁻¹)",
             "emission_etotal_by_beta_boxplot.png",
-            None,
+            (-0.1, 0.35, 0.05),
         ),
         (
             "avg_p",

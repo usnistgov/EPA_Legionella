@@ -70,6 +70,7 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import scripts.sig_figs as sf  # noqa: E402
 from scripts.event_manager import (  # noqa: E402
     EXPERIMENT_START_DATE,
     assign_test_names,
@@ -85,7 +86,6 @@ from scripts.event_registry import (  # noqa: E402
     REGISTRY_FILENAME,
     load_event_registry,
 )
-import scripts.sig_figs as sf  # noqa: E402
 from scripts.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
     plot_lambda_summary,
@@ -852,9 +852,7 @@ def plot_air_change_rate_boxplot(
         temp = temp_map.get(wt)
         if temp is None:
             continue
-        values = (
-            base_df[base_df["water_temp"] == wt][lambda_col].dropna().values
-        )
+        values = base_df[base_df["water_temp"] == wt][lambda_col].dropna().values
         if len(values) > 0:
             positions.append(temp)
             data.append(values)
@@ -913,9 +911,7 @@ def plot_air_change_rate_boxplot(
 
     ax.set_xlim(5, 60)
     ax.set_xticks(range(5, 65, 5))
-    ax.set_xticklabels(
-        [f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK
-    )
+    ax.set_xticklabels([f"{t}°C" for t in range(5, 65, 5)], fontsize=FONT_SIZE_TICK)
     ax.set_xlabel("Water Temperature (°C)", fontsize=FONT_SIZE_LABEL)
     ax.set_ylabel("Air-Change Rate λ (h⁻¹)", fontsize=FONT_SIZE_LABEL)
     ax.set_title(
@@ -1125,9 +1121,7 @@ def run_co2_decay_analysis(
             results.append(result)
             continue
 
-        print(
-            f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}"
-        )
+        print(f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}")
 
         result = analyze_injection_event(co2_data, event, alpha, beta)
         result["test_name"] = test_name  # Add test_name to result
@@ -1186,7 +1180,7 @@ def run_co2_decay_analysis(
     n_excluded = results_df["skip_reason"].str.contains("Excluded:", na=False).sum()
     n_other_skipped = results_df["lambda_average_mean"].isna().sum() - n_excluded
 
-    print(f"\nEvent Summary:")
+    print("\nEvent Summary:")
     print(f"  Total events analyzed: {n_total}")
     print(f"  Excluded events: {n_excluded}")
     print(f"  Other skipped events: {n_other_skipped}")
@@ -1343,7 +1337,7 @@ def run_co2_decay_analysis(
         try:
             acr_plot_path = plot_dir / "air_change_rate_boxplot.png"
             plot_air_change_rate_boxplot(results_df, acr_plot_path)
-            print(f"  Generated: air_change_rate_boxplot.png")
+            print("  Generated: air_change_rate_boxplot.png")
         except Exception as _acr_err:
             print(f"  Warning: Could not generate air_change_rate_boxplot: {_acr_err}")
 
