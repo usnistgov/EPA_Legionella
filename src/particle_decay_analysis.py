@@ -904,14 +904,20 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
     # ── Boxplot x-range configuration ────────────────────────────────────────
     # Fixed water-temperature axis: x_range=(xmin, xmax, xtick_step) in °C
     _fixed_axis_boxplots = [
-        (plot_emission_boxplot,           "emission_etotal_boxplot.png",      (5, 60, 5)),
-        (plot_deposition_rate_boxplot,    "other_process_rate_boxplot.png",   (5, 60, 5)),
-        (plot_emission_rate_boxplot,      "emission_rate_boxplot.png",        (5, 60, 5)),
-        (plot_penetration_factor_boxplot, "penetration_factor_boxplot.png",   (5, 60, 5)),
+        (plot_emission_boxplot, "emission_etotal_boxplot.png", (5, 55, 5)),
+        (plot_deposition_rate_boxplot, "other_process_rate_boxplot.png", (5, 55, 5)),
+        (plot_emission_rate_boxplot, "emission_rate_boxplot.png", (5, 55, 5)),
+        (plot_penetration_factor_boxplot, "penetration_factor_boxplot.png", (5, 55, 5)),
     ]
     for plot_func, filename, x_range in _fixed_axis_boxplots:
         try:
-            plot_func(results_df, PARTICLE_BINS, plot_dir / filename, rh_data=rh_data, x_range=x_range)
+            plot_func(
+                results_df,
+                PARTICLE_BINS,
+                plot_dir / filename,
+                rh_data=rh_data,
+                x_range=x_range,
+            )
             print(f"  Generated: {filename}")
         except Exception as e:
             print(f"  Error generating {filename}: {e}")
