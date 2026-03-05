@@ -145,8 +145,16 @@ WATER_TEMP_TRANSITIONS = [
     ),  # Pepco wide spray from Feb 24 8AM
     (
         datetime(2026, 2, 26, 10, 23, 0),
-        "W38pw",
-    ),  # Pepco wide spray from Feb 27 8AM
+        "W49pw",
+    ),  # Pepco wide spray from Feb 26 10:23AM
+    (
+        datetime(2026, 3, 2, 9, 23, 0),
+        "W40pn",
+    ),  # Pepco narrow spray from Mar 2 9:23AM
+    (
+        datetime(2026, 3, 4, 10, 23, 0),
+        "W40pw",
+    ),  # Pepco wide spray from Mar 4 10:23AM
 ]
 
 # Door position transitions: (datetime, position)
