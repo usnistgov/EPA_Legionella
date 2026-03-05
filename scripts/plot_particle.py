@@ -1379,9 +1379,12 @@ def plot_emission_etotal_by_showerhead_boxplot(
     Create two box-and-whisker figures of E_total grouped by shower head type.
 
     Produces one figure for small bins (Bin 0–2) and one for large bins (Bin 3–6).
-    Only W53 (base shower head) and W52pw (Pepco shower head) events are included.
-    The x-axis is categorical with positions 0 and 1. Annotations follow the
-    standard 'W##\\nn=#\\nRH=##%' style used by other boxplot functions.
+    Configs are ordered by temperature and grouped into three clusters separated
+    by visible gaps on the categorical x-axis:
+      - Cluster 1: W37, W40pn, W40pw, W43  (base + Pepco narrow/wide near 40°C)
+      - Cluster 2: W48, W49pw               (base + Pepco wide near 49°C)
+      - Cluster 3: W53, W52pw               (base + Pepco wide near 52°C)
+    Annotations follow the standard 'W##\\nn=#\\nRH=##%' style.
 
     Parameters:
         results_df: DataFrame with analysis results; must contain 'config_key'
@@ -1398,9 +1401,21 @@ def plot_emission_etotal_by_showerhead_boxplot(
         return
 
     # Ordered mapping: config_key → (categorical x position, x-tick label)
+    # Positions leave gaps of 2 units between clusters (clusters spaced 1 unit apart).
     SHOWERHEAD_CONFIGS = {
-        "W53": (0, "Base\nShower Head"),
-        "W52pw": (1, "Pepco\nShower Head"),
+        # Cluster 1: base W37 + Pepco narrow/wide near 40°C + base W43
+        "W37":   (0, "W37"),
+        "W40pn": (1, "W40pn"),
+        "W40pw": (2, "W40pw"),
+        "W43":   (3, "W43"),
+        # gap at 4
+        # Cluster 2: base W48 + Pepco wide near 49°C
+        "W48":   (5, "W48"),
+        "W49pw": (6, "W49pw"),
+        # gap at 7
+        # Cluster 3: base W53 + Pepco wide near 52°C
+        "W53":   (8, "W53"),
+        "W52pw": (9, "W52pw"),
     }
 
     # config_key is a compound string like "W53_DoorOpen_FanOff"; extract the
@@ -1413,8 +1428,9 @@ def plot_emission_etotal_by_showerhead_boxplot(
 
     all_bin_nums = list(particle_bins.keys())
 
-    # Proportional box widths over the unit span [0, 1]
-    x_data_span = 1.0
+    # Proportional box widths scaled to the x-axis data span (0–9)
+    x_positions_all = [x for (x, _) in SHOWERHEAD_CONFIGS.values()]
+    x_data_span = float(max(x_positions_all) - min(x_positions_all))
     width_max = 0.045 * x_data_span
     width_min = 0.007 * x_data_span
     all_bin_widths = np.linspace(width_min, width_max, len(all_bin_nums))
@@ -1442,6 +1458,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
                     all_vals.extend(group_df[col].dropna().values.tolist())
             n = len(group_df)
             max_val = float(np.max(all_vals)) if all_vals else np.nan
+            # Store the full W-code prefix (e.g. "W40pn") as the annotation label
             annot_stats[x_pos] = {
                 "n": n,
                 "max_val": max_val,
@@ -1449,6 +1466,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
                 if "shower_on" in group_df.columns
                 else pd.Series([], dtype="object"),
                 "config_key": config_key,
+                "w_label": config_key.split("_")[0],  # full prefix: W40pn, W52pw, etc.
             }
 
         fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
@@ -1499,16 +1517,43 @@ def plot_emission_etotal_by_showerhead_boxplot(
                 med.set_color(BOXPLOT_CONFIG["median_color"])
                 med.set_linewidth(BOXPLOT_CONFIG["median_linewidth"])
 
-        _annotate_temp_groups(ax, annot_stats, rh_data, font_size=FONT_SIZE_ANNOTATION)
+        # Inline annotation: use full W-code label (W40pn, W52pw, etc.)
+        if annot_stats:
+            y_min, y_max = ax.get_ylim()
+            y_range = y_max - y_min
+            ax.set_ylim(y_min, y_max + 0.25 * y_range)
+            y_min, y_max = ax.get_ylim()
+            offset = 0.02 * (y_max - y_min)
 
-        # Categorical x-axis
-        x_positions = [cfg[0] for cfg in SHOWERHEAD_CONFIGS.values()]
+            for x_pos, stats in sorted(annot_stats.items()):
+                n = stats["n"]
+                max_val = stats.get("max_val", np.nan)
+                if np.isnan(max_val):
+                    continue
+                text_lines = [stats.get("w_label", "")]
+                text_lines.append(f"n={n}")
+                if rh_data is not None and "shower_on" in stats:
+                    avg_rh = _get_rh_at_shower_on(stats["shower_on"], rh_data)
+                    if not np.isnan(avg_rh):
+                        text_lines.append(f"RH={sf.fmt_fig(avg_rh, fallback='.0f')}%")
+                ax.text(
+                    x_pos,
+                    max_val + offset,
+                    "\n".join(text_lines),
+                    ha="center",
+                    va="bottom",
+                    fontsize=FONT_SIZE_ANNOTATION,
+                    color="black",
+                )
+
+        # Categorical x-axis: show only positions that have data or are defined
+        x_tick_positions = [cfg[0] for cfg in SHOWERHEAD_CONFIGS.values()]
         x_tick_labels = [cfg[1] for cfg in SHOWERHEAD_CONFIGS.values()]
-        ax.set_xticks(x_positions)
+        ax.set_xticks(x_tick_positions)
         ax.set_xticklabels(x_tick_labels, fontsize=FONT_SIZE_TICK)
-        ax.set_xlim(-0.5, 1.5)
+        ax.set_xlim(-0.5, max(x_tick_positions) + 0.5)
 
-        ax.set_xlabel("Shower Head Type", fontsize=FONT_SIZE_LABEL)
+        ax.set_xlabel("Configuration", fontsize=FONT_SIZE_LABEL)
         ax.set_ylabel("Total Emission E_total (#)", fontsize=FONT_SIZE_LABEL)
         bin_label = group_label.replace("-", "–").replace("bin", "Bin ")
         ax.set_title(
