@@ -932,7 +932,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "avg_beta",
             "Avg. Other Process Rate β (h⁻¹)",
             "emission_etotal_by_beta_boxplot.png",
-            (-0.3, 0.2, 0.05),
+            None,
         ),
         (
             "avg_p",

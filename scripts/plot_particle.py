@@ -180,23 +180,29 @@ def plot_particle_decay_event(
             decay_pred = result.get(f"bin{bin_num}_decay_predicted", [])
 
             if len(emission_dts) > 0 and len(emission_pred) > 0:
-                ax1.plot(
-                    pd.to_datetime(emission_dts),
-                    np.array(emission_pred),
-                    color=color,
-                    linewidth=LINE_WIDTH_FIT,
-                    linestyle="--",
-                    alpha=0.8,
-                )
+                ep_arr = np.array(emission_pred, dtype=float)
+                ep_arr = np.where(ep_arr > 0, ep_arr, np.nan)
+                if np.any(np.isfinite(ep_arr)):
+                    ax1.plot(
+                        pd.to_datetime(emission_dts),
+                        ep_arr,
+                        color=color,
+                        linewidth=LINE_WIDTH_FIT,
+                        linestyle="--",
+                        alpha=0.8,
+                    )
             if len(decay_dts) > 0 and len(decay_pred) > 0:
-                ax1.plot(
-                    pd.to_datetime(decay_dts),
-                    np.array(decay_pred),
-                    color=color,
-                    linewidth=LINE_WIDTH_FIT,
-                    linestyle="--",
-                    alpha=0.8,
-                )
+                dp_arr = np.array(decay_pred, dtype=float)
+                dp_arr = np.where(dp_arr > 0, dp_arr, np.nan)
+                if np.any(np.isfinite(dp_arr)):
+                    ax1.plot(
+                        pd.to_datetime(decay_dts),
+                        dp_arr,
+                        color=color,
+                        linewidth=LINE_WIDTH_FIT,
+                        linestyle="--",
+                        alpha=0.8,
+                    )
 
     # Add single legend entry for predicted Ct lines
     has_predictions = any(
@@ -278,8 +284,24 @@ def plot_particle_decay_event(
         framealpha=0.9,
         ncol=1,
     )
+    # Compute y limits from all positive plotted values (measured + predicted)
+    _all_pos_y = []
+    for _bn, _bi in particle_bins.items():
+        _col = f"{_bi['column']}_inside"
+        if _col in plot_data.columns:
+            _vals = plot_data[_col].dropna().values
+            _all_pos_y.extend(_vals[_vals > 0].tolist())
+        for _key in (f"bin{_bn}_emission_predicted", f"bin{_bn}_decay_predicted"):
+            _all_pos_y.extend(
+                [v for v in result.get(_key, []) if isinstance(v, (int, float)) and v > 0 and not np.isnan(v)]
+            )
     ax1.set_yscale("log")
-    ax1.set_ylim(bottom=0.001)
+    if _all_pos_y:
+        _ylo = min(_all_pos_y) * 0.3
+        _yhi = max(_all_pos_y) * 3.0
+        ax1.set_ylim(bottom=max(_ylo, 1e-6), top=_yhi)
+    else:
+        ax1.set_ylim(bottom=1e-3)
     ax1.grid(True, alpha=0.3, which="both")
     ax1.tick_params(labelsize=FONT_SIZE_TICK)
     format_datetime_axis(ax1)
@@ -349,15 +371,23 @@ def plot_particle_decay_event(
     ax2.set_xlim(ax2_left, ax2_right)
     format_datetime_axis(ax2, interval_minutes=5)
 
-    # Percentile-based y-axis limits to avoid extreme noise spikes dominating
+    # Percentile-based y-axis limits to avoid extreme noise spikes dominating;
+    # E_mean values are also included so the average lines are never clipped.
     all_e_steps = []
+    e_mean_visible = []
     for bn in particle_bins.keys():
         all_e_steps.extend(result.get(f"bin{bn}_E_per_step", []))
+        e_mv = result.get(f"bin{bn}_E_mean", np.nan)
+        if not np.isnan(e_mv):
+            e_mean_visible.append(e_mv)
     if all_e_steps:
         e_arr = np.array([v for v in all_e_steps if not np.isnan(v)], dtype=float)
         if len(e_arr) >= 4:
             p2 = float(np.percentile(e_arr, 2))
             p98 = float(np.percentile(e_arr, 98))
+            if e_mean_visible:
+                p2 = min(p2, min(e_mean_visible))
+                p98 = max(p98, max(e_mean_visible))
             margin = max((p98 - p2) * 0.15, abs(p98) * 0.05, 1e-6)
             ax2.set_ylim(p2 - margin, p98 + margin)
 
