@@ -21,7 +21,7 @@ Processing Features:
     - Reorders PM columns: pm1, pm2.5, pm10
     - Prefixes calibrated values with final_ (final_pm1, final_pm2.5, final_pm10)
     - Outer join preserves all timestamps from both datasets
-    - Applies rolling average to all numeric columns using a window of ROLLING_WINDOW_MIN data points
+    - Applies a 10-minute time-based rolling average to all numeric columns
 
 Methodology:
     1. Find matching raw/final file pairs in data directory
@@ -82,8 +82,11 @@ def get_quantaq_data_path() -> Path:
 DEVICE_NAMES = ["quantaq-outside", "quantaq-inside"]
 CHUNK_DATA_TYPES = ["raw", "final"]
 
-# Rolling average window (number of data points)
-ROLLING_WINDOW_MIN = 5
+# Time-based rolling average window applied to all numeric columns.
+# Expressed as a pandas offset string so the window length is independent
+# of the data sampling interval (the QuantAQ API may return 1-minute or
+# 5-second data depending on the endpoint used).
+ROLLING_WINDOW = "10min"
 
 
 def get_chunks_path() -> Path:
@@ -525,24 +528,29 @@ def merge_raw_and_final(raw_df: pd.DataFrame, final_df: pd.DataFrame) -> pd.Data
 
 def apply_rolling_average(
     df: pd.DataFrame,
-    window: int = ROLLING_WINDOW_MIN,
+    window: str = ROLLING_WINDOW,
 ) -> pd.DataFrame:
     """
-    Apply rolling average to all numeric columns in the processed data.
+    Apply a time-based rolling average to all numeric columns in the processed data.
 
-    Non-numeric columns (timestamps, serial number, operating state, etc.)
+    Uses timestamp_local as a datetime index so the window length is expressed
+    in real time (e.g., '10min') rather than a fixed number of data points.
+    This makes the smoothing consistent regardless of whether the data was
+    downloaded at 5-second or 1-minute intervals.
+
+    Non-numeric columns (timestamps, serial number, operating state, flag)
     are preserved unchanged.
 
     Args:
-        df: Processed DataFrame with merged raw and final data.
-        window: Rolling window size in number of data points.
+        df: Processed DataFrame with merged raw and final data.  Must contain
+            a 'timestamp_local' column parseable by pd.to_datetime.
+        window: Pandas offset string for the rolling window size (e.g., '10min').
+            Defaults to ROLLING_WINDOW.
 
     Returns:
-        pd.DataFrame: DataFrame with rolling average applied to numeric columns.
+        pd.DataFrame: DataFrame with the rolling average applied to all numeric
+            columns, with the original integer index restored.
     """
-    if window <= 1:
-        return df
-
     # Identify numeric columns (exclude timestamp and metadata)
     non_numeric_cols = ["timestamp_local", "timestamp", "sn", "operating_state", "flag"]
     numeric_cols = [
@@ -551,14 +559,25 @@ def apply_rolling_average(
         if col not in non_numeric_cols and pd.api.types.is_numeric_dtype(df[col])
     ]
 
+    if not numeric_cols:
+        return df
+
     print(
-        f"  Applying rolling average (window={window}) to {len(numeric_cols)} numeric columns..."
+        f"  Applying {window} rolling average to {len(numeric_cols)} numeric columns..."
     )
 
-    for col in numeric_cols:
-        df[col] = df[col].rolling(window=window, center=True, min_periods=1).mean()
+    # Set timestamp_local as a datetime index for time-based rolling, then
+    # restore the original integer index so the rest of the pipeline is unaffected.
+    df_work = df.set_index(pd.to_datetime(df["timestamp_local"]))
+    df_work.index.name = "_ts_index"
 
-    return df
+    for col in numeric_cols:
+        df_work[col] = df_work[col].rolling(
+            window=window, center=True, min_periods=1
+        ).mean()
+
+    df_work = df_work.reset_index(drop=True)
+    return df_work
 
 
 def find_matching_files(data_path: Path) -> List[Tuple[Path, Path, str]]:

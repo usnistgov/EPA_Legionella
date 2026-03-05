@@ -140,6 +140,7 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import scripts.sig_figs as sf  # noqa: E402
 from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
@@ -417,6 +418,7 @@ def analyze_event_all_bins(
 def run_particle_analysis(
     output_dir: Optional[Path] = None,
     generate_plots: bool = True,
+    apply_sig_figs: bool = True,
 ) -> pd.DataFrame:
     """
     Run the complete particle decay and emission analysis.
@@ -424,10 +426,15 @@ def run_particle_analysis(
     Parameters:
         output_dir (Path): Optional output directory (defaults to data_root/output)
         generate_plots (bool): If True, generate plots for each event and summary
+        apply_sig_figs (bool): If True (default), round calculated float columns to
+            SIG_FIGS_DATA significant figures before writing Excel output files and
+            apply SIG_FIGS_FIGURE significant figures to figure annotations.
+            Pass False (via --no-sig-figs) to preserve full floating-point precision.
 
     Returns:
         pd.DataFrame: DataFrame with analysis results for all events and bins
     """
+    sf.set_enabled(apply_sig_figs)
     print("=" * 80)
     print("Particle Decay & Emission Analysis")
     print("Numerical Approach - Seven Particle Size Bins")
@@ -714,6 +721,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
 
     results_df_export = results_df.rename(columns=column_rename)
+    results_df_export = sf.apply_sig_figs_to_df(results_df_export)
 
     with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
         # Main results
@@ -793,6 +801,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
                 )
             peak_df[f"bin{bin_num}_deposition_end_pct_diff (%)"] = pct_de.values
 
+        peak_df = sf.apply_sig_figs_to_df(peak_df)
         peak_df.to_excel(writer, sheet_name="peak_comparison", index=False)
 
     print(f"\nResults saved to: {output_file}")
@@ -979,6 +988,12 @@ def main():
         action="store_true",
         help="Disable plot generation",
     )
+    parser.add_argument(
+        "--no-sig-figs",
+        action="store_true",
+        help="Disable significant figure rounding on output data and figure annotations "
+        "(default: 3 sig figs for files, 2 sig figs for figures)",
+    )
 
     args = parser.parse_args()
 
@@ -987,6 +1002,7 @@ def main():
     run_particle_analysis(
         output_dir=output_dir,
         generate_plots=not args.no_plot,
+        apply_sig_figs=not args.no_sig_figs,
     )
 
 

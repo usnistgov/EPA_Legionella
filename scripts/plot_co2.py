@@ -49,6 +49,7 @@ import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+import scripts.sig_figs as sf
 from scripts.event_manager import sort_config_keys_by_water_temp
 from scripts.plot_style import (
     COLORS,
@@ -252,7 +253,7 @@ def plot_co2_decay_event(
                     fit_curve["C_fit_upper"],
                     color=COLORS["fit"],
                     alpha=0.2,
-                    label=f"Fit uncertainty (±{lambda_std:.3f} h⁻¹)",
+                    label=f"Fit uncertainty (±{sf.fmt_fig(lambda_std, fallback='.3f')} h⁻¹)",
                 )
             ax.plot(
                 fit_curve["datetime"],
@@ -260,7 +261,7 @@ def plot_co2_decay_event(
                 color=COLORS["fit"],
                 linewidth=LINE_WIDTH_FIT,
                 linestyle="--",
-                label=f"Fit (λ={lambda_value:.3f}±{lambda_std:.3f} h⁻¹)",
+                label=f"Fit (λ={sf.fmt_fig(lambda_value, fallback='.3f')}±{sf.fmt_fig(lambda_std, fallback='.3f')} h⁻¹)",
             )
 
     # Add markers
@@ -396,9 +397,10 @@ def plot_co2_decay_event_analytical(
             c_fit = c_avg + (c_0 - c_avg) * np.exp(-lambda_value * t_hours)
 
             fit_label = (
-                f"Fit (λ={lambda_value:.3f}±{lambda_std:.3f} h⁻¹)"
+                f"Fit (λ={sf.fmt_fig(lambda_value, fallback='.3f')}"
+                f"±{sf.fmt_fig(lambda_std, fallback='.3f')} h⁻¹)"
                 if not np.isnan(lambda_std)
-                else f"Fit (λ={lambda_value:.3f} h⁻¹)"
+                else f"Fit (λ={sf.fmt_fig(lambda_value, fallback='.3f')} h⁻¹)"
             )
 
             ax1.plot(
@@ -463,9 +465,10 @@ def plot_co2_decay_event_analytical(
         r_squared = result.get("lambda_average_r_squared", np.nan)
 
         reg_label = (
-            f"λ = {lambda_value:.4f} h⁻¹ (R² = {r_squared:.4f})"
+            f"λ = {sf.fmt_fig(lambda_value, fallback='.4f')} h⁻¹"
+            f" (R² = {sf.fmt_fig(r_squared, fallback='.4f')})"
             if not np.isnan(r_squared)
-            else f"λ = {lambda_value:.4f} h⁻¹"
+            else f"λ = {sf.fmt_fig(lambda_value, fallback='.4f')} h⁻¹"
         )
 
         ax2.plot(
@@ -616,7 +619,7 @@ def plot_lambda_summary(
                 color=COLORS["fit"],
                 linestyle="--",
                 linewidth=LINE_WIDTH_FIT,
-                label=f"Mean: {config_mean:.3f} h⁻¹",
+                label=f"Mean: {sf.fmt_fig(config_mean, fallback='.3f')} h⁻¹",
             )
 
         ax.set_xlabel("Event Number", fontsize=FONT_SIZE_LABEL)

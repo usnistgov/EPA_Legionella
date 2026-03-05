@@ -64,6 +64,7 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import scripts.sig_figs as sf  # noqa: E402
 from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
@@ -552,10 +553,16 @@ def save_results_to_excel(
     """
     Save all analysis results to an Excel workbook.
 
+    Significant figure rounding (controlled by scripts.sig_figs.set_enabled()) is
+    applied to all sheets except Bedroom_Conditions, which retains full precision
+    because those values are loaded by downstream analysis scripts.
+
     Args:
         all_results: List of per-event result dicts
         events: List of shower event dicts
         output_path: Path for output Excel file
+        bedroom_conditions: Optional list of per-event bedroom RH/temperature dicts.
+            Written to Bedroom_Conditions sheet without sig fig rounding.
     """
     # Units for each variable type
     unit_map = {
@@ -603,6 +610,7 @@ def save_results_to_excel(
                     if col in summary_df.columns
                 }
                 summary_df = summary_df.rename(columns=rename_map)
+                summary_df = sf.apply_sig_figs_to_df(summary_df)
                 summary_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
         # Detail sheets
@@ -624,6 +632,7 @@ def save_results_to_excel(
                 # Also rename Duration_min
                 rename_map["Duration_min"] = "Duration (min)"
                 details_df = details_df.rename(columns=rename_map)
+                details_df = sf.apply_sig_figs_to_df(details_df)
                 details_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
         # Event log with full configuration details
@@ -650,6 +659,7 @@ def save_results_to_excel(
                 for i, e in enumerate(events)
             ]
         )
+        event_df = sf.apply_sig_figs_to_df(event_df)
         event_df.to_excel(writer, sheet_name="Event_Log", index=False)
 
         # Bedroom_Conditions sheet: per-event average bedroom RH and temperature
@@ -1005,6 +1015,7 @@ def run_rh_temp_analysis(
     generate_plots: bool = True,
     max_plot_events: Optional[int] = None,
     specific_events: Optional[List[int]] = None,
+    apply_sig_figs: bool = True,
 ) -> Tuple[List[Dict], List[Dict]]:
     """
     Run the complete RH, Temperature, and Wind analysis.
@@ -1014,10 +1025,16 @@ def run_rh_temp_analysis(
         generate_plots: Whether to generate plots
         max_plot_events: Maximum events to plot (None=all, ignored if specific_events set)
         specific_events: List of specific event numbers to plot (1-indexed)
+        apply_sig_figs: If True (default), round calculated float columns to
+            SIG_FIGS_DATA significant figures before writing Excel output and apply
+            SIG_FIGS_FIGURE significant figures to figure annotations.  The
+            Bedroom_Conditions sheet is always exempt from rounding.  Pass False
+            (via --no-sig-figs) to preserve full floating-point precision.
 
     Returns:
         Tuple of (events list, results list)
     """
+    sf.set_enabled(apply_sig_figs)
     print("=" * 60)
     print("Relative Humidity, Temperature & Wind Analysis")
     print("=" * 60)
@@ -1221,6 +1238,13 @@ def main():
         help="Specific event numbers to plot, comma-separated (e.g., '1,3,5'). "
         "Overrides --max-plot-events. Events are 1-indexed.",
     )
+    parser.add_argument(
+        "--no-sig-figs",
+        action="store_true",
+        help="Disable significant figure rounding on output data and figure annotations "
+        "(default: 3 sig figs for files, 2 sig figs for figures). "
+        "Bedroom_Conditions sheet is always exempt regardless of this flag.",
+    )
 
     args = parser.parse_args()
     output_dir = Path(args.output_dir) if args.output_dir else None
@@ -1233,6 +1257,7 @@ def main():
         generate_plots=not args.no_plots,
         max_plot_events=args.max_plot_events,
         specific_events=specific_events,
+        apply_sig_figs=not args.no_sig_figs,
     )
 
 

@@ -85,6 +85,7 @@ from scripts.event_registry import (  # noqa: E402
     REGISTRY_FILENAME,
     load_event_registry,
 )
+import scripts.sig_figs as sf  # noqa: E402
 from scripts.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
     plot_lambda_summary,
@@ -943,6 +944,7 @@ def run_co2_decay_analysis(
     beta: float = DEFAULT_BETA,
     output_dir: Optional[Path] = None,
     generate_plots: bool = True,
+    apply_sig_figs: bool = True,
 ) -> pd.DataFrame:
     """
     Run the complete CO2 decay analysis.
@@ -952,10 +954,15 @@ def run_co2_decay_analysis(
         beta (float): Fraction of infiltration from entry zone
         output_dir (Path): Optional output directory (defaults to data_root/output)
         generate_plots (bool): If True, generate plots for each event and summary
+        apply_sig_figs (bool): If True (default), round calculated float columns to
+            SIG_FIGS_DATA significant figures before writing CSV output files and
+            apply SIG_FIGS_FIGURE significant figures to figure annotations.
+            Pass False (via --no-sig-figs) to preserve full floating-point precision.
 
     Returns:
         pd.DataFrame: DataFrame with analysis results for all injection events
     """
+    sf.set_enabled(apply_sig_figs)
     print("=" * 60)
     print("CO2 Decay & Air-Change Rate (λ) Analysis")
     print("Analytical Method (Linear Regression)")
@@ -1213,6 +1220,7 @@ def run_co2_decay_analysis(
         column_rename[f"lambda_{mode}_mean"] = f"lambda_{mode}_mean (h-1)"
         column_rename[f"lambda_{mode}_std"] = f"lambda_{mode}_std (h-1)"
     results_df_export = results_df.rename(columns=column_rename)
+    results_df_export = sf.apply_sig_figs_to_df(results_df_export)
     results_df_export.to_csv(output_file, index=False)
     print(f"\nResults saved to: {output_file}")
 
@@ -1320,6 +1328,7 @@ def run_co2_decay_analysis(
         summary_rows.append(summary_all)
 
     summary_df = pd.DataFrame(summary_rows)
+    summary_df = sf.apply_sig_figs_to_df(summary_df)
     summary_file = output_dir / "co2_lambda_overall_summary.csv"
     summary_df.to_csv(summary_file, index=False)
     print(f"Summary saved to: {summary_file}")
@@ -1373,6 +1382,12 @@ def main():
         action="store_true",
         help="Disable plot generation",
     )
+    parser.add_argument(
+        "--no-sig-figs",
+        action="store_true",
+        help="Disable significant figure rounding on output data and figure annotations "
+        "(default: 3 sig figs for files, 2 sig figs for figures)",
+    )
 
     args = parser.parse_args()
 
@@ -1392,6 +1407,7 @@ def main():
         beta=args.beta,
         output_dir=output_dir,
         generate_plots=not args.no_plot,
+        apply_sig_figs=not args.no_sig_figs,
     )
 
 
