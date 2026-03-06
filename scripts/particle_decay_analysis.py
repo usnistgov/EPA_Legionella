@@ -575,7 +575,8 @@ def run_particle_analysis(
                     excluded_dir.mkdir(parents=True, exist_ok=True)
 
                     # Ensure deposition_end is set (fall back to shower_off + 2h)
-                    if event.get("deposition_end") is None:
+                    # Use pd.isna() to catch both None and pd.NaT from the registry
+                    if pd.isna(event.get("deposition_end")):
                         event = dict(event)
                         event["deposition_end"] = event["shower_off"] + timedelta(
                             hours=2

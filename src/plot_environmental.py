@@ -581,9 +581,6 @@ def plot_pre_post_comparison(
             squeeze=False,
         )
         axes = axes.flatten()
-        # Cast each Axes in the list for static analysis
-        # No explicit cast needed; axes is a list of MplAxes
-        axes = [a for a in axes]
 
         for idx, config_key in enumerate(config_keys):
             sub_ax: MplAxes = axes[idx]

@@ -1111,6 +1111,11 @@ def run_rh_temp_analysis(
             exclusion_reason = event.get("exclusion_reason", "")
         if is_excluded_flag:
             print(f"\n  {test_name}: Skipped (excluded: {exclusion_reason})")
+            # Append empty placeholders to keep all_results/all_bedroom_conditions
+            # index-aligned with the events list (required by generate_comparison_plots,
+            # save_results_to_excel, etc.)
+            all_results.append({})
+            all_bedroom_conditions.append(_extract_bedroom_conditions({}))
             continue
 
         duration_min = event.get(

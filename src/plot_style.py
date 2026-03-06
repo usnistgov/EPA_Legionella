@@ -25,7 +25,7 @@ Date: 2026
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union, overload
+from typing import Optional, Tuple, Union, overload
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -297,7 +297,7 @@ def create_figure(
     sharex: bool = False,
     sharey: bool = False,
     height_ratios: Optional[list] = None,
-) -> Tuple[Figure, np.ndarray[Any, np.dtype[Axes]]]:
+) -> Tuple[Figure, np.ndarray]:
     """Multi-subplot case returns ndarray of Axes."""
     ...
 
@@ -309,7 +309,7 @@ def create_figure(
     sharex: bool = False,
     sharey: bool = False,
     height_ratios: Optional[list] = None,
-) -> Tuple[Figure, Union[Axes, np.ndarray[Any, np.dtype[Axes]]]]:
+) -> Tuple[Figure, Union[Axes, np.ndarray]]:
     """
     Create a figure with consistent styling.
 
@@ -335,8 +335,8 @@ def create_figure(
     if height_ratios is not None:
         gridspec_kw["height_ratios"] = height_ratios
 
-    # Use squeeze=True for single subplot to return a single Axes object
-    squeeze = nrows == 1 and ncols == 1
+    # squeeze=True (matplotlib default): single subplot returns Axes directly;
+    # multi-subplot returns a squeezed ndarray (1-D for a single row or column).
     fig, axes = plt.subplots(
         nrows,
         ncols,
@@ -345,7 +345,7 @@ def create_figure(
         sharey=sharey,
         gridspec_kw=gridspec_kw if gridspec_kw else None,
         constrained_layout=True,
-        squeeze=squeeze,
+        squeeze=True,
     )
 
     return fig, axes

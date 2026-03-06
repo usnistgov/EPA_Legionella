@@ -338,10 +338,10 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "lambda_ach": row.get("lambda_average_mean", np.nan),
                     "co2_event_idx": None,  # Not needed when using registry
                     "deposition_start": pd.to_datetime(
-                        str(row.get("deposition_start", "")), errors="coerce"
+                        row.get("deposition_start"), errors="coerce"
                     ),
                     "deposition_end": pd.to_datetime(
-                        str(row.get("deposition_end", "")), errors="coerce"
+                        row.get("deposition_end"), errors="coerce"
                     ),
                     "is_excluded": row.get("is_excluded", False),
                     "exclusion_reason": row.get("exclusion_reason", ""),
