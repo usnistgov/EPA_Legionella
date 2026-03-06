@@ -27,7 +27,7 @@ Configuration Constants:
 Usage:
     At the start of an analysis script's main() or run_*() function:
 
-        import scripts.sig_figs as sf
+        import src.sig_figs as sf
         sf.set_enabled(not args.no_sig_figs)
 
     Then, before saving DataFrames:

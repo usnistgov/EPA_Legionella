@@ -70,8 +70,8 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import scripts.sig_figs as sf  # noqa: E402
-from scripts.event_manager import (  # noqa: E402
+import src.sig_figs as sf  # noqa: E402
+from src.event_manager import (  # noqa: E402
     EXPERIMENT_START_DATE,
     assign_test_names,
     filter_events_by_date,
@@ -81,12 +81,12 @@ from scripts.event_manager import (  # noqa: E402
     is_event_excluded,
     sort_config_keys_by_water_temp,
 )
-from scripts.event_matching import match_co2_to_shower_event  # noqa: E402
+from src.event_matching import match_co2_to_shower_event  # noqa: E402
 from scripts.event_registry import (  # noqa: E402
     REGISTRY_FILENAME,
     load_event_registry,
 )
-from scripts.plot_utils import (  # noqa: E402
+from src.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
     plot_lambda_summary,
 )
@@ -798,7 +798,7 @@ def plot_air_change_rate_boxplot(
 
     from matplotlib.patches import Patch
 
-    from scripts.plot_style import (
+    from src.plot_style import (
         FONT_SIZE_ANNOTATION,
         FONT_SIZE_LABEL,
         FONT_SIZE_LEGEND,
@@ -1141,7 +1141,7 @@ def run_co2_decay_analysis(
             # Generate plot for this event if enabled
             if generate_plots:
                 # Format filename: event_01-0114_hw_morning_co2_decay.png
-                from scripts.plot_style import format_test_name_for_filename
+                from src.plot_style import format_test_name_for_filename
 
                 formatted_name = format_test_name_for_filename(test_name)
                 event_figures_dir.mkdir(parents=True, exist_ok=True)

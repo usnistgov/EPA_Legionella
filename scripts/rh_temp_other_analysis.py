@@ -64,8 +64,8 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import scripts.sig_figs as sf  # noqa: E402
-from scripts.event_manager import (  # noqa: E402
+import src.sig_figs as sf  # noqa: E402
+from src.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
     sort_config_keys_by_water_temp,
@@ -74,7 +74,7 @@ from scripts.event_registry import (  # noqa: E402
     load_event_registry,
     REGISTRY_FILENAME,
 )
-from scripts.plot_utils import (  # noqa: E402
+from src.plot_utils import (  # noqa: E402
     plot_environmental_time_series,
     plot_pre_post_comparison,
     plot_sensor_summary_bars,
@@ -766,7 +766,7 @@ def generate_time_series_plots(
 
             if data_dict:
                 # Format filename: event_01-0115_w48_open_day_rh_timeseries.png
-                from scripts.plot_style import format_test_name_for_filename
+                from src.plot_style import format_test_name_for_filename
 
                 formatted_name = format_test_name_for_filename(test_name)
                 output_path = (

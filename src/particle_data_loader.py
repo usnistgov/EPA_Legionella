@@ -198,7 +198,7 @@ def load_co2_lambda_results() -> pd.DataFrame:
         )
         print("\nAction Required:")
         print("   Run the CO2 decay analysis first:")
-        print("   python src/co2_decay_analysis.py")
+        print("   python scripts/co2_decay_analysis.py")
         print("\nAnalysis Order:")
         print("   1. co2_decay_analysis.py     (provides lambda values)")
         print("   2. rh_temp_other_analysis.py  (optional)")

@@ -44,7 +44,7 @@ Date: 2026
 # =============================================================================
 
 # Core styling constants and utilities
-from scripts.plot_style import (
+from src.plot_style import (
     COLORS,
     FIGURE_DPI,
     FIGURE_FORMAT,
@@ -75,7 +75,7 @@ from scripts.plot_style import (
 )
 
 # CO2 decay analysis plots
-from scripts.plot_co2 import (
+from src.plot_co2 import (
     add_injection_marker,
     plot_co2_decay_event,
     plot_co2_decay_event_analytical,
@@ -83,7 +83,7 @@ from scripts.plot_co2 import (
 )
 
 # Environmental data plots
-from scripts.plot_environmental import (
+from src.plot_environmental import (
     add_analysis_windows,
     add_shower_markers,
     plot_environmental_time_series,
@@ -92,7 +92,7 @@ from scripts.plot_environmental import (
 )
 
 # Particle decay and emission plots
-from scripts.plot_particle import (
+from src.plot_particle import (
     plot_deposition_summary,
     plot_emission_summary,
     plot_particle_decay_event,

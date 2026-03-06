@@ -34,7 +34,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.event_manager import (
+from src.event_manager import (
     EXPECTED_CO2_BEFORE_SHOWER,
     EXPERIMENT_START_DATE,
     check_fan_during_test,
@@ -853,7 +853,7 @@ def run_co2_analysis_if_needed(output_dir: Path, force: bool = False) -> pd.Data
         print("=" * 70)
 
         # Import and run CO2 analysis
-        from src.co2_decay_analysis import run_co2_decay_analysis
+        from scripts.co2_decay_analysis import run_co2_decay_analysis
 
         run_co2_decay_analysis(output_dir=output_dir, generate_plots=False)
 
@@ -951,7 +951,7 @@ def main():
 
     # STEP 2: Load CO2 injection events
     print("\nLoading CO2 injection events...")
-    from src.co2_decay_analysis import identify_injection_events, load_co2_injection_log
+    from scripts.co2_decay_analysis import identify_injection_events, load_co2_injection_log
 
     co2_log = load_co2_injection_log()
     co2_events = identify_injection_events(co2_log)

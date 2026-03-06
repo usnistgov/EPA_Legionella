@@ -49,9 +49,9 @@ import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-import scripts.sig_figs as sf
-from scripts.event_manager import sort_config_keys_by_water_temp
-from scripts.plot_style import (
+import src.sig_figs as sf
+from src.event_manager import sort_config_keys_by_water_temp
+from src.plot_style import (
     COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,

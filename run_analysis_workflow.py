@@ -89,9 +89,9 @@ def main() -> None:
         (["python", "scripts/process_co2_log.py"], repo_root),
         (["python", "scripts/process_shower_log.py"], repo_root),
         (["python", "scripts/event_registry.py", "--force"], repo_root),
-        (["python", "src/co2_decay_analysis.py"], repo_root),
-        (["python", "src/rh_temp_other_analysis.py"], repo_root),
-        (["python", "src/particle_decay_analysis.py"], repo_root),
+        (["python", "scripts/co2_decay_analysis.py"], repo_root),
+        (["python", "scripts/rh_temp_other_analysis.py"], repo_root),
+        (["python", "scripts/particle_decay_analysis.py"], repo_root),
     ]
 
     for cmd, cwd in steps:

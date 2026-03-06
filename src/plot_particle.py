@@ -59,9 +59,9 @@ import numpy as np
 import pandas as pd
 from matplotlib.patches import Patch
 
-import scripts.sig_figs as sf
-from scripts.event_manager import sort_config_keys_by_water_temp
-from scripts.plot_style import (
+import src.sig_figs as sf
+from src.event_manager import sort_config_keys_by_water_temp
+from src.plot_style import (
     BOXPLOT_CONFIG,
     COLORS,
     FONT_SIZE_ANNOTATION,

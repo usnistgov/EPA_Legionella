@@ -118,9 +118,9 @@ Output Files:
       temperature configuration and particle size bin
 
 Module Structure:
-    - particle_calculations.py: Pure computation functions (p, beta, E, Ct)
-    - particle_data_loader.py: Data loading and event identification
-    - particle_decay_analysis.py: Orchestration and main pipeline (this file)
+    - src/particle_calculations.py: Pure computation functions (p, beta, E, Ct)
+    - src/particle_data_loader.py: Data loading and event identification
+    - scripts/particle_decay_analysis.py: Orchestration and main pipeline (this file)
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -140,8 +140,8 @@ warnings.filterwarnings("ignore")
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import scripts.sig_figs as sf  # noqa: E402
-from scripts.event_manager import (  # noqa: E402
+import src.sig_figs as sf  # noqa: E402
+from src.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
 )
@@ -605,8 +605,8 @@ def run_particle_analysis(
         # Generate individual event plot if enabled (all bins on one plot)
         if generate_plots and valid_bins > 0:
             try:
-                from scripts.plot_particle import plot_particle_decay_event
-                from scripts.plot_style import format_test_name_for_filename
+                from src.plot_particle import plot_particle_decay_event
+                from src.plot_style import format_test_name_for_filename
 
                 # Format filename: event_01-0114_hw_morning_pm_decay.png
                 formatted_name = format_test_name_for_filename(test_name)
@@ -816,7 +816,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
     plot_dir.mkdir(exist_ok=True)
 
     try:
-        from scripts.plot_particle import (
+        from src.plot_particle import (
             plot_deposition_rate_boxplot,
             plot_deposition_summary,
             plot_emission_boxplot,

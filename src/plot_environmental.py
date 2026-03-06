@@ -51,8 +51,8 @@ import pandas as pd
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 
-from scripts.event_manager import sort_config_keys_by_water_temp
-from scripts.plot_style import (
+from src.event_manager import sort_config_keys_by_water_temp
+from src.plot_style import (
     COLORS,
     CONFIG_KEY_COLORS,
     FONT_SIZE_LABEL,

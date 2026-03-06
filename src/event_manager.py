@@ -62,10 +62,10 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 # Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import existing event matching functions
-from scripts.event_matching import match_shower_to_co2_event
+from src.event_matching import match_shower_to_co2_event
 
 # Lazy import for event_registry to avoid circular import
 # These are imported inside functions that use them

@@ -62,7 +62,7 @@ from dotenv import load_dotenv
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.quantaq_utils import get_quantaq_config, get_quantaq_data_path
+from src.quantaq_utils import get_quantaq_config, get_quantaq_data_path
 
 load_dotenv()
 

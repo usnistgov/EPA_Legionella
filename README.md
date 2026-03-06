@@ -218,7 +218,7 @@ The complete data analysis pipeline follows this sequence:
 
 5. **CO2 Analysis**: Determine air change rates (λ) from CO2 decay
    ```bash
-   python src/co2_decay_analysis.py [--alpha FLOAT] [--beta FLOAT] [--output-dir DIR] [--no-plot] [--no-sig-figs]
+   python scripts/co2_decay_analysis.py [--alpha FLOAT] [--beta FLOAT] [--output-dir DIR] [--no-plot] [--no-sig-figs]
    ```
    | Flag | Description |
    |------|-------------|
@@ -230,7 +230,7 @@ The complete data analysis pipeline follows this sequence:
 
 6. **Environmental Analysis**: Characterize RH, temperature, and wind conditions
    ```bash
-   python src/rh_temp_other_analysis.py [--output-dir DIR] [--no-plots] [--max-plot-events N] [--events LIST] [--no-sig-figs]
+   python scripts/rh_temp_other_analysis.py [--output-dir DIR] [--no-plots] [--max-plot-events N] [--events LIST] [--no-sig-figs]
    ```
    | Flag | Description |
    |------|-------------|
@@ -242,7 +242,7 @@ The complete data analysis pipeline follows this sequence:
 
 7. **Particle Analysis**: Calculate penetration, deposition, and emission rates (requires step 5 results)
    ```bash
-   python src/particle_decay_analysis.py [--output-dir DIR] [--no-plot] [--no-sig-figs]
+   python scripts/particle_decay_analysis.py [--output-dir DIR] [--no-plot] [--no-sig-figs]
    ```
    | Flag | Description |
    |------|-------------|
@@ -286,13 +286,13 @@ Run the CO2 decay analysis to calculate air change rates (λ):
 
 ```bash
 # Basic analysis (plots enabled by default)
-python src/co2_decay_analysis.py
+python scripts/co2_decay_analysis.py
 
 # Custom source fractions
-python src/co2_decay_analysis.py --alpha 0.6 --beta 0.4
+python scripts/co2_decay_analysis.py --alpha 0.6 --beta 0.4
 
 # Skip plots, write to a custom directory
-python src/co2_decay_analysis.py --no-plot --output-dir /path/to/output
+python scripts/co2_decay_analysis.py --no-plot --output-dir /path/to/output
 ```
 
 **Methodology:**
@@ -315,13 +315,13 @@ Run the particle decay analysis to calculate penetration factors, deposition rat
 
 ```bash
 # Run particle analysis (requires CO2 analysis results; plots enabled by default)
-python src/particle_decay_analysis.py
+python scripts/particle_decay_analysis.py
 
 # Skip plots
-python src/particle_decay_analysis.py --no-plot
+python scripts/particle_decay_analysis.py --no-plot
 
 # Write to a custom directory without significant figure rounding
-python src/particle_decay_analysis.py --output-dir /path/to/output --no-sig-figs
+python scripts/particle_decay_analysis.py --output-dir /path/to/output --no-sig-figs
 ```
 
 **Methodology:**
@@ -369,16 +369,16 @@ Run the environmental analysis to characterize conditions before and after showe
 
 ```bash
 # Run RH/temperature/wind analysis (plots enabled by default)
-python src/rh_temp_other_analysis.py
+python scripts/rh_temp_other_analysis.py
 
 # Skip plots
-python src/rh_temp_other_analysis.py --no-plots
+python scripts/rh_temp_other_analysis.py --no-plots
 
 # Plot only specific events
-python src/rh_temp_other_analysis.py --events 1,3,5
+python scripts/rh_temp_other_analysis.py --events 1,3,5
 
 # Limit time series plots to first 10 events
-python src/rh_temp_other_analysis.py --max-plot-events 10
+python scripts/rh_temp_other_analysis.py --max-plot-events 10
 ```
 
 **Methodology:**
