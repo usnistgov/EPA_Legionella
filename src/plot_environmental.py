@@ -48,6 +48,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.axes import Axes as MplAxes
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 
@@ -74,7 +75,6 @@ from src.plot_style import (
     get_config_color,
     save_figure,
 )
-
 
 # Suffixes to remove from sensor names (since figure title contains this info)
 _SENSOR_NAME_SUFFIXES = [" RH", " Temp", " Speed", " Direction"]
@@ -478,6 +478,8 @@ def plot_environmental_time_series(
     settings = _VAR_SETTINGS.get(variable_type, _VAR_SETTINGS["rh"])
 
     fig, ax = create_figure(figsize=(12, 6))
+    if isinstance(ax, (list, tuple, np.ndarray)):
+        ax = ax[0]
 
     # Plot data based on variable type
     if variable_type == "wind":
@@ -550,9 +552,7 @@ def plot_pre_post_comparison(
 
     # If config_grouped_data is provided, use subplots
     if config_grouped_data and len(config_grouped_data) > 1:
-        config_keys = sort_config_keys_by_water_temp(
-            list(config_grouped_data.keys())
-        )
+        config_keys = sort_config_keys_by_water_temp(list(config_grouped_data.keys()))
         n_configs = len(config_keys)
 
         # Determine sensors from all configurations
@@ -563,20 +563,31 @@ def plot_pre_post_comparison(
         sensors = sort_sensors_by_display_order(list(all_sensors))
 
         if not sensors:
-            fig, ax = create_figure(figsize=(10, 6))
-            ax.text(0.5, 0.5, "No data available", ha="center", va="center", transform=ax.transAxes)
+            fig, ax = create_figure(figsize=(10, 6))  # type: ignore
+            ax.text(
+                0.5,
+                0.5,
+                "No data available",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             return fig
 
         n_sensors = len(sensors)
         fig, axes = plt.subplots(
-            n_configs, 1,
+            n_configs,
+            1,
             figsize=(max(12, n_sensors * 0.8), 5 * n_configs),
-            squeeze=False
+            squeeze=False,
         )
         axes = axes.flatten()
+        # Cast each Axes in the list for static analysis
+        # No explicit cast needed; axes is a list of MplAxes
+        axes = [a for a in axes]
 
         for idx, config_key in enumerate(config_keys):
-            ax = axes[idx]
+            sub_ax = axes[idx]
             config_pre = config_grouped_data[config_key].get("pre", {})
             config_post = config_grouped_data[config_key].get("post", {})
 
@@ -593,7 +604,7 @@ def plot_pre_post_comparison(
             config_color = get_config_color(config_key, idx)
 
             if valid_pre:
-                bp_pre = ax.boxplot(
+                bp_pre = sub_ax.boxplot(
                     [v for _, v in valid_pre],
                     positions=[positions_pre[i] for i, _ in valid_pre],
                     widths=0.6,
@@ -604,7 +615,7 @@ def plot_pre_post_comparison(
                     patch.set_alpha(0.7)
 
             if valid_post:
-                bp_post = ax.boxplot(
+                bp_post = sub_ax.boxplot(
                     [v for _, v in valid_post],
                     positions=[positions_post[i] for i, _ in valid_post],
                     widths=0.6,
@@ -614,23 +625,35 @@ def plot_pre_post_comparison(
                     patch.set_facecolor(COLORS["post_shower"])
                     patch.set_alpha(0.7)
 
-            ax.set_xticks((positions_pre + 0.35).tolist())
+            sub_ax.set_xticks((positions_pre + 0.35).tolist())
             simplified_names = [simplify_sensor_name(s) for s in sensors]
-            ax.set_xticklabels(simplified_names, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
-            ax.set_ylabel(settings["ylabel"], fontsize=FONT_SIZE_LABEL)
+            sub_ax.set_xticklabels(
+                simplified_names, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1
+            )
+            sub_ax.set_ylabel(settings["ylabel"], fontsize=FONT_SIZE_LABEL)
 
             n_events = len(list(config_pre.values())[0]) if config_pre else 0
-            ax.set_title(
+            sub_ax.set_title(
                 f"Configuration: {config_key} (n={n_events})",
                 fontsize=FONT_SIZE_TITLE,
                 fontweight=TITLE_FONTWEIGHT,
             )
 
             legend_elements = [
-                Patch(facecolor=COLORS["pre_shower"], alpha=0.7, label="Pre-shower (30 min)"),
-                Patch(facecolor=COLORS["post_shower"], alpha=0.7, label="Post-shower (2 hr)"),
+                Patch(
+                    facecolor=COLORS["pre_shower"],
+                    alpha=0.7,
+                    label="Pre-shower (30 min)",
+                ),
+                Patch(
+                    facecolor=COLORS["post_shower"],
+                    alpha=0.7,
+                    label="Post-shower (2 hr)",
+                ),
             ]
-            ax.legend(handles=legend_elements, loc="upper right", fontsize=FONT_SIZE_LEGEND)
+            sub_ax.legend(
+                handles=legend_elements, loc="upper right", fontsize=FONT_SIZE_LEGEND
+            )
 
         fig.suptitle(
             f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}",
@@ -647,7 +670,9 @@ def plot_pre_post_comparison(
         return fig
 
     # Original single-plot behavior
-    sensors = sort_sensors_by_display_order([s for s in pre_data.keys() if s in post_data])
+    sensors = sort_sensors_by_display_order(
+        [s for s in pre_data.keys() if s in post_data]
+    )
     if not sensors:
         fig, ax = create_figure(figsize=(10, 6))
         ax.text(
@@ -697,7 +722,9 @@ def plot_pre_post_comparison(
     ax.set_xticks((positions_pre + 0.35).tolist())
     # Simplify sensor names by removing variable type suffix (title has this info)
     simplified_names = [simplify_sensor_name(s) for s in sensors]
-    ax.set_xticklabels(simplified_names, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
+    ax.set_xticklabels(
+        simplified_names, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1
+    )
     ax.set_ylabel(settings["ylabel"])
     ax.set_title(
         f"{settings['title_base']} - Pre vs Post Shower Comparison{title_suffix}"
@@ -746,7 +773,11 @@ def plot_sensor_summary_bars(
     summary_data = summary_data.reindex(sorted_index)
 
     n_sensors = len(summary_data)
-    fig, ax = create_figure(figsize=(max(10, n_sensors * 0.6), 6))
+    fig, ax = create_figure(figsize=(max(10, n_sensors * 0.6), 6))  # type: ignore
+    # Ensure ax is a single Axes instance
+    if isinstance(ax, (list, tuple)):
+        ax = ax[0]  # type: ignore
+    ax: MplAxes = ax
 
     x = np.arange(n_sensors)
     values = np.asarray(summary_data[metric_col].astype(float).values, dtype=float)

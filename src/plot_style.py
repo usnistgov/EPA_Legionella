@@ -29,6 +29,7 @@ from typing import Optional, Tuple, Union
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -281,7 +282,7 @@ def create_figure(
     sharex: bool = False,
     sharey: bool = False,
     height_ratios: Optional[list] = None,
-) -> Tuple[Figure, Union[Axes, list]]:
+) -> Tuple[Figure, Union[Axes, np.ndarray]]:
     """
     Create a figure with consistent styling.
 
@@ -307,6 +308,8 @@ def create_figure(
     if height_ratios is not None:
         gridspec_kw["height_ratios"] = height_ratios
 
+    # Use squeeze=True for single subplot to return a single Axes object
+    squeeze = nrows == 1 and ncols == 1
     fig, axes = plt.subplots(
         nrows,
         ncols,
@@ -315,6 +318,7 @@ def create_figure(
         sharey=sharey,
         gridspec_kw=gridspec_kw if gridspec_kw else None,
         constrained_layout=True,
+        squeeze=squeeze,
     )
 
     return fig, axes
