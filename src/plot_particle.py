@@ -141,11 +141,11 @@ def plot_particle_decay_event(
         print(f"    Warning: No data for event {event_number}")
         return
 
-    # Two-panel figure: concentration (top, 2x height) + emission (bottom, 1x)
+    # Three-panel figure: concentration (top) + emission small bins + emission large bins
     fig, axes_array = create_figure(
-        nrows=2, ncols=1, figsize=(12, 9), height_ratios=[2, 1]
+        nrows=3, ncols=1, figsize=(12, 11), height_ratios=[2, 1, 1]
     )
-    ax1, ax2 = cast(np.ndarray, axes_array)
+    ax1, ax2, ax3 = cast(np.ndarray, axes_array)
 
     lambda_ach = result.get("lambda_ach", np.nan)
 
@@ -316,120 +316,129 @@ def plot_particle_decay_event(
     ax1.set_xlim(plot_start, plot_end)
 
     # =========================================================================
-    # Bottom panel: Per-step emission rates
+    # Emission panels: per-step emission rates split by bin group
+    # ax2 = Bins 0–2 (small particles, higher E)
+    # ax3 = Bins 3–6 (large particles, lower E)
+    # Each panel has its own y-axis scale so both groups are readable.
     # =========================================================================
-    has_emission_data = False
-    E_r2_lines = []  # Collect R² annotations for valid bins
+    bins_small = [bn for bn in particle_bins.keys() if bn <= 2]
+    bins_large = [bn for bn in particle_bins.keys() if bn > 2]
 
-    for bin_num, bin_info in particle_bins.items():
-        color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
-
-        E_times = result.get(f"bin{bin_num}_E_times", [])
-        E_per_step = result.get(f"bin{bin_num}_E_per_step", [])
-        E_mean_val = result.get(f"bin{bin_num}_E_mean", np.nan)
-        E_r2_val = result.get(f"bin{bin_num}_E_r_squared", np.nan)
-        peak_time = result.get(f"bin{bin_num}_peak_time", None)
-
-        if len(E_times) > 0 and len(E_per_step) > 0:
-            has_emission_data = True
-            # Per-step E_t as a faint line (all values, including negative)
-            ax2.plot(
-                pd.to_datetime(E_times),
-                np.array(E_per_step),
-                color=color,
-                linewidth=0.8,
-                alpha=0.35,
-            )
-
-        # E_mean as horizontal dashed line spanning shower_on → peak_time
-        if not np.isnan(E_mean_val) and peak_time is not None:
-            has_emission_data = True
-            ax2.hlines(
-                E_mean_val,
-                event["shower_on"],
-                pd.Timestamp(peak_time),
-                color=color,
-                linewidth=LINE_WIDTH_FIT,
-                linestyle="--",
-                alpha=0.9,
-            )
-            r2_str = (
-                sf.fmt_fig(E_r2_val, fallback=".3f")
-                if not np.isnan(E_r2_val)
-                else "N/A"
-            )
-            E_r2_lines.append(f"B{bin_num}: R²={r2_str}")
-
-    # Add shower ON/OFF markers to emission panel
-    add_shower_on_marker(ax2, event["shower_on"])
-    add_shower_off_marker(ax2, event["shower_off"])
-
-    ax2.set_ylabel("Emission Rate E\n(#/cm³·min)", fontsize=FONT_SIZE_LABEL - 1)
-    ax2.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
-    ax2.grid(True, alpha=0.3)
-    ax2.tick_params(labelsize=FONT_SIZE_TICK)
-
-    # Set emission panel x-axis: 10 min before shower_on to 10 min after latest peak_time
+    # Shared x-axis limits: 10 min before shower_on to 10 min after latest peak_time
     peak_times = []
     for bn in particle_bins.keys():
         pt = result.get(f"bin{bn}_peak_time", None)
         if pt is not None:
             peak_times.append(pd.Timestamp(pt))
-    ax2_left = event["shower_on"] - timedelta(minutes=10)
-    if peak_times:
-        ax2_right = max(peak_times) + timedelta(minutes=10)
-    else:
-        ax2_right = event["shower_off"] + timedelta(minutes=10)
-    ax2.set_xlim(ax2_left, ax2_right)
-    format_datetime_axis(ax2, interval_minutes=5)
+    ax_e_left = event["shower_on"] - timedelta(minutes=10)
+    ax_e_right = (
+        max(peak_times) + timedelta(minutes=10)
+        if peak_times
+        else event["shower_off"] + timedelta(minutes=10)
+    )
 
-    # Percentile-based y-axis limits to avoid extreme noise spikes dominating;
-    # E_mean values are also included so the average lines are never clipped.
-    all_e_steps = []
-    e_mean_visible = []
-    for bn in particle_bins.keys():
-        all_e_steps.extend(result.get(f"bin{bn}_E_per_step", []))
-        e_mv = result.get(f"bin{bn}_E_mean", np.nan)
-        if not np.isnan(e_mv):
-            e_mean_visible.append(e_mv)
-    if all_e_steps:
-        e_arr = np.array([v for v in all_e_steps if not np.isnan(v)], dtype=float)
-        if len(e_arr) >= 4:
-            p2 = float(np.percentile(e_arr, 2))
-            p98 = float(np.percentile(e_arr, 98))
-            if e_mean_visible:
-                p2 = min(p2, min(e_mean_visible))
-                p98 = max(p98, max(e_mean_visible))
-            margin = max((p98 - p2) * 0.15, abs(p98) * 0.05, 1e-6)
-            ax2.set_ylim(p2 - margin, p98 + margin)
+    def _populate_emission_panel(ax, bin_group, panel_label):
+        """Plot E_per_step scatter and E_mean dashed line for a subset of bins."""
+        has_data = False
+        r2_lines = []
+        e_steps_panel = []
+        e_means_panel = []
 
-    # Add E R² annotation box to emission panel
-    if E_r2_lines:
-        r2_text = "Emission R²:\n" + "\n".join(E_r2_lines)
-        props_r2 = dict(
-            boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray"
-        )
-        ax2.text(
-            0.02,
-            0.98,
-            r2_text,
-            transform=ax2.transAxes,
-            fontsize=FONT_SIZE_LEGEND - 1,
-            verticalalignment="top",
-            bbox=props_r2,
-        )
+        for bin_num in bin_group:
+            bin_info = particle_bins[bin_num]
+            color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
 
-    if not has_emission_data:
-        ax2.text(
-            0.5,
-            0.5,
-            "No emission data available",
-            ha="center",
-            va="center",
-            transform=ax2.transAxes,
-            fontsize=FONT_SIZE_LABEL,
-            color="gray",
-        )
+            E_times = result.get(f"bin{bin_num}_E_times", [])
+            E_per_step = result.get(f"bin{bin_num}_E_per_step", [])
+            E_mean_val = result.get(f"bin{bin_num}_E_mean", np.nan)
+            E_r2_val = result.get(f"bin{bin_num}_E_r_squared", np.nan)
+            peak_time = result.get(f"bin{bin_num}_peak_time", None)
+
+            if len(E_times) > 0 and len(E_per_step) > 0:
+                has_data = True
+                e_steps_panel.extend(E_per_step)
+                # Per-step E_t as a faint line (all values, including negative)
+                ax.plot(
+                    pd.to_datetime(E_times),
+                    np.array(E_per_step),
+                    color=color,
+                    linewidth=0.8,
+                    alpha=0.35,
+                )
+
+            # E_mean as horizontal dashed line spanning shower_on → peak_time
+            if not np.isnan(E_mean_val) and peak_time is not None:
+                has_data = True
+                e_means_panel.append(E_mean_val)
+                ax.hlines(
+                    E_mean_val,
+                    event["shower_on"],
+                    pd.Timestamp(peak_time),
+                    color=color,
+                    linewidth=LINE_WIDTH_FIT,
+                    linestyle="--",
+                    alpha=0.9,
+                )
+                r2_str = (
+                    sf.fmt_fig(E_r2_val, fallback=".3f")
+                    if not np.isnan(E_r2_val)
+                    else "N/A"
+                )
+                r2_lines.append(f"B{bin_num}: R²={r2_str}")
+
+        add_shower_on_marker(ax, event["shower_on"])
+        add_shower_off_marker(ax, event["shower_off"])
+
+        ax.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
+        ax.set_ylabel(f"E (#/cm³·min)\n{panel_label}", fontsize=FONT_SIZE_LABEL - 1)
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(labelsize=FONT_SIZE_TICK)
+        ax.set_xlim(ax_e_left, ax_e_right)
+        format_datetime_axis(ax, interval_minutes=5)
+
+        # Per-panel percentile y-limits so E_mean dashed lines are never clipped
+        if e_steps_panel:
+            e_arr = np.array(
+                [v for v in e_steps_panel if not np.isnan(v)], dtype=float
+            )
+            if len(e_arr) >= 4:
+                p2 = float(np.percentile(e_arr, 2))
+                p98 = float(np.percentile(e_arr, 98))
+                if e_means_panel:
+                    p2 = min(p2, min(e_means_panel))
+                    p98 = max(p98, max(e_means_panel))
+                margin = max((p98 - p2) * 0.15, abs(p98) * 0.05, 1e-6)
+                ax.set_ylim(p2 - margin, p98 + margin)
+
+        if r2_lines:
+            r2_text = "Emission R²:\n" + "\n".join(r2_lines)
+            props_r2 = dict(
+                boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray"
+            )
+            ax.text(
+                0.02,
+                0.98,
+                r2_text,
+                transform=ax.transAxes,
+                fontsize=FONT_SIZE_LEGEND - 1,
+                verticalalignment="top",
+                bbox=props_r2,
+            )
+
+        if not has_data:
+            ax.text(
+                0.5,
+                0.5,
+                "No emission data available",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=FONT_SIZE_LABEL,
+                color="gray",
+            )
+
+    _populate_emission_panel(ax2, bins_small, "Bins 0–2 (small)")
+    _populate_emission_panel(ax3, bins_large, "Bins 3–6 (large)")
 
     plt.tight_layout()
     save_figure(fig, output_path)
