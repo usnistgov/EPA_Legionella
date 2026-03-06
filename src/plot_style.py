@@ -25,7 +25,7 @@ Date: 2026
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union, overload
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -275,6 +275,8 @@ def apply_style() -> None:
     )
 
 
+# Overload signatures for create_figure() to provide precise return types
+@overload
 def create_figure(
     nrows: int = 1,
     ncols: int = 1,
@@ -282,7 +284,32 @@ def create_figure(
     sharex: bool = False,
     sharey: bool = False,
     height_ratios: Optional[list] = None,
-) -> Tuple[Figure, Union[Axes, np.ndarray]]:
+) -> Tuple[Figure, Axes]:
+    """Single subplot case returns single Axes."""
+    ...
+
+
+@overload
+def create_figure(
+    nrows: int,
+    ncols: int,
+    figsize: Optional[Tuple[float, float]] = None,
+    sharex: bool = False,
+    sharey: bool = False,
+    height_ratios: Optional[list] = None,
+) -> Tuple[Figure, np.ndarray[Any, np.dtype[Axes]]]:
+    """Multi-subplot case returns ndarray of Axes."""
+    ...
+
+
+def create_figure(
+    nrows: int = 1,
+    ncols: int = 1,
+    figsize: Optional[Tuple[float, float]] = None,
+    sharex: bool = False,
+    sharey: bool = False,
+    height_ratios: Optional[list] = None,
+) -> Tuple[Figure, Union[Axes, np.ndarray[Any, np.dtype[Axes]]]]:
     """
     Create a figure with consistent styling.
 

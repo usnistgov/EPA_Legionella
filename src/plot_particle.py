@@ -52,11 +52,12 @@ Date: 2026
 import re
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.axes import Axes
 from matplotlib.patches import Patch
 
 import src.sig_figs as sf
@@ -141,9 +142,10 @@ def plot_particle_decay_event(
         return
 
     # Two-panel figure: concentration (top, 2x height) + emission (bottom, 1x)
-    fig, (ax1, ax2) = create_figure(
+    fig, axes_array = create_figure(
         nrows=2, ncols=1, figsize=(12, 9), height_ratios=[2, 1]
     )
+    ax1, ax2 = cast(np.ndarray, axes_array)
 
     lambda_ach = result.get("lambda_ach", np.nan)
 
@@ -257,7 +259,9 @@ def plot_particle_decay_event(
         if not np.isnan(beta_val):
             valid_bins += 1
             r2_val = result.get(f"bin{bin_num}_beta_other_r_squared", np.nan)
-            r2_str = sf.fmt_fig(r2_val, fallback=".3f") if not np.isnan(r2_val) else "N/A"
+            r2_str = (
+                sf.fmt_fig(r2_val, fallback=".3f") if not np.isnan(r2_val) else "N/A"
+            )
             decay_r2_lines.append(f" B{bin_num}: R²={r2_str}")
 
     # Build text box content: lambda, valid-bin count, and per-bin decay R²
@@ -293,7 +297,11 @@ def plot_particle_decay_event(
             _all_pos_y.extend(_vals[_vals > 0].tolist())
         for _key in (f"bin{_bn}_emission_predicted", f"bin{_bn}_decay_predicted"):
             _all_pos_y.extend(
-                [v for v in result.get(_key, []) if isinstance(v, (int, float)) and v > 0 and not np.isnan(v)]
+                [
+                    v
+                    for v in result.get(_key, [])
+                    if isinstance(v, (int, float)) and v > 0 and not np.isnan(v)
+                ]
             )
     ax1.set_yscale("log")
     if _all_pos_y:
@@ -345,7 +353,11 @@ def plot_particle_decay_event(
                 linestyle="--",
                 alpha=0.9,
             )
-            r2_str = sf.fmt_fig(E_r2_val, fallback=".3f") if not np.isnan(E_r2_val) else "N/A"
+            r2_str = (
+                sf.fmt_fig(E_r2_val, fallback=".3f")
+                if not np.isnan(E_r2_val)
+                else "N/A"
+            )
             E_r2_lines.append(f"B{bin_num}: R²={r2_str}")
 
     # Add shower ON/OFF markers to emission panel
@@ -649,7 +661,8 @@ def plot_size_distribution_summary(
         (particle_bins[i]["min"] + particle_bins[i]["max"]) / 2 for i in bin_nums
     ]
 
-    fig, axes = create_figure(nrows=1, ncols=3, figsize=(15, 5))
+    fig, axes_temp = create_figure(nrows=1, ncols=3, figsize=(15, 5))
+    axes = cast(np.ndarray, axes_temp)
 
     # Panel 1: Penetration factor
     p_means = []
@@ -788,7 +801,7 @@ def _get_rh_at_shower_on(
 
 
 def _annotate_temp_groups(
-    ax: "plt.Axes",
+    ax: Axes,
     temp_stats: dict,
     rh_data: "Optional[pd.DataFrame]",
     font_size: int,
@@ -1453,17 +1466,17 @@ def plot_emission_etotal_by_showerhead_boxplot(
     # Positions leave gaps of 2 units between clusters (clusters spaced 1 unit apart).
     SHOWERHEAD_CONFIGS = {
         # Cluster 1: base W37 + Pepco narrow/wide near 40°C + base W43
-        "W37":   (0, "W37"),
+        "W37": (0, "W37"),
         "W40pn": (1, "W40pn"),
         "W40pw": (2, "W40pw"),
-        "W43":   (3, "W43"),
+        "W43": (3, "W43"),
         # gap at 4
         # Cluster 2: base W48 + Pepco wide near 49°C
-        "W48":   (5, "W48"),
+        "W48": (5, "W48"),
         "W49pw": (6, "W49pw"),
         # gap at 7
         # Cluster 3: base W53 + Pepco wide near 52°C
-        "W53":   (8, "W53"),
+        "W53": (8, "W53"),
         "W52pw": (9, "W52pw"),
     }
 
