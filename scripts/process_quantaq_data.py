@@ -24,21 +24,25 @@ Processing Features:
     - Applies a 10-minute time-based rolling average to all numeric columns
 
 Methodology:
-    1. Find matching raw/final file pairs in data directory
-    2. Parse raw file and expand dictionary columns
-    3. Extract calibrated PM values from final file
-    4. Merge on timestamp_local with outer join
-    5. Reorder columns and save processed output
+    1. Scan chunks/ subdirectory for weekly chunk files from download_quantaq_data.py
+    2. Combine all chunks for each device/type into a single raw and final CSV
+    3. Parse combined raw file and expand dictionary columns
+    4. Extract calibrated PM values from combined final file
+    5. Merge raw and final on timestamp_local with outer join
+    6. Apply 10-minute time-based rolling average to all numeric columns
+    7. Reorder columns and save processed output; remove old dated combined files
 
-Input Files:
-    - {date}-quantaq-outside-raw.csv
-    - {date}-quantaq-outside-final.csv
-    - {date}-quantaq-inside-raw.csv
-    - {date}-quantaq-inside-final.csv
+Input Files (chunks/ subdirectory):
+    - {device}-raw-{start}-{end}.csv: Weekly raw chunks (from download_quantaq_data.py)
+    - {device}-final-{start}-{end}.csv: Weekly calibrated chunks
 
 Output Files:
-    - {date}-quantaq-outside-processed.csv: Merged outside sensor data
-    - {date}-quantaq-inside-processed.csv: Merged inside sensor data
+    - {YYYYMMDD}-quantaq-outside-raw.csv: Combined outside raw data (today-dated)
+    - {YYYYMMDD}-quantaq-outside-final.csv: Combined outside calibrated data
+    - {YYYYMMDD}-quantaq-outside-processed.csv: Merged and processed outside data
+    - {YYYYMMDD}-quantaq-inside-raw.csv: Combined inside raw data
+    - {YYYYMMDD}-quantaq-inside-final.csv: Combined inside calibrated data
+    - {YYYYMMDD}-quantaq-inside-processed.csv: Merged and processed inside data
 
 Column Organization:
     - Base: timestamp_local, timestamp, sn, operating_state, flag

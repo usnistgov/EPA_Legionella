@@ -10,9 +10,9 @@ capabilities for the EPA Legionella project.
 Key Features:
     - Date filtering to exclude pre-experiment data
     - Missing event detection and synthetic event creation
-    - Test parameter-based naming convention (e.g., 0114_HW_Morning_R01)
+    - Test parameter-based naming convention (e.g., 0115_W48_Open_Day_R01)
     - Bath fan status detection for test conditions
-    - Event exclusion system with reason logging
+    - Event exclusion system with reason logging (duration-based exclusion for water temp testing)
     - Comprehensive event_log.csv for tracking all events and issues
 
 Naming Convention Format:

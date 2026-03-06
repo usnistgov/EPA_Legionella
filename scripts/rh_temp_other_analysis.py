@@ -36,10 +36,15 @@ Methodology:
     6. Export results to Excel workbook
 
 Output Files:
-    - rh_temp_wind_summary.xlsx: Multi-sheet workbook with all statistics
-    - plots/event_NN-MMDD_temp_door_tod_rh_timeseries.png: RH time series per event
-    - plots/event_NN-MMDD_temp_door_tod_temperature_timeseries.png: Temp per event
-    - plots/event_NN-MMDD_temp_door_tod_wind_timeseries.png: Wind per event
+    - rh_temp_wind_summary.xlsx: Multi-sheet workbook with:
+        * RH_Summary, Temp_Summary, WindSpeed_Summary, WindDir_Summary: per-sensor summaries
+        * RH_Details, Temp_Details, WindSpeed_Details, WindDir_Details: per-event details
+        * Event_Log: event metadata (test_name, config_key, shower times, door/fan status)
+        * Bedroom_Conditions: per-event bedroom RH and temperature (30-min pre-shower window);
+          not rounded by sig figs; consumed by particle_decay_analysis.py for boxplot annotations
+    - plots/event_figures/event_NN-MMDD_temp_door_tod_rh_timeseries.png: RH time series per event
+    - plots/event_figures/event_NN-MMDD_temp_door_tod_temperature_timeseries.png: Temp per event
+    - plots/event_figures/event_NN-MMDD_temp_door_tod_wind_timeseries.png: Wind per event
     - plots/rh_pre_post_boxplot.png: Pre/post RH comparison
     - plots/temperature_pre_post_boxplot.png: Pre/post temperature comparison
     - plots/wind_speed_pre_post_boxplot.png: Pre/post wind speed comparison

@@ -19,37 +19,38 @@ Key Metrics Calculated:
 Analysis Features:
     - Combines three Aranet4 data files: Bedroom, Entry, and Outside
     - 6-minute rolling average applied to reduce sensor noise
-    - Fixed 2-hour decay analysis window starting 10 minutes before the hour
+    - Fixed 2-hour decay analysis window starting at :50 (10 min before shower hour)
     - Three source concentration methods for uncertainty assessment
-    - Linear regression to determine λ from transformed decay equation
+    - Linear regression to determine λ from log-transformed decay equation
 
 Methodology:
     The mass balance equation for a well-mixed zone:
         V ∂C/∂t = Q_out·C_out + Q_Entry·C_Entry - Q·C
 
-    Assuming 50% flow from outside and 50% from entry zone:
-        ∂C/∂t = λ(C_average,Out&Entry - C_t)
+    Configurable source fractions (α from outside, β from entry, α + β = 1):
+        ∂C/∂t = λ(α·C_out + β·C_entry - C_t)
 
     Analytical solution (integrated form):
         -ln[(C(t) - C_avg) / (C_0 - C_avg)] = λ·t
 
-    Where C_avg is the mean of C_outside and C_entry over the decay window,
-    and λ is determined by linear regression (slope of y vs t).
+    Where C_avg is the weighted combination of C_outside and C_entry over
+    the decay window, and λ is determined by linear regression (slope of y vs t).
 
     1. Load and merge CO2 data from three Aranet4 sensors (Bedroom, Entry, Outside)
-    2. Resample to 1-minute intervals and apply rolling average smoothing
+    2. Resample to 1-minute intervals and apply 6-minute rolling average
     3. Identify CO2 injection events from the state-change log
     4. For each event, extract 2-hour decay window starting at :50
     5. Calculate y = -ln[(C(t) - C_avg) / (C_0 - C_avg)] for each timestep
     6. Perform linear regression of y vs t to obtain λ (slope)
-    7. Repeat with three source concentration methods for uncertainty
+    7. Repeat with three source concentration methods (average, outside, entry)
     8. Generate diagnostic plots and summary statistics
 
 Output Files:
     - co2_lambda_summary.csv: Per-event results with all λ calculations
     - co2_lambda_overall_summary.csv: Aggregated statistics across all events
-    - plots/event_XX_co2_decay.png: Individual decay plots with fitted curves
-    - plots/lambda_summary.png: Summary bar chart of λ values
+    - plots/event_figures/event_NN-YYYYYY_co2_decay.png: Individual event decay plots
+    - plots/lambda_summary.png: Summary bar chart of λ values across all events
+    - plots/air_change_rate_boxplot.png: Box-and-whisker of λ by water temperature
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
