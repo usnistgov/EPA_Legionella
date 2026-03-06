@@ -31,25 +31,32 @@ NIST_EPA_Legionella/
 ├── data_config.json                  # Active configuration (gitignored)
 ├── data_config.template.json         # Configuration template
 ├── epa_mh.yml                        # Conda environment specification
+├── run_analysis_workflow.py          # Convenience script to run the full analysis pipeline
 │
-├── src/                              # Core analysis modules
+├── src/                              # Core analysis modules (imported by scripts)
 │   ├── __init__.py                   # Package initialization (re-exports data_paths)
 │   ├── data_paths.py                 # Portable data access via data_config.json
 │   ├── env_data_loader.py            # Unified environmental sensor data loader
-│   ├── co2_decay_analysis.py         # CO2 decay & air change rate (λ) analysis
+│   ├── event_manager.py              # Event filtering, naming (MMDD_Temp_ToD_RNN), logging
+│   ├── event_matching.py             # Match CO2 injections to shower events by timing
 │   ├── particle_data_loader.py       # QuantAQ particle data loading and preparation
 │   ├── particle_calculations.py      # Penetration, deposition & emission calculations
-│   ├── particle_decay_analysis.py    # Particle decay analysis orchestration
-│   ├── rh_temp_other_analysis.py     # RH, temperature & wind analysis
+│   ├── plot_co2.py                   # CO2 decay visualization functions
+│   ├── plot_environmental.py         # RH, temperature, wind visualization
+│   ├── plot_particle.py              # Particle decay visualization functions
+│   ├── plot_style.py                 # Consistent matplotlib styling constants
+│   ├── plot_utils.py                 # Central plotting re-exports (imports all plot_* modules)
+│   ├── quantaq_utils.py              # QuantAQ API client utilities
+│   ├── sig_figs.py                   # Significant figures rounding and formatting
 │   └── deprecated/                   # Deprecated/archived code
 │       └── co2_decay_analysis.py     # Previous version of CO2 analysis
 │
-├── scripts/                          # Executable scripts and utilities
+├── scripts/                          # Executable analysis scripts (run directly)
+│   ├── __init__.py
 │   │
 │   │ # Data Download & Processing
 │   ├── download_quantaq_data.py      # Download QuantAQ sensor data from API
-│   ├── process_quantaq_data.py       # Process raw/final QuantAQ data
-│   ├── quantaq_utils.py              # QuantAQ API client utilities
+│   ├── process_quantaq_data.py       # Combine weekly chunks and process raw/final QuantAQ data
 │   │
 │   │ # Log Processing
 │   ├── process_co2_log.py            # Consolidate daily CO2 injection logs → state-change log
@@ -58,16 +65,12 @@ NIST_EPA_Legionella/
 │   ├── analyze_log_files.py          # Diagnose log file issues (unmatched events, etc.)
 │   │
 │   │ # Event Management
-│   ├── event_manager.py              # Event filtering, naming (MMDD_Temp_ToD_RNN), logging
-│   ├── event_matching.py             # Match CO2 injections to shower events by timing
 │   ├── event_registry.py             # Unified event registry with synthetic event creation
 │   │
-│   │ # Visualization
-│   ├── plot_style.py                 # Consistent matplotlib styling constants
-│   ├── plot_co2.py                   # CO2 decay visualization functions
-│   ├── plot_particle.py              # Particle decay visualization functions
-│   ├── plot_environmental.py         # RH, temperature, wind visualization
-│   └── plot_utils.py                 # Central plotting re-exports (imports all plot_* modules)
+│   │ # Analysis
+│   ├── co2_decay_analysis.py         # CO2 decay & air change rate (λ) analysis
+│   ├── particle_decay_analysis.py    # Particle penetration, deposition & emission analysis
+│   └── rh_temp_other_analysis.py     # RH, temperature & wind condition analysis
 │
 ├── testing/                          # Testing and exploratory scripts
 │   └── co2 plot.py                   # Aranet4 CO2 plotting script
@@ -155,15 +158,15 @@ files = get_instrument_files_for_date_range("QuantAQ", "2026-01-05", "2026-01-15
 
 ### Visualization Tools
 
-The repository includes standalone plotting modules for generating publication-quality figures:
+Plotting modules in `src/` generate publication-quality figures used by the analysis scripts:
 
-- **`scripts/plot_co2.py`** - Visualize CO2 decay curves and air change rate analysis
-- **`scripts/plot_particle.py`** - Plot particle concentration decay and emission rates
-- **`scripts/plot_environmental.py`** - Generate RH, temperature, and wind time series
-- **`scripts/plot_style.py`** - Consistent matplotlib styling across all figures
-- **`scripts/plot_utils.py`** - Shared plotting utilities and helper functions
+- **`src/plot_co2.py`** - CO2 decay curves and air change rate analysis
+- **`src/plot_particle.py`** - Particle concentration decay and emission rates
+- **`src/plot_environmental.py`** - RH, temperature, and wind time series
+- **`src/plot_style.py`** - Consistent matplotlib styling constants and helpers
+- **`src/plot_utils.py`** - Re-exports all plot_* functions for backward compatibility
 
-These can be imported and used by analysis modules or run independently for custom visualizations.
+All plot modules are imported by analysis scripts through `src/plot_utils.py`.
 
 ## Configured Instruments
 
@@ -222,8 +225,8 @@ The complete data analysis pipeline follows this sequence:
    ```
    | Flag | Description |
    |------|-------------|
-   | `--alpha FLOAT` | Fraction of infiltration from outside (default: 0.7) |
-   | `--beta FLOAT` | Fraction of infiltration from entry zone (default: 0.3) |
+   | `--alpha FLOAT` | Fraction of infiltration from outside (default: 0.5) |
+   | `--beta FLOAT` | Fraction of infiltration from entry zone (default: 0.5) |
    | `--output-dir DIR` | Output directory (default: `data_root/output`) |
    | `--no-plot` | Disable plot generation |
    | `--no-sig-figs` | Disable significant figure rounding (default: 3 sig figs for files, 2 for figures) |
@@ -289,7 +292,7 @@ Run the CO2 decay analysis to calculate air change rates (λ):
 python scripts/co2_decay_analysis.py
 
 # Custom source fractions
-python scripts/co2_decay_analysis.py --alpha 0.6 --beta 0.4
+python scripts/co2_decay_analysis.py --alpha 0.6 --beta 0.4  # default is 0.5/0.5
 
 # Skip plots, write to a custom directory
 python scripts/co2_decay_analysis.py --no-plot --output-dir /path/to/output
@@ -298,16 +301,17 @@ python scripts/co2_decay_analysis.py --no-plot --output-dir /path/to/output
 **Methodology:**
 - Combines three Aranet4 sensor files: Bedroom, Entry, and Outside
 - Applies 6-minute rolling average to reduce sensor noise
-- Accounts for time-varying CO2 concentrations at all locations
-- Dynamically determines decay end when C_bedroom within 200 ppm of C_outside (max 2 hours)
-- Calculates λ using numerical differentiation: λ = -dC/dt / (C_source - C_bedroom)
-- Starts decay calculation 10 minutes prior to the top of the hour when the shower turns on
+- Fixed 2-hour decay analysis window starting at :50 (10 minutes before the shower hour)
+- Three source concentration methods for uncertainty: λ_average (mean of outside + entry), λ_outside, λ_entry
+- Calculates λ via linear regression of the log-transformed decay:
+  y = −ln[(C(t) − C_avg) / (C₀ − C_avg)], λ = slope of y vs. time
 
 **Output Files:**
 - `output/co2_lambda_summary.csv` - Per-event lambda results
 - `output/co2_lambda_overall_summary.csv` - Overall statistics
-- `output/plots/event_XX_decay.png` - Individual event plots with fitted decay curves
-- `output/plots/lambda_summary.png` - Summary bar chart of all events
+- `output/plots/event_figures/event_NN-YYYYYYY_co2_decay.png` - Individual event decay plots
+- `output/plots/lambda_summary.png` - Summary bar chart of λ values
+- `output/plots/air_change_rate_boxplot.png` - Box-and-whisker of λ by water temperature
 
 ### Particle Decay & Emission Analysis
 
@@ -338,12 +342,12 @@ dC/dt = p·λ·C_out - λ·C - β·C + E/V
    - Night event windows: before = 9 pm (day before) → 2 am; after = 9 am → 2 pm
    - Day event windows: before = 9 am → 2 pm; after = 9 pm → 2 am (next day)
 2. **Air change rate (λ):** Loaded from CO2 decay analysis results (h⁻¹).
-3. **Deposition rate (β, numerical):** Step-by-step solution during the 2-hour (`DEPOSITION_WINDOW_HOURS`) post-shower decay window; beta solved at each time step from the discrete mass balance:
+3. **Other process rate (β, numerical):** Step-by-step solution during the 2-hour (`DEPOSITION_WINDOW_HOURS`) post-shower decay window; beta solved at each time step from the discrete mass balance:
    ```
    β = 1/dt - λ - C_{t+1}/(C_t·dt) + p·λ·(C_out,t / C_t)
    ```
-   All estimates ≤ `MAX_DEPOSITION_RATE` (15 h⁻¹) are collected (no lower bound, to avoid upward bias). A **5th–95th percentile trim** removes extreme outliers symmetrically. If the trimmed-mean β is negative the bin is skipped (NaN reported) — clamping to 0 would produce a misleading zero. R² is computed from a forward Euler simulation using the mean β.
-   - *QA:* Minimum 10 valid points in the decay window and after peak (`MIN_POINTS_DEPOSITION`); `MAX_DEPOSITION_RATE` = 15 h⁻¹ upper cap (above this, values are noise spikes for sub-3 µm particles).
+   All estimates ≤ `MAX_OTHER_PROCESS_RATE` (15 h⁻¹) are collected (no lower bound, to avoid upward bias). A **5th–95th percentile trim** removes extreme outliers symmetrically. Beta is then selected via an **R²-based three-step procedure** (threshold R² = 0.80): (a) use unclamped trimmed mean — if R² ≥ 0.80 keep it; (b) clamp to ≥ 0 — if R² ≥ 0.80 keep it; (c) otherwise set β = 0.
+   - *QA:* Minimum 10 valid points in the decay window and after peak (`MIN_POINTS_OTHER_PROCESS`); `MAX_OTHER_PROCESS_RATE` = 15 h⁻¹ upper cap (above this, values are noise spikes for sub-3 µm particles).
 4. **Emission rate (E):** Mass balance rearranged and solved numerically at each time step during the shower-on-to-peak window; mean and std reported from positive values.
    - *QA:* Minimum 3 valid consecutive steps (`MIN_POINTS_EMISSION`); E_total clips negative per-step contributions to 0 before trapezoid integration.
 5. **Predicted concentration (Ct):** Single continuous forward Euler simulation from shower ON to 2 hours after shower OFF. E = E_mean before peak_time, E = 0 after. Returned as two connected segments forming one continuous predicted Ct curve on figures. Decay phase starts from the *predicted* peak (end of emission simulation), not the measured peak.
@@ -354,14 +358,29 @@ dC/dt = p·λ·C_out - λ·C - β·C + E/V
 - `output/particle_analysis_summary.xlsx` - Multi-sheet Excel workbook:
   - `all_results` — Full results table (all metrics per event and bin)
   - `p_penetration` — Penetration factors per event and bin
-  - `beta_deposition` — Deposition rates per event and bin
+  - `beta_other` — Other process rates per event and bin
   - `beta_r_squared` — R² of forward Euler decay fit per event and bin
   - `E_emission` — Emission rates per event and bin
   - `E_total_particles` — Total emitted particle counts (E_total) per bin
   - `E_r_squared` — R² of forward Euler emission-phase simulation per bin
-- `output/plots/event_XX-YYYYYY_pm_decay.png` - Individual event decay curves (two-panel)
+  - `peak_comparison` — Measured vs. predicted concentration at peak_time and deposition_end (wide format, one row per event)
+- `output/plots/event_figures/event_NN-YYYYYY_pm_decay.png` - Individual event decay curves (two-panel)
   - *Top panel:* Solid measured concentration lines indicate valid analysis; dashed predicted Ct lines show the continuous emission + decay simulation; shower ON/OFF markers and shaded deposition window
   - *Bottom panel:* Per-step E_t as faint lines per bin; E_mean as dashed horizontal line spanning shower ON to peak_time; emission R² annotation
+
+- `output/plots/penetration_summary.png` - Bar chart summary of penetration factors by size
+- `output/plots/deposition_summary.png` - Bar chart summary of other process rates by size
+- `output/plots/emission_summary.png` - Bar chart summary of emission rates by size
+- `output/plots/emission_etotal_boxplot.png` - E_total by water temperature and bin (fixed temp axis)
+- `output/plots/other_process_rate_boxplot.png` - β by water temperature and bin (fixed temp axis)
+- `output/plots/emission_rate_boxplot.png` - E_mean by water temperature and bin (fixed temp axis)
+- `output/plots/penetration_factor_boxplot.png` - p by water temperature and bin (fixed temp axis)
+- `output/plots/emission_etotal_by_bedroom_rh_boxplot.png` - E_total vs. bedroom RH (metric axis)
+- `output/plots/emission_etotal_by_bedroom_temp_boxplot.png` - E_total vs. bedroom temperature (metric axis)
+- `output/plots/emission_etotal_by_acr_boxplot.png` - E_total vs. air change rate (metric axis)
+- `output/plots/emission_etotal_by_beta_boxplot.png` - E_total vs. other process rate (metric axis)
+- `output/plots/emission_etotal_by_p_boxplot.png` - E_total vs. penetration factor (metric axis)
+- `output/plots/emission_etotal_by_showerhead_boxplot.png` - E_total by shower head type
 
 ### Relative Humidity, Temperature & Wind Analysis
 
@@ -393,10 +412,14 @@ python scripts/rh_temp_other_analysis.py --max-plot-events 10
 - Generates time series and box plot comparisons
 
 **Output Files:**
-- `output/rh_temp_wind_summary.xlsx` - Multi-sheet Excel workbook with all statistics
-- `output/plots/event_NN-MMDD_temp_door_tod_rh_timeseries.png` - RH time series per event
-- `output/plots/event_NN-MMDD_temp_door_tod_temperature_timeseries.png` - Temperature per event
-- `output/plots/event_NN-MMDD_temp_door_tod_wind_timeseries.png` - Wind data per event
+- `output/rh_temp_wind_summary.xlsx` - Multi-sheet Excel workbook:
+  - `RH_Summary`, `Temp_Summary`, `WindSpeed_Summary`, `WindDir_Summary` — per-sensor summary statistics
+  - `RH_Details`, `Temp_Details`, `WindSpeed_Details`, `WindDir_Details` — per-event detail statistics
+  - `Event_Log` — event metadata (test_name, config_key, shower times, door position, fan status)
+  - `Bedroom_Conditions` — per-event bedroom RH and temperature (30-min pre-shower window); used by particle analysis for boxplot annotations; not rounded by sig figs
+- `output/plots/event_figures/event_NN-MMDD_temp_door_tod_rh_timeseries.png` - RH time series per event
+- `output/plots/event_figures/event_NN-MMDD_temp_door_tod_temperature_timeseries.png` - Temperature per event
+- `output/plots/event_figures/event_NN-MMDD_temp_door_tod_wind_timeseries.png` - Wind data per event
 - `output/plots/rh_pre_post_boxplot.png` - Pre/post RH comparison across all events
 - `output/plots/temperature_pre_post_boxplot.png` - Pre/post temperature comparison
 - `output/plots/wind_speed_pre_post_boxplot.png` - Pre/post wind speed comparison

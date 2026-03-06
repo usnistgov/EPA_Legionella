@@ -105,17 +105,25 @@ Output Files:
         * peak_comparison: Measured vs. predicted concentration at peak_time and
           deposition_end for each bin, with percent difference (wide format,
           one row per event)
-    - plots/event_XX-YYYYYY_pm_decay.png: Individual event decay curves
+    - plots/event_figures/event_NN-YYYYYY_pm_decay.png: Individual event decay curves
       (two-panel): top panel shows measured concentrations and continuous
       predicted Ct (emission + decay phases) with decay R² in text box;
       bottom panel shows per-step E_t, E_mean dashed lines, and emission R²
       annotation; shower markers use dotted lines; E plot x-axis matches
       concentration panel; E plot y-axis clipped to 2nd-98th percentile
-    - plots/penetration_summary.png: Summary of p values
-    - plots/deposition_summary.png: Summary of beta values
-    - plots/emission_summary.png: Summary of E values
-    - plots/emission_etotal_boxplot.png: Box-and-whisker of E_total by water
-      temperature configuration and particle size bin
+    - plots/penetration_summary.png: Summary bar chart of penetration factors by size
+    - plots/deposition_summary.png: Summary bar chart of other process rates by size
+    - plots/emission_summary.png: Summary bar chart of emission rates by size
+    - plots/emission_etotal_boxplot.png: E_total by water temperature and bin (fixed temp axis)
+    - plots/other_process_rate_boxplot.png: β by water temperature and bin (fixed temp axis)
+    - plots/emission_rate_boxplot.png: E_mean by water temperature and bin (fixed temp axis)
+    - plots/penetration_factor_boxplot.png: p by water temperature and bin (fixed temp axis)
+    - plots/emission_etotal_by_bedroom_rh_boxplot.png: E_total vs. bedroom RH (metric axis)
+    - plots/emission_etotal_by_bedroom_temp_boxplot.png: E_total vs. bedroom temperature (metric axis)
+    - plots/emission_etotal_by_acr_boxplot.png: E_total vs. air change rate (metric axis)
+    - plots/emission_etotal_by_beta_boxplot.png: E_total vs. other process rate (metric axis)
+    - plots/emission_etotal_by_p_boxplot.png: E_total vs. penetration factor (metric axis)
+    - plots/emission_etotal_by_showerhead_boxplot.png: E_total by shower head type
 
 Module Structure:
     - src/particle_calculations.py: Pure computation functions (p, beta, E, Ct)
