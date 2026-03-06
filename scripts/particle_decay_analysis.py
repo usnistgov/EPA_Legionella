@@ -141,11 +141,11 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import src.sig_figs as sf  # noqa: E402
+from src.data_paths import get_data_root, get_event_figures_dir  # noqa: E402
 from src.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
 )
-from src.data_paths import get_data_root, get_event_figures_dir  # noqa: E402
 from src.particle_calculations import (  # noqa: E402
     BEDROOM_VOLUME_M3,
     DEPOSITION_WINDOW_HOURS,
@@ -576,7 +576,9 @@ def run_particle_analysis(
                     # Ensure deposition_end is set (fall back to shower_off + 2h)
                     if event.get("deposition_end") is None:
                         event = dict(event)
-                        event["deposition_end"] = event["shower_off"] + timedelta(hours=2)
+                        event["deposition_end"] = event["shower_off"] + timedelta(
+                            hours=2
+                        )
 
                     empty_result = {}
                     formatted_name = format_test_name_for_filename(test_name)
@@ -594,7 +596,9 @@ def run_particle_analysis(
                         test_name=test_name,
                     )
                 except Exception as e:
-                    print(f"    Warning: Failed to generate excluded plot for {test_name}: {e}")
+                    print(
+                        f"    Warning: Failed to generate excluded plot for {test_name}: {e}"
+                    )
             continue
 
         # Skip events without lambda
@@ -960,31 +964,31 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "bedroom_rh",
             "Bedroom RH (%)",
             "emission_etotal_by_bedroom_rh_boxplot.png",
-            (22, 44, 2),
+            (20, 50, 2),
         ),
         (
             "bedroom_temp",
             "Bedroom Temperature (°C)",
             "emission_etotal_by_bedroom_temp_boxplot.png",
-            (15, 19, 0.2),
+            (14, 19, 0.5),
         ),
         (
             "lambda_ach",
             "Air Change Rate λ (h⁻¹)",
             "emission_etotal_by_acr_boxplot.png",
-            (0.7, 1.70, 0.1),
+            (0.8, 1.6, 0.1),
         ),
         (
             "avg_beta",
             "Avg. Other Process Rate β (h⁻¹)",
             "emission_etotal_by_beta_boxplot.png",
-            (-0.35, 0.35, 0.05),
+            (-0.3, 0.3, 0.05),
         ),
         (
             "avg_p",
             "Avg. Penetration Factor p",
             "emission_etotal_by_p_boxplot.png",
-            (0.4, 0.8, 0.05),
+            (0.4, 0.8, 0.02),
         ),
     ]
     for metric_col, metric_label, filename, x_range in _metric_axes:
