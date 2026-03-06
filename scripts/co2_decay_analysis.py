@@ -71,6 +71,17 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import src.sig_figs as sf  # noqa: E402
+from scripts.event_registry import (  # noqa: E402
+    REGISTRY_FILENAME,
+    load_event_registry,
+)
+from src.data_paths import (  # noqa: E402
+    get_common_file,
+    get_data_root,
+    get_event_figures_dir,
+    get_instrument_config,
+    get_instrument_path,
+)
 from src.event_manager import (  # noqa: E402
     EXPERIMENT_START_DATE,
     assign_test_names,
@@ -82,20 +93,9 @@ from src.event_manager import (  # noqa: E402
     sort_config_keys_by_water_temp,
 )
 from src.event_matching import match_co2_to_shower_event  # noqa: E402
-from scripts.event_registry import (  # noqa: E402
-    REGISTRY_FILENAME,
-    load_event_registry,
-)
 from src.plot_utils import (  # noqa: E402
     plot_co2_decay_event_analytical,
     plot_lambda_summary,
-)
-from src.data_paths import (  # noqa: E402
-    get_common_file,
-    get_data_root,
-    get_event_figures_dir,
-    get_instrument_config,
-    get_instrument_path,
 )
 
 # =============================================================================
@@ -495,8 +495,16 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "test_name": row["test_name"],
                     "water_temp": row.get("water_temp", ""),
                     "time_of_day": row.get("time_of_day", ""),
-                    "injection_start": pd.to_datetime(row["co2_injection_start"]),
-                    "injection_end": pd.to_datetime(row.get("co2_injection_end")),
+                    "injection_start": pd.to_datetime(
+                        row["co2_injection_start"], errors="coerce"
+                    )
+                    if pd.notna(row["co2_injection_start"])
+                    else None,
+                    "injection_end": pd.to_datetime(
+                        row.get("co2_injection_end", pd.NaT), errors="coerce"
+                    )
+                    if pd.notna(row.get("co2_injection_end", pd.NaT))
+                    else None,
                     "decay_start": pd.to_datetime(decay_start)
                     if pd.notna(decay_start)
                     else None,
@@ -1040,9 +1048,9 @@ def run_co2_decay_analysis(
                     f"    Expected shower time: {expected_shower_time.strftime('%Y-%m-%d %H:%M')} (±10 min)"
                 )
                 # Find nearest shower event to help diagnose
+                nearest_shower = None
+                nearest_diff = float("inf")
                 if shower_events:
-                    nearest_shower = None
-                    nearest_diff = float("inf")
                     for se in shower_events:
                         shower_time = se.get("shower_on")
                         if shower_time:
@@ -1217,7 +1225,9 @@ def run_co2_decay_analysis(
             print(f"  Median: {valid_values.median():.4f} h⁻¹")
             print(f"  Range:  {valid_values.min():.4f} - {valid_values.max():.4f} h⁻¹")
             if mode == "average" and "lambda_average_r_squared" in results_df.columns:
-                valid_r2 = results_df.loc[valid_values.index, "lambda_average_r_squared"]
+                valid_r2 = results_df.loc[
+                    valid_values.index, "lambda_average_r_squared"
+                ]
                 print(f"  Mean R²: {valid_r2.mean():.4f}")
             print(f"  N events: {len(valid_values)}")
 
@@ -1307,7 +1317,9 @@ def run_co2_decay_analysis(
                     config_df["lambda_average_mean"].dropna().index,
                     "lambda_average_r_squared",
                 ]
-                summary["lambda_average_mean_r_squared"] = float(valid_r2.mean()) if len(valid_r2) > 0 else np.nan
+                summary["lambda_average_mean_r_squared"] = (
+                    float(valid_r2.mean()) if len(valid_r2) > 0 else np.nan
+                )
 
         summary_rows.append(summary)
 
@@ -1344,7 +1356,9 @@ def run_co2_decay_analysis(
                     results_df["lambda_average_mean"].dropna().index,
                     "lambda_average_r_squared",
                 ]
-                summary_all["lambda_average_mean_r_squared"] = float(valid_r2.mean()) if len(valid_r2) > 0 else np.nan
+                summary_all["lambda_average_mean_r_squared"] = (
+                    float(valid_r2.mean()) if len(valid_r2) > 0 else np.nan
+                )
         summary_rows.append(summary_all)
 
     summary_df = pd.DataFrame(summary_rows)
@@ -1355,6 +1369,7 @@ def run_co2_decay_analysis(
     print(f"  Configurations: {len(config_keys)}")
 
     # Generate summary plots if enabled
+    valid_values = results_df["lambda_average_mean"].dropna()
     if generate_plots and len(valid_values) > 0:
         summary_plot_path = plot_dir / "lambda_summary.png"
         plot_lambda_summary(results_df, output_path=summary_plot_path)
