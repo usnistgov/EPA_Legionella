@@ -755,7 +755,8 @@ def analyze_injection_event(
 
         result[f"lambda_{mode}_mean"] = lambda_result["lambda_mean"]
         result[f"lambda_{mode}_std"] = lambda_result["lambda_std"]
-        result[f"lambda_{mode}_r_squared"] = lambda_result.get("r_squared", np.nan)
+        if mode == "average":
+            result["lambda_average_r_squared"] = lambda_result.get("r_squared", np.nan)
         result[f"lambda_{mode}_n_points"] = lambda_result["n_points"]
 
         if mode == "average":
@@ -1110,15 +1111,36 @@ def run_co2_decay_analysis(
                 "lambda_average_n_points": 0,
                 "lambda_outside_mean": np.nan,
                 "lambda_outside_std": np.nan,
-                "lambda_outside_r_squared": np.nan,
                 "lambda_outside_n_points": 0,
                 "lambda_entry_mean": np.nan,
                 "lambda_entry_std": np.nan,
-                "lambda_entry_r_squared": np.nan,
                 "lambda_entry_n_points": 0,
                 "skip_reason": f"Excluded: {exclusion_reason}",
             }
             results.append(result)
+
+            # Generate raw CO2 plot for excluded events that have a real event_number
+            if generate_plots and event_num is not None:
+                from src.plot_style import format_test_name_for_filename
+
+                excluded_dir = event_figures_dir / "excluded_events"
+                excluded_dir.mkdir(parents=True, exist_ok=True)
+                formatted_name = format_test_name_for_filename(test_name)
+                plot_path = (
+                    excluded_dir
+                    / f"event_{event_num:02d}-{formatted_name}_co2_decay.png"
+                )
+                plot_co2_decay_event_analytical(
+                    co2_data=co2_data,
+                    event=event,
+                    result=result,
+                    output_path=plot_path,
+                    event_number=event_num,
+                    test_name=test_name,
+                    alpha=alpha,
+                    beta=beta,
+                )
+
             continue
 
         print(f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}")
@@ -1187,16 +1209,16 @@ def run_co2_decay_analysis(
 
     for mode in ["average", "outside", "entry"]:
         col = f"lambda_{mode}_mean"
-        r2_col = f"lambda_{mode}_r_squared"
         valid_values = results_df[col].dropna()
         if len(valid_values) > 0:
-            valid_r2 = results_df.loc[valid_values.index, r2_col]
             print(f"\nλ using C_{mode}:")
             print(f"  Mean:   {valid_values.mean():.4f} h⁻¹")
             print(f"  Std:    {valid_values.std():.4f} h⁻¹")
             print(f"  Median: {valid_values.median():.4f} h⁻¹")
             print(f"  Range:  {valid_values.min():.4f} - {valid_values.max():.4f} h⁻¹")
-            print(f"  Mean R²: {valid_r2.mean():.4f}")
+            if mode == "average" and "lambda_average_r_squared" in results_df.columns:
+                valid_r2 = results_df.loc[valid_values.index, "lambda_average_r_squared"]
+                print(f"  Mean R²: {valid_r2.mean():.4f}")
             print(f"  N events: {len(valid_values)}")
 
     # Save results with units in column names
@@ -1271,19 +1293,21 @@ def run_co2_decay_analysis(
 
         for mode in ["average", "outside", "entry"]:
             col = f"lambda_{mode}_mean"
-            r2_col = f"lambda_{mode}_r_squared"
             valid_values = config_df[col].dropna()
             if len(valid_values) > 0:
-                valid_r2 = config_df.loc[valid_values.index, r2_col]
                 summary[f"lambda_{mode}_overall_mean (h-1)"] = float(
                     valid_values.mean()
                 )
                 summary[f"lambda_{mode}_overall_std (h-1)"] = float(valid_values.std())
-                summary[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
             else:
                 summary[f"lambda_{mode}_overall_mean (h-1)"] = np.nan
                 summary[f"lambda_{mode}_overall_std (h-1)"] = np.nan
-                summary[f"lambda_{mode}_mean_r_squared"] = np.nan
+            if mode == "average" and "lambda_average_r_squared" in config_df.columns:
+                valid_r2 = config_df.loc[
+                    config_df["lambda_average_mean"].dropna().index,
+                    "lambda_average_r_squared",
+                ]
+                summary["lambda_average_mean_r_squared"] = float(valid_r2.mean()) if len(valid_r2) > 0 else np.nan
 
         summary_rows.append(summary)
 
@@ -1304,21 +1328,23 @@ def run_co2_decay_analysis(
         }
         for mode in ["average", "outside", "entry"]:
             col = f"lambda_{mode}_mean"
-            r2_col = f"lambda_{mode}_r_squared"
             valid_values = results_df[col].dropna()
             if len(valid_values) > 0:
-                valid_r2 = results_df.loc[valid_values.index, r2_col]
                 summary_all[f"lambda_{mode}_overall_mean (h-1)"] = float(
                     valid_values.mean()
                 )
                 summary_all[f"lambda_{mode}_overall_std (h-1)"] = float(
                     valid_values.std()
                 )
-                summary_all[f"lambda_{mode}_mean_r_squared"] = float(valid_r2.mean())
             else:
                 summary_all[f"lambda_{mode}_overall_mean (h-1)"] = np.nan
                 summary_all[f"lambda_{mode}_overall_std (h-1)"] = np.nan
-                summary_all[f"lambda_{mode}_mean_r_squared"] = np.nan
+            if mode == "average" and "lambda_average_r_squared" in results_df.columns:
+                valid_r2 = results_df.loc[
+                    results_df["lambda_average_mean"].dropna().index,
+                    "lambda_average_r_squared",
+                ]
+                summary_all["lambda_average_mean_r_squared"] = float(valid_r2.mean()) if len(valid_r2) > 0 else np.nan
         summary_rows.append(summary_all)
 
     summary_df = pd.DataFrame(summary_rows)

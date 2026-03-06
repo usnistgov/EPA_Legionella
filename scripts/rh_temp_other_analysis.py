@@ -742,7 +742,15 @@ def generate_time_series_plots(
             "event_number", idx + 1
         )  # Use event_number from event dict
         test_name = event.get("test_name", f"Event_{event_num:02d}")
+        is_excluded = event.get("is_excluded", False)
         print(f"  {test_name}: {event['shower_on'].strftime('%Y-%m-%d %H:%M')}")
+
+        # Excluded events go in a dedicated subdirectory
+        if is_excluded:
+            plot_dir = event_figures_dir / "excluded_events"
+            plot_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            plot_dir = event_figures_dir
 
         start_date = event["pre_start"] - timedelta(hours=1)
         end_date = event["post_end"] + timedelta(hours=1)
@@ -770,7 +778,7 @@ def generate_time_series_plots(
 
                 formatted_name = format_test_name_for_filename(test_name)
                 output_path = (
-                    event_figures_dir
+                    plot_dir
                     / f"event_{event_num:02d}-{formatted_name}_{var_type}_timeseries.png"
                 )
                 plot_environmental_time_series(

@@ -71,14 +71,13 @@ from src.event_matching import match_shower_to_co2_event
 # These are imported inside functions that use them
 _HAS_REGISTRY = False
 create_synthetic_co2_event_v2 = None
-create_synthetic_shower_event = None
 infer_duration_from_neighbors = None
 match_events_bidirectional = None
 
 
 def _ensure_registry_imports():
     """Lazy import of event_registry module to avoid circular imports."""
-    global _HAS_REGISTRY, create_synthetic_co2_event_v2, create_synthetic_shower_event
+    global _HAS_REGISTRY, create_synthetic_co2_event_v2
     global infer_duration_from_neighbors, match_events_bidirectional
 
     if _HAS_REGISTRY:
@@ -89,9 +88,6 @@ def _ensure_registry_imports():
             create_synthetic_co2_event as _create_synthetic_co2_event_v2,
         )
         from scripts.event_registry import (
-            create_synthetic_shower_event as _create_synthetic_shower_event,
-        )
-        from scripts.event_registry import (
             infer_duration_from_neighbors as _infer_duration_from_neighbors,
         )
         from scripts.event_registry import (
@@ -99,7 +95,6 @@ def _ensure_registry_imports():
         )
 
         create_synthetic_co2_event_v2 = _create_synthetic_co2_event_v2
-        create_synthetic_shower_event = _create_synthetic_shower_event
         infer_duration_from_neighbors = _infer_duration_from_neighbors
         match_events_bidirectional = _match_events_bidirectional
         _HAS_REGISTRY = True
@@ -787,125 +782,6 @@ def assign_test_names(
 
 
 # =============================================================================
-# Event Logging System
-# =============================================================================
-
-
-def create_event_log(
-    shower_events: List[Dict],
-    co2_events_df: pd.DataFrame,
-    matched_pairs: Dict[int, Optional[int]],
-    output_path: Path,
-    process_co2: bool = True,
-) -> pd.DataFrame:
-    """
-    Create a comprehensive event log CSV with all events and their status.
-
-    Includes:
-    - All shower events (with matched CO2 or missing)
-    - All CO2 events (with matched shower or missing)
-    - Exclusion flags and reasons
-    - Missing event flags and details
-    - Test condition names
-
-    Parameters:
-        shower_events: List of shower event dictionaries
-        co2_events_df: DataFrame with CO2 event data
-        matched_pairs: Dict mapping shower index to CO2 DataFrame index
-        output_path: Path to save event_log.csv
-        process_co2: Whether CO2 processing is enabled (controls summary output)
-
-    Returns:
-        DataFrame with event log
-    """
-    log_entries = []
-
-    # Process shower events
-    for i, shower_event in enumerate(shower_events):
-        shower_time = shower_event["shower_on"]
-        shower_off = shower_event.get("shower_off")
-        co2_idx = matched_pairs.get(i)
-
-        # Check time-based exclusion and pre-computed exclusion (e.g. duration)
-        is_time_excluded, time_reason = is_event_excluded(shower_time)
-        is_pre_excluded = shower_event.get("is_excluded", False)
-        pre_reason = shower_event.get("exclusion_reason", "")
-        is_excluded = is_time_excluded or is_pre_excluded
-        exclusion_reason = time_reason or pre_reason
-
-        # Get matched CO2 info
-        co2_time = None
-        co2_event_num = None
-        has_co2 = False
-        is_synthetic_co2 = False
-
-        if (
-            co2_idx is not None
-            and not co2_events_df.empty
-            and co2_idx < len(co2_events_df)
-        ):
-            co2_event = co2_events_df.iloc[co2_idx]
-            co2_time = co2_event.get("injection_start")
-            co2_event_num = co2_event.get("event_number")
-            has_co2 = True
-            is_synthetic_co2 = co2_event.get("is_synthetic", False)
-
-        log_entries.append(
-            {
-                "event_type": "shower",
-                "event_number": shower_event.get("event_number"),
-                "test_name": shower_event.get("test_name", ""),
-                "config_key": shower_event.get("config_key", ""),
-                "datetime": shower_time,
-                "shower_on": shower_time,
-                "shower_off": shower_off,
-                "shower_is_synthetic": shower_event.get("is_synthetic", False),
-                "co2_injection": co2_time,
-                "co2_event_number": co2_event_num,
-                "has_matching_co2": has_co2,
-                "co2_is_synthetic": is_synthetic_co2,
-                "is_excluded": is_excluded,
-                "exclusion_reason": exclusion_reason if is_excluded else "",
-                "water_temp": shower_event.get("water_temp", ""),
-                "door_position": shower_event.get("door_position", ""),
-                "planned_fan": shower_event.get("planned_fan", ""),
-                "fan_during_test": shower_event.get("fan_during_test", False),
-                "time_of_day": shower_event.get("time_of_day", ""),
-            }
-        )
-
-    # Create DataFrame
-    df = pd.DataFrame(log_entries)
-
-    # Save to CSV
-    df.to_csv(output_path, index=False)
-    print(f"\nEvent log saved to: {output_path}")
-
-    # Print summary
-    n_total = len(df)
-    n_excluded = df["is_excluded"].sum()
-
-    print("\nEvent Log Summary:")
-    print(f"  Total shower events: {n_total}")
-    print(f"  Excluded events: {n_excluded}")
-
-    # Only print CO2-related summary when CO2 processing is enabled
-    if process_co2:
-        n_missing_co2 = (~df["has_matching_co2"]).sum()
-        n_synthetic_co2 = df["co2_is_synthetic"].sum()
-        n_synthetic_shower = (
-            df["shower_is_synthetic"].sum()
-            if "shower_is_synthetic" in df.columns
-            else 0
-        )
-        print(f"  Missing CO2 events: {n_missing_co2}")
-        print(f"  Synthetic CO2 events: {n_synthetic_co2}")
-        print(f"  Synthetic shower events: {n_synthetic_shower}")
-
-    return df
-
-
-# =============================================================================
 # Main Processing Function
 # =============================================================================
 
@@ -1003,44 +879,6 @@ def process_events_with_management(
                     co2_events.append(synthetic_co2)
                     next_co2_num += 1
 
-        if co2_missing_shower:
-            print(f"  Found {len(co2_missing_shower)} CO2 events without shower data")
-
-            if (
-                create_synthetic
-                and _HAS_REGISTRY
-                and create_synthetic_shower_event is not None
-            ):
-                print("  Creating synthetic shower events...")
-                next_shower_num = len(shower_events) + 1
-
-                for co2_idx in co2_missing_shower:
-                    co2_event = co2_events[co2_idx]
-                    synthetic_shower = create_synthetic_shower_event(
-                        co2_event["injection_start"],
-                        next_shower_num,
-                        shower_events,
-                        prompt_user,
-                    )
-                    # Assign test name to synthetic shower
-                    shower_time = synthetic_shower["shower_on"]
-                    water_temp = get_water_temperature_code(shower_time)
-                    door_pos = get_door_position(shower_time)
-                    time_of_day = get_time_of_day(shower_time)
-                    date_str = shower_time.strftime("%m%d")
-                    synthetic_shower["test_name"] = (
-                        f"{date_str}_{water_temp}_{door_pos}_{time_of_day}_R??"
-                    )
-                    synthetic_shower["water_temp"] = water_temp
-                    synthetic_shower["door_position"] = door_pos
-                    synthetic_shower["time_of_day"] = time_of_day
-                    synthetic_shower["fan_during_test"] = False
-
-                    shower_events.append(synthetic_shower)
-                    next_shower_num += 1
-            elif co2_missing_shower and not _HAS_REGISTRY:
-                print("  (Synthetic shower events require event_registry module)")
-
     # Step 4: Match events (only if CO2 processing is enabled)
     matched_pairs = {}
 
@@ -1092,18 +930,11 @@ def process_events_with_management(
         for i in range(len(shower_events)):
             matched_pairs[i] = None
 
-    # Step 5: Create event log
-    print("\nCreating event log...")
-    log_path = output_dir / "event_log.csv"
-    event_log_df = create_event_log(
-        shower_events, co2_results_df, matched_pairs, log_path, process_co2
-    )
-
     print("\n" + "=" * 70)
     print("Event Management Complete")
     print("=" * 70 + "\n")
 
-    return shower_events, co2_events, event_log_df
+    return shower_events, co2_events, pd.DataFrame()
 
 
 if __name__ == "__main__":
@@ -1113,4 +944,3 @@ if __name__ == "__main__":
     print("  - process_events_with_management(): Main processing function")
     print("  - filter_events_by_date(): Filter events by date")
     print("  - assign_test_names(): Generate test condition names")
-    print("  - create_event_log(): Generate event log CSV")

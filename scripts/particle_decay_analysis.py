@@ -564,6 +564,37 @@ def run_particle_analysis(
             exclusion_reason = event.get("exclusion_reason", "")
         if is_excluded_flag:
             print(f"  {test_name}: Skipped (excluded: {exclusion_reason})")
+            # Generate raw PM plot for excluded events that have a real event_number
+            if generate_plots and event_num:
+                try:
+                    from src.plot_particle import plot_particle_decay_event
+                    from src.plot_style import format_test_name_for_filename
+
+                    excluded_dir = event_figures_dir / "excluded_events"
+                    excluded_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Ensure deposition_end is set (fall back to shower_off + 2h)
+                    if event.get("deposition_end") is None:
+                        event = dict(event)
+                        event["deposition_end"] = event["shower_off"] + timedelta(hours=2)
+
+                    empty_result = {}
+                    formatted_name = format_test_name_for_filename(test_name)
+                    plot_path = (
+                        excluded_dir
+                        / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
+                    )
+                    plot_particle_decay_event(
+                        particle_data=particle_data,
+                        event=event,
+                        particle_bins=PARTICLE_BINS,
+                        result=empty_result,
+                        output_path=plot_path,
+                        event_number=event_num,
+                        test_name=test_name,
+                    )
+                except Exception as e:
+                    print(f"    Warning: Failed to generate excluded plot for {test_name}: {e}")
             continue
 
         # Skip events without lambda
