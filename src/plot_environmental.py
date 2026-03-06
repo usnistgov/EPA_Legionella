@@ -43,7 +43,7 @@ Date: 2026
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -55,16 +55,12 @@ from matplotlib.patches import Patch
 from src.event_manager import sort_config_keys_by_water_temp
 from src.plot_style import (
     COLORS,
-    CONFIG_KEY_COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
     FONT_SIZE_TICK,
     FONT_SIZE_TITLE,
-    LINE_WIDTH_ANNOTATION,
     LINE_WIDTH_DATA,
     SENSOR_COLORS,
-    SHOWER_OFF_STYLE,
-    SHOWER_ON_STYLE,
     TITLE_FONTWEIGHT,
     add_shower_off_marker,
     add_shower_on_marker,
@@ -72,7 +68,6 @@ from src.plot_style import (
     create_figure,
     format_datetime_axis,
     format_test_name_for_title,
-    get_config_color,
     save_figure,
 )
 
@@ -477,9 +472,10 @@ def plot_environmental_time_series(
 
     settings = _VAR_SETTINGS.get(variable_type, _VAR_SETTINGS["rh"])
 
-    fig, ax = create_figure(figsize=(12, 6))
-    if isinstance(ax, (list, tuple, np.ndarray)):
-        ax = ax[0]
+    fig, ax_temp = create_figure(figsize=(12, 6))
+    if isinstance(ax_temp, (list, tuple, np.ndarray)):
+        ax_temp = ax_temp[0]
+    ax = cast(MplAxes, ax_temp)
 
     # Plot data based on variable type
     if variable_type == "wind":
@@ -563,14 +559,17 @@ def plot_pre_post_comparison(
         sensors = sort_sensors_by_display_order(list(all_sensors))
 
         if not sensors:
-            fig, ax = create_figure(figsize=(10, 6))  # type: ignore
-            ax.text(
+            fig, ax_temp = create_figure(figsize=(10, 6))
+            if isinstance(ax_temp, (list, tuple)):
+                ax_temp = ax_temp[0]
+            ax_no_data = cast(MplAxes, ax_temp)
+            ax_no_data.text(
                 0.5,
                 0.5,
                 "No data available",
                 ha="center",
                 va="center",
-                transform=ax.transAxes,
+                transform=ax_no_data.transAxes,
             )
             return fig
 
@@ -587,7 +586,7 @@ def plot_pre_post_comparison(
         axes = [a for a in axes]
 
         for idx, config_key in enumerate(config_keys):
-            sub_ax = axes[idx]
+            sub_ax: MplAxes = axes[idx]
             config_pre = config_grouped_data[config_key].get("pre", {})
             config_post = config_grouped_data[config_key].get("post", {})
 
@@ -599,9 +598,6 @@ def plot_pre_post_comparison(
 
             valid_pre = [(i, v) for i, v in enumerate(pre_values) if len(v) > 0]
             valid_post = [(i, v) for i, v in enumerate(post_values) if len(v) > 0]
-
-            # Get config-specific color for boxes
-            config_color = get_config_color(config_key, idx)
 
             if valid_pre:
                 bp_pre = sub_ax.boxplot(
@@ -674,19 +670,25 @@ def plot_pre_post_comparison(
         [s for s in pre_data.keys() if s in post_data]
     )
     if not sensors:
-        fig, ax = create_figure(figsize=(10, 6))
-        ax.text(
+        fig, ax_temp = create_figure(figsize=(10, 6))
+        if isinstance(ax_temp, (list, tuple)):
+            ax_temp = ax_temp[0]
+        ax_no_data = cast(MplAxes, ax_temp)
+        ax_no_data.text(
             0.5,
             0.5,
             "No data available",
             ha="center",
             va="center",
-            transform=ax.transAxes,
+            transform=ax_no_data.transAxes,
         )
         return fig
 
     n_sensors = len(sensors)
-    fig, ax = create_figure(figsize=(max(10, n_sensors * 0.8), 6))
+    fig, ax_temp = create_figure(figsize=(max(10, n_sensors * 0.8), 6))
+    if isinstance(ax_temp, (list, tuple)):
+        ax_temp = ax_temp[0]
+    ax = cast(MplAxes, ax_temp)
 
     positions_pre = np.arange(n_sensors) * 2
     positions_post = positions_pre + 0.7
@@ -773,11 +775,11 @@ def plot_sensor_summary_bars(
     summary_data = summary_data.reindex(sorted_index)
 
     n_sensors = len(summary_data)
-    fig, ax = create_figure(figsize=(max(10, n_sensors * 0.6), 6))  # type: ignore
+    fig, ax_temp = create_figure(figsize=(max(10, n_sensors * 0.6), 6))
     # Ensure ax is a single Axes instance
-    if isinstance(ax, (list, tuple)):
-        ax = ax[0]  # type: ignore
-    ax: MplAxes = ax
+    if isinstance(ax_temp, (list, tuple)):
+        ax_temp = ax_temp[0]
+    ax = cast(MplAxes, ax_temp)
 
     x = np.arange(n_sensors)
     values = np.asarray(summary_data[metric_col].astype(float).values, dtype=float)
