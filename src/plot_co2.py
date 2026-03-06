@@ -295,7 +295,9 @@ def plot_co2_decay_event(
 
     ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
     ax.set_ylim(bottom=0)
-    ax.set_xlim(window_start, window_end)
+    ax.set_xlim(
+        float(mdates.date2num(window_start)), float(mdates.date2num(window_end))
+    )
 
     format_datetime_axis(ax, interval_minutes=30)
 
@@ -446,7 +448,9 @@ def plot_co2_decay_event_analytical(
             event_datetime=injection_time,
         )
     ax1.set_title(title, fontweight=TITLE_FONTWEIGHT)
-    ax1.set_xlim(window_start, window_end)
+    ax1.set_xlim(
+        float(mdates.date2num(window_start)), float(mdates.date2num(window_end))
+    )
 
     format_datetime_axis(ax1, interval_minutes=30)
 
