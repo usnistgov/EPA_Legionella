@@ -34,7 +34,6 @@ from src.particle_calculations import (
     ROLLING_WINDOW_MIN,
 )
 
-
 # =============================================================================
 # Data Loading Functions
 # =============================================================================
@@ -338,12 +337,12 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "shower_duration_min": row.get("shower_duration_min", 0),
                     "lambda_ach": row.get("lambda_average_mean", np.nan),
                     "co2_event_idx": None,  # Not needed when using registry
-                    "deposition_start": pd.to_datetime(row.get("deposition_start"))
-                    if pd.notna(row.get("deposition_start"))
-                    else None,
-                    "deposition_end": pd.to_datetime(row.get("deposition_end"))
-                    if pd.notna(row.get("deposition_end"))
-                    else None,
+                    "deposition_start": pd.to_datetime(
+                        str(row.get("deposition_start", "")), errors="coerce"
+                    ),
+                    "deposition_end": pd.to_datetime(
+                        str(row.get("deposition_end", "")), errors="coerce"
+                    ),
                     "is_excluded": row.get("is_excluded", False),
                     "exclusion_reason": row.get("exclusion_reason", ""),
                 }
