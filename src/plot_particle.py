@@ -266,10 +266,8 @@ def plot_particle_decay_event(
 
     # Build text box content: lambda, valid-bin count, and per-bin decay R²
     textstr = f"λ = {sf.fmt_fig(lambda_ach, fallback='.4f')} h⁻¹\n"
-    textstr += f"Valid bins: {valid_bins}/{len(particle_bins)}\n"
-    textstr += "(Solid=valid, Dashed=invalid)"
     if decay_r2_lines:
-        textstr += "\n\nDecay R²:\n" + "\n".join(decay_r2_lines)
+        textstr += "\nDecay R²:\n" + "\n".join(decay_r2_lines)
 
     props = dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray")
     ax1.text(
@@ -398,9 +396,7 @@ def plot_particle_decay_event(
 
         # Per-panel percentile y-limits so E_mean dashed lines are never clipped
         if e_steps_panel:
-            e_arr = np.array(
-                [v for v in e_steps_panel if not np.isnan(v)], dtype=float
-            )
+            e_arr = np.array([v for v in e_steps_panel if not np.isnan(v)], dtype=float)
             if len(e_arr) >= 4:
                 p2 = float(np.percentile(e_arr, 2))
                 p98 = float(np.percentile(e_arr, 98))
