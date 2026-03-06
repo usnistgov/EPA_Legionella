@@ -1,11 +1,146 @@
-I need to make changes to how the data is processed and plotted:
+Running: python scripts/co2_decay_analysis.py
+============================================================
+CO2 Decay & Air-Change Rate (λ) Analysis
+Analytical Method (Linear Regression)
+============================================================
+Parameters: α=0.5, β=0.5
+Decay window: 10 min before hour to 2 hours after
 
-1) The event_registry.csv and the event_log.csv files largely contain the same information. It would be helpful if this were a single well-organized file instead. 
+Loading Aranet4 CO2 data...
+  Found 14 file(s) for Bedroom
+    Loaded: Bedroom_2026-01-15T07_44_31-0500_week.xlsx (4553 rows)
+    Loaded: Bedroom_2026-01-22T08_09_01-0500_all.xlsx (17941 rows)
+    Loaded: Bedroom_2026-02-02T17_17_28-0500_all.xlsx (22982 rows)
+    Loaded: Bedroom_2026-02-05T10_11_20-0500_week.xlsx (4626 rows)
+    Loaded: Bedroom_2026-02-09T09_11_16-0500_week.xlsx (4596 rows)
+    Loaded: Bedroom_2026-02-11T07_36_27-0500_all.xlsx (29172 rows)
+    Loaded: Bedroom_2026-02-13T10_18_53-0500_all.xlsx (30692 rows)
+    Loaded: Bedroom_2026-02-18T09_38_23-0500_all.xlsx (34272 rows)
+    Loaded: Bedroom_2026-02-20T08_04_14-0500_all.xlsx (35665 rows)
+    Loaded: Bedroom_2026-02-24T07_51_33-0500_all.xlsx (38539 rows)
+    Loaded: Bedroom_2026-02-26T10_06_45-0500_all.xlsx (40046 rows)
+    Loaded: Bedroom_2026-03-02T09_15_55-0500_all.xlsx (42901 rows)
+    Loaded: Bedroom_2026-03-04T09_59_42-0500_all.xlsx (44363 rows)
+    Loaded: Bedroom_2026-03-06T08_15_27-0500_all.xlsx (45231 rows)
+  Found 13 file(s) for Entry
+    Loaded: Entry_2026-01-15T07_45_03-0500_week.xlsx (4553 rows)
+    Loaded: Entry_2026-01-22T08_09_52-0500_all.xlsx (11307 rows)
+    Loaded: Entry_2026-02-02T17_18_23-0500_all.xlsx (16347 rows)
+    Loaded: Entry_2026-02-09T09_11_43-0500_week.xlsx (4596 rows)
+    Loaded: Entry_2026-02-11T07_38_22-0500_all.xlsx (22537 rows)
+    Loaded: Entry_2026-02-13T10_19_39-0500_all.xlsx (24058 rows)
+    Loaded: Entry_2026-02-18T09_39_06-0500_all.xlsx (27638 rows)
+    Loaded: Entry_2026-02-20T08_05_11-0500_all.xlsx (29030 rows)
+    Loaded: Entry_2026-02-24T07_52_41-0500_all.xlsx (31905 rows)
+    Loaded: Entry_2026-02-26T10_05_55-0500_all.xlsx (33411 rows)
+    Loaded: Entry_2026-03-02T09_16_59-0500_all.xlsx (36266 rows)
+    Loaded: Entry_2026-03-04T09_56_34-0500_all.xlsx (37726 rows)
+    Loaded: Entry_2026-03-06T08_14_35-0500_all.xlsx (39115 rows)
+  Found 14 file(s) for Mh Outside
+    Loaded: Mh Outside_2026-01-15T07_44_05-0500_week.xlsx (4552 rows)
+    Loaded: Mh Outside_2026-01-22T08_08_20-0500_all.xlsx (11306 rows)
+    Loaded: Mh Outside_2026-02-02T17_19_10-0500_all.xlsx (16346 rows)
+    Loaded: Mh Outside_2026-02-09T09_12_46-0500_week.xlsx (4597 rows)
+    Loaded: Mh Outside_2026-02-11T07_37_25-0500_all.xlsx (22535 rows)
+    Loaded: Mh Outside_2026-02-13T10_23_58-0500_all.xlsx (24059 rows)
+    Loaded: Mh Outside_2026-02-18T09_37_38-0500_all.xlsx (27636 rows)
+    Loaded: Mh Outside_2026-02-20T08_06_29-0500_all.xlsx (27636 rows)
+    Loaded: Mh Outside_2026-02-24T07_50_44-0500_all.xlsx (31902 rows)
+    Loaded: Mh Outside_2026-02-26T10_07_40-0500_all.xlsx (33411 rows)
+    Loaded: Mh Outside_2026-03-02T09_14_19-0500_all.xlsx (36264 rows)
+    Loaded: Mh Outside_2026-03-04T10_00_37-0500_all.xlsx (36264 rows)
+    Loaded: Mh Outside_2026-03-04T16_06_34-0500_all.xlsx (37910 rows)
+    Loaded: Mh Outside_2026-03-06T08_17_34-0500_all.xlsx (39115 rows)
 
-2) The way the automated shower system works, there will never be a time when there is a CO2 event logged and a shower event not logged. So, there is no need to make synthetic shower events. All code related to creating a synthetic shower event and logging that information can be removed. 
+Merged data: 132194 rows
+Date range: 2025-12-04 13:02:00 to 2026-03-06 08:15:00
+Applied 6-minute rolling average to CO2 data
 
-3) For all event-numbered events (even ones excluded from analyses), I would like to have all 5 event plots made. Right now, only the rh, temp, and wind figures are made. For the CO2 and pm figures, they would only be the measured data as they are not analyzed events. For all five plots for an excluded event, I would like them saved in an excluded_events subdirectory of the event_figures directory, alongside other event figures. 
+Loading events from registry: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\event_log.csv
+  Loaded 105 CO2 events from registry
+  Using unified event registry for consistent event numbering
 
-4) In the co2_lambda_summary.csv, why is there a lambda_outside_r_squared and a lambda_entry_r_squared? Shouldn’t the R² only be there for the CO2 decay fit? Keep only the R2 for the decay fit; remove the others.
-
-5) I would like to add a programmatic way to exclude events from the PM analysis. This will be a two-stage check. If the CO2-derived lambda’s R2 is less than 0.9, then do not analyze the PM data, note in the single new log file (task 1 above) that the event is_excluded = TRUE (like other excluded events), and for the exclusion_reason, Lambda R2  less than 0.9. The second check will be if the QuantAQ bedroom RH peak value occurs outside of the first 30 minutes of the deposition window. The bedroom is deemed not well mixed, so like the CO2-derived lambda’s R2 check, in the single new log file (task 1 above), the event is_excluded = TRUE (like other excluded events), and for the exclusion_reason, Bedroom is deemed to be not well mixed by RH analysis. So, like task 3, all five figures will be saved in the excluded_events subdirectory  
+Analyzing injection events...
+  0115_W48_Open_Day_R01: 2026-01-15 14:40
+    λ (average): 1.6032 ± 0.0138 h⁻¹ (R²=0.9665)
+  0115_W48_Open_Night_R01: 2026-01-15 20:40
+    λ (average): 1.4639 ± 0.0083 h⁻¹ (R²=0.9825)
+  0116_W48_Open_Night_R01: 2026-01-16 02:40
+    λ (average): 1.4558 ± 0.0073 h⁻¹ (R²=0.9868)
+  0116_W48_Open_Day_R01: 2026-01-16 08:40
+    λ (average): 1.1772 ± 0.0076 h⁻¹ (R²=0.9768)
+  0116_W48_Open_Day_R02 (2026-01-16 14:40): Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 33 min after shower off, expected within 30 min))
+  0117_W48_Open_Night_R01 (2026-01-17 02:40): Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 33 min after shower off, expected within 30 min))
+  0117_W48_Open_Day_R01: 2026-01-17 08:40
+    Skipped: Insufficient concentration difference: C_0=463, C_avg=483, diff=-19 ppm (minimum 50 ppm required)
+  0117_W48_Open_Day_R02 (2026-01-17 14:40): Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 42 min after shower off, expected within 30 min))
+  0118_W48_Open_Night_R01: 2026-01-18 02:40
+    λ (average): 1.0299 ± 0.0091 h⁻¹ (R²=0.9503)
+  0118_W48_Open_Day_R01: 2026-01-18 08:40
+    Skipped: Insufficient concentration difference: C_0=484, C_avg=514, diff=-30 ppm (minimum 50 ppm required)
+  0118_W48_Open_Day_R02: 2026-01-18 14:40
+    λ (average): 1.2874 ± 0.0109 h⁻¹ (R²=0.9655)
+  0119_W48_Open_Night_R01: 2026-01-19 02:40
+    λ (average): 1.4055 ± 0.0085 h⁻¹ (R²=0.9812)
+  0119_W48_Open_Day_R01: 2026-01-19 08:40
+    Skipped: Insufficient concentration difference: C_0=468, C_avg=494, diff=-26 ppm (minimum 50 ppm required)
+  0119_W48_Open_Day_R02 (2026-01-19 14:40): Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 40 min after shower off, expected within 30 min))
+  0120_W48_Open_Night_R01 (2026-01-20 02:40): Skipped (excluded: Lambda R² less than 0.9 (R²=0.880))
+  0120_W48_Open_Day_R01: 2026-01-20 08:40
+    Skipped: Insufficient concentration difference: C_0=426, C_avg=458, diff=-32 ppm (minimum 50 ppm required)
+  0120_W48_Open_Day_R02: 2026-01-20 14:40
+    λ (average): 1.5364 ± 0.0126 h⁻¹ (R²=0.9675)
+  0121_W48_Open_Night_R01: 2026-01-21 02:40
+    λ (average): 1.7482 ± 0.0230 h⁻¹ (R²=0.9254)
+  0121_W48_Open_Day_R01: 2026-01-21 08:40
+    Skipped: Insufficient concentration difference: C_0=534, C_avg=539, diff=-5 ppm (minimum 50 ppm required)
+  0121_W48_Open_Day_R02 (2026-01-21 14:40): Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 37 min after shower off, expected within 30 min))
+  0122_W11_Open_Day_R01 (2026-01-22 14:38): Skipped (excluded: Tour in house during test)
+Locator attempting to generate 77088 ticks ([19672.630555555555, ..., 21278.609722222223]), which exceeds Locator.MAXTICKS (1000).
+Locator attempting to generate 231264 ticks ([19672.616666666665, ..., 21278.609722222223]), which exceeds Locator.MAXTICKS (1000).
+Locator attempting to generate 77088 ticks ([19672.630555555555, ..., 21278.609722222223]), which exceeds Locator.MAXTICKS (1000).
+Traceback (most recent call last):
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\co2_decay_analysis.py", line 1435, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\co2_decay_analysis.py", line 1425, in main
+    run_co2_decay_analysis(
+    ~~~~~~~~~~~~~~~~~~~~~~^
+        alpha=args.alpha,
+        ^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        apply_sig_figs=not args.no_sig_figs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\co2_decay_analysis.py", line 1133, in run_co2_decay_analysis
+    plot_co2_decay_event_analytical(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        co2_data=co2_data,
+        ^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+        beta=beta,
+        ^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\src\plot_co2.py", line 449, in plot_co2_decay_event_analytical
+    format_datetime_axis(ax1, interval_minutes=30)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\src\plot_style.py", line 350, in format_datetime_axis
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\site-packages\matplotlib\axis.py", line 1454, in get_majorticklabels
+    self._update_ticks()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\site-packages\matplotlib\axis.py", line 1288, in _update_ticks
+    minor_locs = self.get_minorticklocs()
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\site-packages\matplotlib\axis.py", line 1540, in get_minorticklocs
+    mask = np.isclose(tr_minor_locs[:, None], tr_major_locs[None, :],
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                      atol=tol, rtol=0).any(axis=1)
+                      ^^^^^^^^^^^^^^^^^
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\site-packages\numpy\_core\numeric.py", line 2494, in isclose
+    result = (less_equal(abs(x - y), atol + rtol * abs(y))
+                             ~~^~~
+numpy._core._exceptions._ArrayMemoryError: Unable to allocate 133. GiB for an array with shape (231264, 77088) and data type float64
+Error: Command python scripts/co2_decay_analysis.py failed with exit code 1
