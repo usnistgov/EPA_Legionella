@@ -143,6 +143,12 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Dict, Optional
 
+# Ensure stdout/stderr use UTF-8 on Windows (log files default to cp1252)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import numpy as np
 import pandas as pd
 

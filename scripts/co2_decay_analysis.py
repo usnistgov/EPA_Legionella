@@ -60,6 +60,12 @@ Date: 2026
 import sys
 import warnings
 from datetime import datetime, timedelta
+
+# Ensure stdout/stderr use UTF-8 on Windows (log files default to cp1252)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 from typing import Dict, List, Optional
 
