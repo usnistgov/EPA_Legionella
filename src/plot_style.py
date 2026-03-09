@@ -371,17 +371,21 @@ def format_datetime_axis(ax: Axes, interval_minutes: int = 30) -> None:
     """
     Format datetime x-axis with appropriate tick locators and formatters.
 
+    Major ticks are aligned to wall-clock boundaries (e.g., :00 and :30 for
+    interval_minutes=30). Minor ticks are placed every 10 minutes.
+
     Parameters:
         ax: Matplotlib axes object
-        interval_minutes: Interval between major ticks in minutes
+        interval_minutes: Interval between major ticks in minutes (must divide 60)
     """
-    ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=interval_minutes))
+    major_byminute = list(range(0, 60, interval_minutes))
+    ax.xaxis.set_major_locator(mdates.MinuteLocator(byminute=major_byminute))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     # Only set minute-level minor ticks if the axis spans ≤2 days; otherwise
     # MinuteLocator generates hundreds of thousands of ticks and crashes.
     x_min, x_max = ax.get_xlim()
     if (x_max - x_min) <= 2.0:
-        ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+        ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=list(range(0, 60, 10))))
     plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
 
 

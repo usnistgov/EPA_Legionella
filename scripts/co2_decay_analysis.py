@@ -108,7 +108,7 @@ DEFAULT_ALPHA = 0.5  # Fraction from outside
 DEFAULT_BETA = 0.5  # Fraction from entry zone (α + β = 1)
 
 # Analysis timing parameters (minutes)
-DECAY_START_OFFSET_MIN = -10  # Start 10 min before the hour (at :50)
+DECAY_START_AFTER_SHOWER_ON_MIN = 10  # Start decay 10 min after shower_on
 DECAY_DURATION_HOURS = 2  # Default decay analysis duration (hours)
 
 # Rolling average parameters
@@ -424,16 +424,10 @@ def identify_injection_events(co2_log: pd.DataFrame) -> List[Dict]:
             if fan_off is None:
                 fan_off = injection_start + timedelta(minutes=5)
 
-            # Calculate decay analysis window
-            # Start 10 min before the top of the next hour (at :50)
-            hour_after_injection = injection_start.replace(
-                minute=0, second=0, microsecond=0
-            ) + timedelta(hours=1)
-            decay_start = hour_after_injection + timedelta(
-                minutes=DECAY_START_OFFSET_MIN
-            )
-
-            decay_end = decay_start + timedelta(hours=DECAY_DURATION_HOURS)
+            # Decay start will be computed as shower_on + DECAY_START_AFTER_SHOWER_ON_MIN
+            # after shower matching. Set to None here; override after matching.
+            decay_start = None
+            decay_end = None
 
             events.append(
                 {
@@ -482,13 +476,22 @@ def get_events_from_registry(output_dir: Path) -> tuple:
             if pd.isna(row.get("co2_injection_start")):
                 continue
 
-            # Get decay duration (default 2 hours)
-            decay_start = row.get("decay_start")
-            decay_end = row.get("decay_end")
-            if pd.notna(decay_start) and pd.notna(decay_end):
-                decay_duration = (decay_end - decay_start).total_seconds() / 3600
+            # Compute decay_start as shower_on + DECAY_START_AFTER_SHOWER_ON_MIN
+            shower_on_val = row.get("shower_on")
+            shower_on_dt = (
+                pd.to_datetime(shower_on_val, errors="coerce")
+                if pd.notna(shower_on_val)
+                else None
+            )
+            if shower_on_dt is not None and not pd.isnull(shower_on_dt):
+                decay_start = shower_on_dt + timedelta(
+                    minutes=DECAY_START_AFTER_SHOWER_ON_MIN
+                )
+                decay_end = decay_start + timedelta(hours=DECAY_DURATION_HOURS)
             else:
-                decay_duration = DECAY_DURATION_HOURS
+                decay_start = None
+                decay_end = None
+            decay_duration = DECAY_DURATION_HOURS
 
             events.append(
                 {
@@ -496,6 +499,7 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "test_name": row["test_name"],
                     "water_temp": row.get("water_temp", ""),
                     "time_of_day": row.get("time_of_day", ""),
+                    "shower_on": shower_on_dt,
                     "injection_start": pd.to_datetime(
                         row["co2_injection_start"], errors="coerce"
                     )
@@ -506,12 +510,8 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     )
                     if pd.notna(row.get("co2_injection_end", pd.NaT))
                     else None,
-                    "decay_start": pd.to_datetime(decay_start)
-                    if pd.notna(decay_start)
-                    else None,
-                    "decay_end": pd.to_datetime(decay_end)
-                    if pd.notna(decay_end)
-                    else None,
+                    "decay_start": decay_start,
+                    "decay_end": decay_end,
                     "decay_duration_hours": decay_duration,
                     "is_excluded": row.get("is_excluded", False),
                     "exclusion_reason": row.get("exclusion_reason", ""),
@@ -975,8 +975,8 @@ def run_co2_decay_analysis(
     print("=" * 60)
     print(f"Parameters: α={alpha}, β={beta}")
     print(
-        f"Decay window: {abs(DECAY_START_OFFSET_MIN)} min before hour to "
-        f"{DECAY_DURATION_HOURS} hours after"
+        f"Decay window: shower_on + {DECAY_START_AFTER_SHOWER_ON_MIN} min to "
+        f"+{DECAY_DURATION_HOURS + DECAY_START_AFTER_SHOWER_ON_MIN / 60:.2g} hours after shower_on"
     )
 
     # Set output directory
@@ -1027,6 +1027,15 @@ def run_co2_decay_analysis(
                 event["test_name"] = shower_event.get("test_name")
                 event["water_temp"] = shower_event.get("water_temp")
                 event["time_of_day"] = shower_event.get("time_of_day")
+                shower_on = shower_event.get("shower_on")
+                if shower_on is not None:
+                    event["shower_on"] = shower_on
+                    event["decay_start"] = shower_on + timedelta(
+                        minutes=DECAY_START_AFTER_SHOWER_ON_MIN
+                    )
+                    event["decay_end"] = event["decay_start"] + timedelta(
+                        hours=DECAY_DURATION_HOURS
+                    )
             else:
                 # Fallback: generate test name based on CO2 injection time
                 expected_shower_time = injection_time + timedelta(minutes=20)
@@ -1150,6 +1159,13 @@ def run_co2_decay_analysis(
                     beta=beta,
                 )
 
+            continue
+
+        if event.get("decay_start") is None:
+            print(
+                f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')} "
+                f"- Skipped (no matched shower_on for decay_start)"
+            )
             continue
 
         print(f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}")
