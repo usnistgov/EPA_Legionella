@@ -60,9 +60,11 @@ Methodology:
        - Collect all estimates <= MAX_OTHER_PROCESS_RATE (no lower bound to
          avoid upward bias from excluding negative/noisy steps)
        - Apply 5th-95th percentile trim to remove extreme outliers symmetrically
-       - If trimmed-mean beta < 0, return NaN (skip_reason set); do NOT clamp
-         to 0, as a zero beta is physically different from insufficient data
-       - Report mean beta over the trimmed set
+       - Beta selected via R²-based three-step procedure (threshold 0.80):
+         (a) unclamped trimmed mean → keep if R² ≥ 0.80;
+         (b) clamp to ≥ 0 → keep if R² ≥ 0.80;
+         (c) else set beta = 0
+       - Report selected beta as mean beta for the event/bin
 
     4. Calculate emission rate (E) from shower start to peak concentration:
        - Use shower ON to peak concentration time within analysis window
