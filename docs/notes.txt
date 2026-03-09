@@ -1,3 +1,45 @@
-Tasks to complete:
-1) Change the CO2 decay so that it starts 10 minutes after the shower_on time.
-2) For all of the event_## figures change the x-axis so that it times shown have an on hour time and every 30 minutes with markers every ten minutes.
+(epa_mh) PS C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella> python .\run_analysis_workflow.py
+Running download_quantaq_data ...
+Finished in 289.54 seconds  (log: download_quantaq_data.log)
+Running process_quantaq_data ...
+Finished in 45.37 seconds  (log: process_quantaq_data.log)
+Running process_co2_log ...
+Finished in 22.13 seconds  (log: process_co2_log.log)
+Running process_shower_log ...
+Finished in 20.79 seconds  (log: process_shower_log.log)
+Running event_registry ...
+Error: event_registry failed with exit code 1 after 1.21 seconds
+Full log: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\logs\event_registry.log
+
+--- Last 30 lines of event_registry.log ---
+Event log saved to: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\event_log.csv
+  Total events: 125
+  With CO2 data: 125
+  With lambda values: 0
+  Excluded: 21
+
+======================================================================
+Running CO2 analysis with unified event numbering...
+======================================================================
+
+======================================================================
+Running CO2 decay analysis to get lambda values...
+======================================================================
+============================================================
+Traceback (most recent call last):
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\event_registry.py", line 1077, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\event_registry.py", line 1050, in main
+    co2_results_df = run_co2_analysis_if_needed(output_dir, force=True)
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\event_registry.py", line 799, in run_co2_analysis_if_needed
+    run_co2_decay_analysis(output_dir=output_dir, generate_plots=False)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\co2_decay_analysis.py", line 973, in run_co2_decay_analysis
+    print("CO2 Decay & Air-Change Rate (\u03bb) Analysis")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nml\AppData\Local\miniforge3\envs\epa_mh\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u03bb' in position 29: character maps to <undefined>
+--- End of event_registry.log ---
