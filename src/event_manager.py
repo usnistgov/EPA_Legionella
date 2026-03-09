@@ -194,6 +194,18 @@ EXCLUDED_EVENTS = {
     datetime(2026, 2, 12, 3, 0, 0): "Confliting log entries",
     datetime(2026, 2, 12, 15, 0, 0): "Confliting log entries",
     datetime(2026, 2, 13, 3, 0, 0): "Confliting log entries",
+    datetime(
+        2026, 3, 8, 3, 0, 0
+    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
+    datetime(
+        2026, 3, 8, 15, 0, 0
+    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
+    datetime(
+        2026, 3, 9, 3, 0, 0
+    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
+    datetime(
+        2026, 3, 9, 15, 0, 0
+    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
 }
 
 # Expected CO2 to shower timing offset (minutes)
