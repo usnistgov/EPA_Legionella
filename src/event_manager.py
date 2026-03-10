@@ -4,34 +4,86 @@
 Event Management System
 =======================
 
-This module provides enhanced event matching, filtering, naming, and logging
-capabilities for the EPA Legionella project.
+Utility module providing event matching, filtering, naming, configuration
+lookup, and exclusion logic for the EPA Legionella shower experiment. Manages
+the mapping between physical test conditions (water temperature, door position,
+bath fan state) and the CO2/shower events recorded in the log files, assigns
+structured test names (e.g., 0115_W48_Open_Day_R01), and identifies events
+that should be excluded from analysis.
 
-Key Features:
-    - Date filtering to exclude pre-experiment data
-    - Missing event detection and synthetic event creation
-    - Test parameter-based naming convention (e.g., 0115_W48_Open_Day_R01)
-    - Bath fan status detection for test conditions
-    - Event exclusion system with reason logging (duration-based exclusion for water temp testing)
-    - Comprehensive event_log.csv for tracking all events and issues
+Key Functions:
+    - process_events_with_management(): Main entry point; orchestrates date
+      filtering, name assignment, missing-event detection, synthetic event
+      creation, and shower-to-CO2 matching
+    - assign_test_names(): Assign structured test condition names and replicate
+      numbers to all shower events
+    - filter_events_by_date(): Remove events before EXPERIMENT_START_DATE
+    - is_duration_excluded(): Flag short/long showers as water-temperature
+      testing runs (excluded from analysis but retained in the log)
+    - is_event_excluded(): Check against predefined exclusion list (tours,
+      conflicting log entries, DST misalignment, etc.)
+    - get_test_configuration(): Return water temp, door, fan, and config_key
+      for any datetime using the transition-table system
+    - detect_missing_events(): Identify showers without CO2 data and vice versa
+    - create_synthetic_co2_event(): Build a placeholder CO2 event with expected
+      timing for unmatched shower events
+    - get_water_temp_sort_key(): Extract numeric temperature for sorting
+
+Processing Features:
+    - Transition-table configuration system: each parameter (water temperature,
+      door position, fan status) has a list of (datetime, value) pairs; the
+      active value is the most recent entry at or before the event time
+    - Duration-based exclusion: computer-controlled analysis showers run
+      exactly 10 min ± 5 s; events outside this window are flagged as water
+      temperature testing runs and receive event_number=None
+    - Predefined exclusion registry: EXCLUDED_EVENTS dict maps specific
+      datetimes (±60 s tolerance) to human-readable exclusion reasons
+    - Replicate numbering: per-condition counters (keyed by date, water temp,
+      door position, and time-of-day) produce sequential R01, R02, … suffixes
+    - Bidirectional synthetic event creation: uses registry module (lazy
+      import) for duration inference from neighboring events when available
+    - Bath fan detection: checks shower_log for fan state from shower start
+      through 2 hours after shower end; pre-shower fan use is not counted
+
+Methodology:
+    1. Filter shower and CO2 event lists to EXPERIMENT_START_DATE or later
+    2. Apply is_duration_excluded() to each shower; duration-excluded events
+       receive is_excluded=True and event_number=None and are skipped for
+       naming and replicate counting
+    3. Assign water temp, door position, fan status, time-of-day, config_key,
+       replicate number, and full test_name to each non-excluded shower event
+    4. Detect showers without a matching CO2 event (within ±10 min)
+    5. Optionally create synthetic CO2 events for unmatched showers
+    6. Match each non-excluded shower event to its CO2 event; attach
+       lambda_ach and co2_event_idx to the shower event dict
+
+Input Files:
+    - None (all data passed as function arguments: lists of event dicts and
+      pandas DataFrames loaded by the calling script)
+
+Output Files:
+    - None (results returned as modified event lists and a DataFrame;
+      callers are responsible for writing event_log.csv and registry files)
 
 Naming Convention Format:
-    MMDD_TempCode_DoorPos_TimeOfDay_RNN
+    MMDD_TempCode_DoorPos_TimeOfDay[_Fan]_RNN
 
     Components:
     - MMDD: Month and day (e.g., 0114 for January 14)
     - TempCode: Water temperature code (e.g., W48, W11, W25, W48b)
     - DoorPos: Door position (Open, Closed, or Partial)
     - TimeOfDay: Day or Night
+    - _Fan: Appended only when the bath fan ran during the test period
     - RNN: Replicate number (R01, R02, etc.)
 
     Repeat Temperature Convention:
-    When the same water temperature is retested (e.g., after a shower head change),
-    a suffix is appended to the temperature code: W48 (first run), W48b (second
-    run), W48c (third run), etc. Multi-character suffixes are also supported for
-    named variants, e.g. W52pw (Pepco wide-spray shower head at 52 °C). The
-    numeric temperature value determines sort order. Each variant forms a separate
-    config_key group for independent replicate counting and plotting.
+    When the same water temperature is retested (e.g., after a shower head
+    change), a suffix is appended to the temperature code: W48 (first run),
+    W48b (second run), W48c (third run), etc. Multi-character suffixes are
+    also supported for named variants, e.g. W52pw (Pepco wide-spray shower
+    head at 52 °C). The numeric temperature value determines sort order. Each
+    variant forms a separate config_key group for independent replicate
+    counting and plotting.
 
     Examples:
     - 0115_W48_Open_Day_R01
