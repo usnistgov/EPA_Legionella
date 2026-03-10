@@ -5,23 +5,35 @@ Particle Calculation Functions
 ==============================
 
 Pure computation functions for particle penetration, deposition, emission,
-and concentration prediction. These functions perform the numerical analysis
-for the particle decay study without any I/O or event management logic.
+and concentration prediction used in the EPA Legionella particle decay study.
+These functions implement the numerical mass-balance analysis for individual
+particle size bins without any I/O or event management logic.
 
-Key Calculations:
-    - Penetration factor (p): C_inside / C_outside ratio averaged over
-      before/after windows relative to the shower event
-    - Other Process Rate e (beta_other): Numerical step-by-step estimation from the
-      discrete mass balance during post-shower decay; beta solved at each
-      time step and averaged
-    - Emission rate (E): Mass balance solved numerically during
-      shower-on-to-peak period
-    - Ct prediction: Forward Euler simulation of indoor concentration
-      covering the emission phase (shower_on to peak) and decay phase
-      (peak to deposition_end) as a single continuous simulation
+Key Functions:
+    - get_penetration_windows: Compute before/after averaging windows for the
+      penetration factor based on shower time and time of day (Night vs. Day)
+    - calculate_penetration_factor: Estimate p = C_inside / C_outside from
+      quiet-period windows; zeros excluded, result capped at 1
+    - calculate_other_process_rate: Estimate beta (deposition + other losses)
+      numerically from the post-shower decay using R²-based 4-step selection
+    - calculate_emission_rate: Estimate E (#/min) from the shower-on-to-peak
+      mass balance; reports mean, std, median, and trapezoidal E_total
+    - calculate_ct_prediction: Forward Euler simulation of indoor concentration
+      from shower_on to deposition_end; split into emission and decay phases
 
-Step-by-step methodology:
+Processing Features:
+    - Seven Alphasense OPC-N3 particle size bins (0.35–3.0 µm) processed
+      independently via PARTICLE_BINS configuration
+    - All rate parameters (lambda, beta) use consistent h⁻¹ units; conversions
+      to min⁻¹ applied internally where needed
+    - R²-based 4-step beta selection (threshold 0.80): (a) unclamped trimmed
+      mean; (b) clamp ≥ 0; (c) set beta = 0; (d) if still R² < 0.80 return
+      beta = NaN (bin invalid — no Ct prediction plotted)
+    - Penetration windows span ~5 h each and are time-of-day-aware to capture
+      stable indoor/outdoor ratios without shower-influenced periods
+    - Emission R² computed separately for the forward Euler emission-phase fit
 
+Methodology:
     Step 1 - Penetration factor (p):
         p = C_inside / C_outside averaged over before and after windows,
         zeros excluded, result capped at 1.
@@ -62,6 +74,10 @@ Step-by-step methodology:
         Area under the E_t vs. time curve (trapezoidal rule):
             E_total = dt * sum[(E_t + E_{t+1}) / 2]
         Summed over all time steps from shower_on to peak_time.
+
+Output Files:
+    None — all functions return Python dicts to the caller.
+    Results are collected and written to Excel by particle_decay_analysis.py.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
