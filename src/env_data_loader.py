@@ -12,7 +12,7 @@ Key Functions:
     - load_aranet_data: Load Aranet4 CO2/RH/Temp sensor data from Excel files
     - load_quantaq_data: Load QuantAQ MODULAIR-PM processed CSV files
     - load_daq_data: Load indoor DAQ data (Vaisala RH/Temp sensors)
-    - load_aio2_data: Load AIO2 weather station data (wind speed/direction)
+    - load_aio2_data: Load AIO2 weather station data (wind speed/direction/RH/Temp)
     - load_hobo_data: Load HOBO UX100 data for specific sensor locations
     - load_sensor_data: Generic loader using SENSOR_CONFIG mapping
     - load_shower_log: Load shower event state-change log
@@ -26,11 +26,6 @@ Data Loading Features:
     - Error handling with informative warnings
     - Support for mixed delimiter formats (tab/comma)
 
-Sensor Configuration:
-    - SENSOR_CONFIG dict maps display names to instrument/location/column
-    - Supports RH, temperature, wind speed, and wind direction variables
-    - get_sensors_by_type() filters sensors by variable type
-
 Methodology:
     1. Locate data files using data_paths module functions
     2. Parse files according to instrument-specific format
@@ -39,12 +34,28 @@ Methodology:
     5. Combine multiple files and deduplicate
     6. Return DataFrame with 'datetime' column and sensor data
 
+Input Files:
+    - Aranet4 Excel files (weekly/all): CO2, RH, and temperature per location
+    - QuantAQ processed CSV: particle counts for indoor and outdoor sensors
+    - DAQ CSV files: Vaisala HMP155/HMP45A RH and temperature channels
+    - HOBO UX100 CSV files: RH and temperature per logger location
+    - AIO2 CSV files: wind speed, wind direction, outdoor RH and temperature
+    - shower_log.csv: processed shower state-change log (from process_shower_log.py)
+
+Output Files:
+    - None — all functions return pandas DataFrames; no files are written.
+
+Sensor Configuration:
+    - SENSOR_CONFIG dict maps display names to instrument/location/column
+    - Supports RH, temperature, wind speed, and wind direction variables
+    - get_sensors_by_type() filters sensors by variable type
+
 Supported Instruments:
     - Aranet4: CO2, RH, Temperature (Entry, Bedroom, Bathroom, Outside)
     - QuantAQ MODULAIR-PM: particle counts only (met_rh/met_temp excluded — flow cell measurements)
     - Vaisala HMP155/HMP45A: RH, Temperature (via DAQ)
     - HOBO UX100: RH, Temperature (Bathroom, Doorway, Bedroom)
-    - AIO2: Wind speed and direction
+    - AIO2: Wind speed, wind direction, outdoor RH and temperature
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
