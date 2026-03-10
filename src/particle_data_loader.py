@@ -2,19 +2,29 @@
 # -*- coding: utf-8 -*-
 """
 Particle Data Loading & Event Identification
-=============================================
+============================================
 
-Data loading and event identification functions for the particle decay analysis.
-Handles loading QuantAQ particle data, shower logs, CO2 lambda results, and
-identifying shower events from log files and the unified event registry.
+This module provides utilities for loading particle measurement data and identifying
+shower events for the Legionella particle decay analysis workflow.
 
-Key Functions:
-    - load_quantaq_data: Load QuantAQ CSV files for a location
-    - load_and_merge_quantaq_data: Merge inside/outside particle data
-    - load_shower_log: Load shower state-change log
-    - load_co2_lambda_results: Load CO2 analysis results for lambda values
-    - identify_shower_events: Identify shower events from log file
-    - get_events_from_registry: Load events from unified event registry
+Functions included:
+- **load_quantaq_data(location: str) -> pd.DataFrame**
+  Load processed QuantAQ CSV files for the specified location ('inside' or 'outside') and return a DataFrame with a datetime index and particle‑size bin columns.
+
+- **load_and_merge_quantaq_data() -> pd.DataFrame**
+  Load both inside and outside QuantAQ data, rename columns to distinguish the source, merge on the datetime index, resample to 1‑minute intervals, interpolate short gaps, and optionally apply a rolling average.
+
+- **load_shower_log() -> pd.DataFrame**
+  Load the shower valve state‑change log, converting timestamps to pandas datetime objects.
+
+- **load_co2_lambda_results() -> pd.DataFrame**
+  Load CO₂ decay analysis results containing air‑change rates (lambda) for each event, handling missing files with a clear error message.
+
+- **identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]**
+  Parse the shower log to detect individual shower events, calculate event durations, and define deposition windows based on the configured deposition period.
+
+- **get_events_from_registry(output_dir: Path) -> tuple**
+  Attempt to read a unified event registry file, returning a list of event dictionaries, a DataFrame of CO₂ results, and a flag indicating whether the registry was used.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
