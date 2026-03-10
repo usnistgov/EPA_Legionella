@@ -4,27 +4,59 @@
 Particle Data Loading & Event Identification
 ============================================
 
-This module provides utilities for loading particle measurement data and identifying
-shower events for the Legionella particle decay analysis workflow.
+This module provides utilities for loading QuantAQ MODULAIR-PM particle data,
+shower event logs, CO₂ lambda results, and the unified event registry for the
+Legionella particle decay analysis workflow. It is imported by
+scripts/particle_decay_analysis.py and is not run directly.
 
-Functions included:
-- **load_quantaq_data(location: str) -> pd.DataFrame**
-  Load processed QuantAQ CSV files for the specified location ('inside' or 'outside') and return a DataFrame with a datetime index and particle‑size bin columns.
+Key Functions:
+    - load_quantaq_data: Load all processed QuantAQ CSV chunks for 'inside' or
+      'outside'; concatenate, deduplicate, and return particle-bin DataFrame.
+    - load_and_merge_quantaq_data: Load both locations, merge on datetime, resample
+      to 1-min intervals, interpolate short gaps, and apply rolling average.
+    - load_shower_log: Load the shower valve state-change log; convert timestamps.
+    - load_co2_lambda_results: Load CO₂ decay lambda results; rename unit-annotated
+      column headers to clean internal names.
+    - identify_shower_events: Parse shower log for ON→OFF transitions; compute
+      durations and deposition windows.
+    - get_events_from_registry: Load unified event registry; skip duration-excluded
+      events; return (events_list, co2_results_df, used_registry) tuple.
 
-- **load_and_merge_quantaq_data() -> pd.DataFrame**
-  Load both inside and outside QuantAQ data, rename columns to distinguish the source, merge on the datetime index, resample to 1‑minute intervals, interpolate short gaps, and optionally apply a rolling average.
+Processing Features:
+    - Combines multiple chunked QuantAQ CSV files and deduplicates by timestamp
+    - Handles both 'timestamp_local' and 'timestamp' source column names
+    - Resamples merged inside/outside data to 1-minute resolution with linear
+      interpolation (gap limit: 5 minutes)
+    - Applies configurable centered rolling average (ROLLING_WINDOW_MIN) to merged
+      particle data
+    - Renames unit-annotated CO₂ lambda columns (e.g., "lambda_average_mean (h-1)")
+      to internal names used downstream
+    - Skips duration-excluded (water-temperature testing) events when loading the
+      registry (rows with NaN event_number)
 
-- **load_shower_log() -> pd.DataFrame**
-  Load the shower valve state‑change log, converting timestamps to pandas datetime objects.
+Methodology:
+    1. Discover all matching QuantAQ CSV chunks for the requested location via glob
+    2. Extract particle-bin columns; concatenate, deduplicate, and sort by datetime
+    3. Merge inside/outside DataFrames on datetime; resample to 1-min and interpolate
+    4. Optionally smooth all columns with a centered rolling average
+    5. Parse shower log for valve 0→1 transitions; scan forward for OFF timestamp;
+       derive deposition_start and deposition_end windows
+    6. Load event registry (preferred) or co2_lambda_summary.csv to associate
+       air-change rates (lambda) with each shower event
 
-- **load_co2_lambda_results() -> pd.DataFrame**
-  Load CO₂ decay analysis results containing air‑change rates (lambda) for each event, handling missing files with a clear error message.
+Input Files:
+    - *-quantaq-inside-processed.csv / *-quantaq-outside-processed.csv: QuantAQ
+      MODULAIR-PM particle-size bin data (produced by scripts/process_quantaq_data.py)
+    - shower_log.csv: Timestamped shower valve state-change log (produced by
+      scripts/process_shower_log.py)
+    - co2_lambda_summary.csv: Per-event air-change rates from CO₂ decay analysis
+      (produced by scripts/co2_decay_analysis.py)
+    - event_registry.csv: Unified event registry with shower metadata and lambda
+      values (managed by scripts/event_registry.py)
 
-- **identify_shower_events(shower_log: pd.DataFrame) -> List[Dict]**
-  Parse the shower log to detect individual shower events, calculate event durations, and define deposition windows based on the configured deposition period.
-
-- **get_events_from_registry(output_dir: Path) -> tuple**
-  Attempt to read a unified event registry file, returning a list of event dictionaries, a DataFrame of CO₂ results, and a flag indicating whether the registry was used.
+Output Files:
+    - None; all functions return DataFrames or lists. Consumed by
+      scripts/particle_decay_analysis.py.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
