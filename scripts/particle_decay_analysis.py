@@ -9,6 +9,12 @@ sensors to calculate particle penetration factors, other process rates, and show
 emission rates for the EPA Legionella study. The analysis uses a numerical
 approach to solve the mass balance equation for seven particle size bins.
 
+Results characterize how shower-generated aerosols of different sizes penetrate,
+deposit, and are emitted under controlled experimental conditions at varying water
+temperatures and shower head configurations. CO2-derived air change rates from a
+companion analysis constrain the mass balance, enabling independent estimation of
+penetration, deposition, and emission for each size bin across all shower events.
+
 Particle size bins analyzed (um):
     - Bin 0: 0.35-0.46
     - Bin 1: 0.46-0.66
@@ -127,6 +133,16 @@ Output Files:
     - plots/emission_etotal_by_beta_boxplot.png: E_total vs. other process rate (metric axis)
     - plots/emission_etotal_by_p_boxplot.png: E_total vs. penetration factor (metric axis)
     - plots/emission_etotal_by_showerhead_boxplot.png: E_total by shower head type
+
+Applications:
+    - Characterizing size-resolved particle penetration and deposition in residential
+      settings for Legionella exposure and aerosol transmission risk assessment
+    - Quantifying shower-generated aerosol emission rates under varying water
+      temperature and shower head configurations
+    - Supporting development of building ventilation and filtration guidance for
+      pathogen-carrying aerosol mitigation
+    - Providing experimental data for validation of indoor air quality and
+      airborne transmission models
 
 Module Structure:
     - src/particle_calculations.py: Pure computation functions (p, beta, E, Ct)
