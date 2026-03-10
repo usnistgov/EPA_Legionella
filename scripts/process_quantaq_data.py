@@ -16,13 +16,15 @@ files that analysis scripts consume. Running this script re-generates
 today-dated output files and removes superseded files from previous runs.
 
 Key Functions:
-    - parse_dict_string: Safely parse dictionary strings from CSV fields
-    - expand_dict_column: Expand nested dicts (geo, met, neph, opc) into flat columns
-    - process_raw_file: Extract and organize raw sensor data with column ordering
+    - combine_all_chunks: Concatenate weekly chunk files into combined per-device CSVs
+    - combine_chunks: Concatenate, deduplicate, and save a set of chunk files to one CSV
+    - process_file_pair: Orchestrate full processing of one raw/final file pair
+    - process_raw_file: Expand nested dict columns and organize raw sensor data
     - process_final_file: Extract calibrated PM values with final_ prefix
     - merge_raw_and_final: Outer join on timestamp_local to combine datasets
     - apply_rolling_average: Apply time-based rolling average to numeric columns
-    - combine_all_chunks: Concatenate weekly chunk files into combined per-device CSVs
+    - parse_dict_string: Safely parse dictionary strings from CSV fields
+    - expand_dict_column: Expand nested dicts (geo, met, neph, opc) into flat columns
 
 Processing Features:
     - Expands geo, met, neph, opc dictionary columns into flat structure
@@ -35,7 +37,9 @@ Processing Features:
     - Removes old dated combined files, keeping only today's outputs
 
 Methodology:
-    1. Scan chunks/ subdirectory for weekly chunk files from download_quantaq_data.py
+    1. Scan chunks/ subdirectory for weekly chunk files from download_quantaq_data.py;
+       if no chunks are found, fall back to scanning the data directory for pre-combined
+       *-raw.csv / *-final.csv file pairs
     2. Remove old combined files from previous runs (superseded by today-dated files)
     3. Combine all chunks for each device/type into a single raw and final CSV
     4. Parse combined raw file and expand dictionary columns into flat structure
