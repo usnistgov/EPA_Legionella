@@ -1,15 +1,8 @@
 {
-    "python.defaultInterpreterPath": "~/AppData/Local/miniforge3/envs/epa_mh/python.exe",
-    "python.condaPath": "~/AppData/Local/miniforge3/Scripts/conda.exe",
+    "python.defaultInterpreterPath": "${env:USERPROFILE}/AppData/Local/miniforge3/envs/epa_mh/python.exe",
+    "python.condaPath": "${env:USERPROFILE}/AppData/Local/miniforge3/Scripts/conda.exe",
+    "python.terminal.activateEnvironment": true,
     "python-envs.defaultEnvManager": "ms-python.python:conda",
     "python-envs.defaultPackageManager": "ms-python.python:conda",
-    "python-envs.pythonProjects": [],
-    "terminal.integrated.env.windows": {
-        "CONDA_DEFAULT_ENV": "epa_mh"
-    },
-    "terminal.integrated.shellArgs.windows": [
-        "-NoExit",
-        "-Command",
-        "& {conda activate epa_mh}"
-    ]
+    "python-envs.pythonProjects": []
 }
