@@ -6,27 +6,28 @@ Fix Corrupted CO2 and Shower Log Files
 
 This utility script repairs corrupted or empty daily log files for the CO2 injection
 and shower program systems. It uses a known good reference file as a template and
-generates corrected versions of the target files with properly adjusted dates.
-
-The script handles files with mixed delimiters where the header is comma-separated
-but data rows use tab after the datetime and commas between values.
+generates corrected versions of the target files by adjusting all datetime values to
+match each target date, handling the mixed-delimiter format where the header is
+comma-separated but data rows use a tab after the datetime and commas between values.
 
 Key Functions:
-    - Read and parse mixed-delimiter log files
-    - Create backups of target files before modification
-    - Adjust datetime values by the appropriate day offset
-    - Write corrected files maintaining the original format
+    - read_log_file: Parse a mixed-delimiter log file into a header line and data rows
+    - write_log_file: Write corrected header and data lines back to disk
+    - create_backup: Rename the original file with a _backup suffix before overwriting
+    - adjust_datetime_in_line_windows: Shift a datetime string by a calculated day offset
+    - process_log_file: Apply backup, date adjustment, and rewrite for a single target file
+    - get_user_input: Interactively prompt for log type(s), reference date, and target dates
 
 Processing Features:
     - Supports CO2 log files (MH_CO2andFanProgram_YYYYMMDD.txt)
     - Supports shower log files (MH_ShowerProgram_YYYYMMDD.txt)
-    - Interactive mode with defaults for current problem files
-    - Automatic backup creation with _backup suffix
-    - Date increment based on file date difference from reference
+    - Interactive mode with hardcoded defaults for known problem files
+    - Automatic backup creation with _backup suffix before any modification
+    - Day offset calculated automatically from the difference between reference and target filenames
 
 Methodology:
-    1. Load configuration from data_config.json for file paths
-    2. Prompt user for reference file and target files (with defaults)
+    1. Load configuration from data_config.json for log file directory paths
+    2. Prompt user for log type(s), reference date, and target dates (with defaults)
     3. Parse reference file to extract header and data rows
     4. For each target file:
        a. Create backup of existing file
@@ -34,9 +35,14 @@ Methodology:
        c. Adjust all datetime values by offset
        d. Write corrected file with same format
 
+Input Files:
+    - MH_CO2andFanProgram_YYYYMMDD.txt: CO2 injection program log (daily, tab-delimited data rows)
+    - MH_ShowerProgram_YYYYMMDD.txt: Shower program log (daily, tab-delimited data rows)
+    - data_config.json: Project configuration, used to resolve log file directory paths
+
 Output Files:
     - Backups: Original files renamed with _backup suffix (e.g., MH_CO2andFanProgram_20260118_backup.txt)
-    - Fixed files: Corrected files replace the originals
+    - Fixed files: Corrected files written back to the original paths
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
