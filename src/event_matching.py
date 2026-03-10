@@ -4,25 +4,50 @@
 Event Matching Utilities
 ========================
 
-This module provides a collection of helper functions for aligning CO₂ injection events with corresponding shower events in the experimental protocol. The protocol follows a fixed timing pattern within each testing cycle:
+This module provides helper functions for aligning CO₂ injection events with
+corresponding shower events in the EPA Legionella experimental protocol, where
+CO₂ is injected at :40 of the hour, the mixing fan turns off at :45, CO₂ decay
+measurement begins at :50, and the shower starts at :00 of the next hour --
+placing the CO₂ injection approximately 20 minutes before each shower.
 
-1. CO₂ injection starts at :40 of the hour (e.g., 08:40) and ends at :44.
-2. Mixing fan turns off at :45.
-3. Shower turns on at the top of the next hour (:00, e.g., 09:00) and runs for 5–15 minutes.
-4. CO₂ decay measurement begins at :50 (10 minutes before the next hour).
+Key Functions:
+    - get_testing_cycle_hour: Normalizes any event timestamp to the start of its
+      testing-cycle hour.
+    - match_shower_to_co2_event: Finds the CO₂ injection event that best matches
+      a given shower start time.
+    - match_co2_to_shower_event: Reverse lookup -- finds the shower event that
+      matches a CO₂ injection time.
+    - build_event_mapping: Constructs a dictionary mapping each shower event index
+      (1-based) to the matching CO₂ event index (0-based) or None.
+    - get_lambda_for_shower: Retrieves the air-change rate (λ) associated with a
+      shower event, automatically detecting the appropriate column name.
+    - print_event_matching_summary: Prints a formatted table of matching results
+      for debugging and reporting.
 
-Because the CO₂ injection occurs roughly 20 minutes before the shower, the matching logic accounts for this offset.
+Processing Features:
+    - Configurable time-tolerance window (default ±10 minutes) around the
+      expected 20-minute CO₂-to-shower offset
+    - Bidirectional matching: shower→CO₂ and CO₂→shower lookups
+    - Closest-match selection when multiple candidates fall within the tolerance
+      window
+    - Auto-detection of lambda column names (handles both lambda_average_mean
+      and lambda_average_mean (h-1))
+    - Support for both shower_on and shower_start keys in shower event
+      dictionaries
 
-Key Functions
------------------
-- **get_testing_cycle_hour(event_time)** – Normalizes any event timestamp to the start of its testing‑cycle hour.
-- **match_shower_to_co2_event(shower_time, co2_events_df, …)** – Finds the CO₂ injection event that best matches a given shower start time.
-- **match_co2_to_shower_event(co2_injection_time, shower_events, …)** – Reverse lookup: finds the shower event that matches a CO₂ injection.
-- **build_event_mapping(shower_events, co2_events_df, …)** – Constructs a dictionary mapping each shower event index (1‑based) to the matching CO₂ event index (0‑based) or ``None``.
-- **get_lambda_for_shower(shower_time, co2_events_df, …)** – Retrieves the air‑change rate (λ) associated with a shower event, automatically detecting the appropriate column name.
-- **print_event_matching_summary(shower_events, co2_events_df, mapping=None)** – Prints a formatted summary of the matching results for debugging and reporting.
+Methodology:
+    1. Compute the expected CO₂ injection time as shower start minus 20 minutes
+       (or vice versa for reverse lookup).
+    2. Search CO₂ events within a ±tolerance window around the expected time.
+    3. Select the candidate with the smallest absolute time difference.
+    4. For λ retrieval, auto-detect the lambda column name in the CO₂ results
+       DataFrame before returning the value.
+    5. build_event_mapping iterates over all shower events and applies
+       match_shower_to_co2_event for each, returning a complete index mapping.
 
-All matching functions use a configurable time‑tolerance window (default ±10 minutes) around the expected 20‑minute offset.
+Output Files:
+    - None (no files written); print_event_matching_summary writes a formatted
+      table to stdout.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
