@@ -5,43 +5,57 @@ QuantAQ Data Downloader
 =======================
 
 This script downloads raw and final data from QuantAQ MODULAIR-PM particulate
-matter sensors deployed at the EPA Legionella test site. It handles pagination
-and rate limiting to retrieve complete datasets from the QuantAQ cloud API.
+matter sensors deployed at the EPA Legionella test site. It authenticates with
+the QuantAQ cloud API, retrieves paginated records for each device, and saves
+weekly chunk files for reliable incremental collection.
 
-Key Metrics Downloaded:
-    - PM1, PM2.5, PM10 concentrations (raw and calibrated)
-    - Meteorological data (temperature, RH from integrated sensors)
-    - Optical particle counts by size bin
-    - GPS and operating state information
+Data collection spans two devices — one inside (MOD-PM-00195) and one outside
+(MOD-PM-00785) — beginning January 5, 2026. Both raw (uncalibrated) and final
+(factory-calibrated) records are downloaded, covering PM concentrations, optical
+particle counts by size bin, and meteorological measurements from the integrated
+sensors. Requires the QUANTAQ_API_KEY environment variable.
 
-Analysis Features:
-    - Weekly chunked downloads (7-day windows) for reliability
-    - Incremental downloads: skips already-downloaded chunks
-    - Retry logic with exponential backoff (3 retries on timeout/error)
+Key Functions:
+    - generate_week_chunks: Splits the full date range into 7-day windows
+    - find_existing_chunks: Identifies already-downloaded chunks on disk to skip
+    - remove_stale_partial_chunks: Deletes outdated partial-week files when the
+      current-week chunk advances its end date
+    - QuantAQDownloader.download_all_data: Fetches all paginated records for a
+      single device/type/date-range combination
+    - QuantAQDownloader.download_chunked: Orchestrates incremental chunked
+      downloads, skipping completed weeks and always refreshing the current week
+
+Processing Features:
+    - Weekly chunked downloads (7-day windows) for API reliability
+    - Incremental downloads: skips already-downloaded past-week chunks
+    - Always re-downloads the current (partial) week to capture new records
+    - Stale partial-chunk cleanup when the current-week end date advances
+    - Retry logic with exponential backoff (3 retries on timeout/5xx/429 errors)
     - Automatic pagination for large datasets (500 records/page)
-    - Rate limiting (0.5s delay) to respect API quotas
-    - Date range filtering from experiment start to current date
-    - Separate files for raw vs. calibrated (final) data
+    - Rate limiting (0.5 s delay between requests) to respect API quotas
 
 Methodology:
-    1. Load API configuration from data_config.json
-    2. Authenticate with QuantAQ API using environment variable key
-    3. Break date range into 7-day chunks
-    4. For each device (inside/outside), download raw and final data
-    5. Skip chunks already on disk; re-download current (partial) week
-    6. Handle pagination with retry logic per chunk
-    7. Save each chunk to chunks/ subdirectory
+    1. Load API configuration and data path from data_config.json
+    2. Authenticate with QuantAQ API using QUANTAQ_API_KEY environment variable
+    3. Compute 7-day chunks from START_DATE (2026-01-05) through today
+    4. For each device (inside/outside) and data type (raw/final):
+       a. Scan chunks/ directory for existing files
+       b. Skip past weeks already on disk; re-download the current partial week
+       c. Paginate through API results (500 records/page) with retry logic
+       d. Save each completed chunk to chunks/ subdirectory
+       e. Remove any stale partial-week file superseded by a longer date range
+    5. Print a download summary with chunk counts per device and data type
 
 Output Files (chunks/ subdirectory):
-    - quantaq-outside-raw-{start}-{end}.csv: Weekly raw outside chunks
-    - quantaq-outside-final-{start}-{end}.csv: Weekly calibrated outside chunks
-    - quantaq-inside-raw-{start}-{end}.csv: Weekly raw inside chunks
-    - quantaq-inside-final-{start}-{end}.csv: Weekly calibrated inside chunks
+    - quantaq-outside-raw-{YYYYMMDD}-{YYYYMMDD}.csv: Weekly raw outside chunks
+    - quantaq-outside-final-{YYYYMMDD}-{YYYYMMDD}.csv: Weekly calibrated outside chunks
+    - quantaq-inside-raw-{YYYYMMDD}-{YYYYMMDD}.csv: Weekly raw inside chunks
+    - quantaq-inside-final-{YYYYMMDD}-{YYYYMMDD}.csv: Weekly calibrated inside chunks
 
-Configuration:
-    - Device serial numbers: MOD-PM-00785 (outside), MOD-PM-00195 (inside)
-    - Data start date: January 5, 2026
-    - Requires QUANTAQ_API_KEY environment variable
+Applications:
+    - Routine data collection during multi-week EPA Legionella test experiments
+    - Supplying raw input files for process_quantaq_data.py to combine and process
+    - Incremental refresh (run daily or weekly) without re-downloading historical data
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
