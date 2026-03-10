@@ -50,6 +50,16 @@ Output Files:
     - plots/wind_speed_pre_post_boxplot.png: Pre/post wind speed comparison
     - plots/wind_direction_pre_post_boxplot.png: Pre/post wind direction comparison
 
+Applications:
+    - Characterizing pre-shower baseline environmental conditions to contextualize
+      particle penetration, deposition, and emission results across shower events
+    - Providing per-event bedroom RH and temperature data consumed by
+      particle_decay_analysis.py for boxplot annotations and grouping
+    - Documenting the indoor microclimate response to shower operations under
+      varying water temperatures, door configurations, and shower head types
+    - Supporting exposure assessment by establishing ambient conditions (humidity,
+      temperature, wind) present during each aerosol generation experiment
+
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
 Date: 2026
