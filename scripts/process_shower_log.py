@@ -27,9 +27,9 @@ Methodology:
     5. Output only rows where shower or bath_fan changed
 
 Input Files:
-    - MH_ShowerProgram_YYYYMMDD.txt (daily 1-second logs)
-    - Format: datetime_EDT<tab>Shower,Fan,channel2
-    - Located in: data_root/Log - Shower/
+    - MH_ShowerProgram_YYYYMMDD.txt: Daily 1-second shower program logs
+        - Format: datetime_EDT<tab>Shower,Fan,channel2
+        - Located in: data_root/Log - Shower/
 
 Output Files:
     - shower_log_file.csv: State-change log with columns:
