@@ -4,16 +4,25 @@
 QuantAQ Data Processor
 ======================
 
-This script processes raw and final data files from QuantAQ MODULAIR-PM
-sensors, expanding nested dictionary columns and merging calibrated values
-into a unified analysis-ready format.
+Processes raw and final data files from two QuantAQ MODULAIR-PM sensors
+(one inside, one outside the study space), expanding nested dictionary
+columns and merging machine-calibrated PM values into a unified,
+analysis-ready CSV format with a 10-minute rolling average applied.
+
+This script is the second step in the QuantAQ data pipeline. Weekly chunk
+files downloaded by download_quantaq_data.py are first combined into a
+single per-device CSV for each data type, then processed into final output
+files that analysis scripts consume. Running this script re-generates
+today-dated output files and removes superseded files from previous runs.
 
 Key Functions:
-    - parse_dict_string: Safely parse dictionary strings from CSV
-    - expand_dict_column: Expand nested dicts into individual columns
-    - process_raw_file: Extract and organize raw sensor data
-    - process_final_file: Extract calibrated PM values
-    - merge_raw_and_final: Combine datasets on timestamp
+    - parse_dict_string: Safely parse dictionary strings from CSV fields
+    - expand_dict_column: Expand nested dicts (geo, met, neph, opc) into flat columns
+    - process_raw_file: Extract and organize raw sensor data with column ordering
+    - process_final_file: Extract calibrated PM values with final_ prefix
+    - merge_raw_and_final: Outer join on timestamp_local to combine datasets
+    - apply_rolling_average: Apply time-based rolling average to numeric columns
+    - combine_all_chunks: Concatenate weekly chunk files into combined per-device CSVs
 
 Processing Features:
     - Expands geo, met, neph, opc dictionary columns into flat structure
@@ -22,19 +31,22 @@ Processing Features:
     - Prefixes calibrated values with final_ (final_pm1, final_pm2.5, final_pm10)
     - Outer join preserves all timestamps from both datasets
     - Applies a 10-minute time-based rolling average to all numeric columns
+    - Deduplicates on timestamp_local when combining chunks
+    - Removes old dated combined files, keeping only today's outputs
 
 Methodology:
     1. Scan chunks/ subdirectory for weekly chunk files from download_quantaq_data.py
-    2. Combine all chunks for each device/type into a single raw and final CSV
-    3. Parse combined raw file and expand dictionary columns
-    4. Extract calibrated PM values from combined final file
-    5. Merge raw and final on timestamp_local with outer join
-    6. Apply 10-minute time-based rolling average to all numeric columns
-    7. Reorder columns and save processed output; remove old dated combined files
+    2. Remove old combined files from previous runs (superseded by today-dated files)
+    3. Combine all chunks for each device/type into a single raw and final CSV
+    4. Parse combined raw file and expand dictionary columns into flat structure
+    5. Extract calibrated PM values from combined final file with final_ prefix
+    6. Merge raw and final on timestamp_local with outer join
+    7. Apply 10-minute time-based rolling average to all numeric columns
+    8. Reorder columns and save processed output as {YYYYMMDD}-{device}-processed.csv
 
 Input Files (chunks/ subdirectory):
     - {device}-raw-{start}-{end}.csv: Weekly raw chunks (from download_quantaq_data.py)
-    - {device}-final-{start}-{end}.csv: Weekly calibrated chunks
+    - {device}-final-{start}-{end}.csv: Weekly calibrated PM chunks
 
 Output Files:
     - {YYYYMMDD}-quantaq-outside-raw.csv: Combined outside raw data (today-dated)
@@ -51,6 +63,14 @@ Column Organization:
     - Neph: neph_bin0-5, neph_pm1, neph_pm2.5, neph_pm10, neph_rh, neph_temp
     - OPC: opc_bin0-23, opc_pm1, opc_pm2.5, opc_pm10, opc_rh, opc_temp
     - Final: final_pm1, final_pm2.5, final_pm10
+
+Applications:
+    - Produces analysis-ready CSVs consumed by particle_decay_analysis.py,
+      rh_temp_other_analysis.py, and other analysis scripts
+    - Supports the incremental weekly download workflow by combining chunk files
+      accumulated across multiple download_quantaq_data.py runs
+    - Can be re-run at any time; today-dated outputs replace superseded files
+      automatically without manual cleanup
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
