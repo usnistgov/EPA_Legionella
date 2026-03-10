@@ -9,19 +9,31 @@ air-change rate (λ) for the EPA Legionella study manufactured home test
 facility. The analysis uses an analytical approach with linear regression
 to solve the mass balance equation for ventilation rate.
 
+Each test follows a fixed protocol: CO2 gas is injected into the bedroom from
+:40 to :44 minutes after the hour, with a mixing fan running until :45 to
+distribute the tracer uniformly. The shower starts at the top of the hour (:00),
+and the 2-hour decay window begins 10 minutes after shower_on (:10) to allow
+the injection mixing transient to settle. CO2 is measured at 1-minute intervals
+by Aranet4 sensors at three of four deployed locations — Bedroom (tracer zone),
+Entry (intermediate zone), and Mh Outside (outdoor reference).
+
 Key Metrics Calculated:
     - λ (air-change rate): Rate of air exchange with outdoors (h⁻¹)
-    - λ_average: Using average source concentration (C_outside + C_entry)/2
+    - λ_average: Using weighted source α·C_outside + β·C_entry (configurable;
+      default α=β=0.5)
     - λ_outside: Using only outdoor concentration as source
     - λ_entry: Using only entry zone concentration as source
     - R² values: Goodness of fit for each linear regression
 
 Analysis Features:
-    - Combines three Aranet4 data files: Bedroom, Entry, and Outside
+    - Merges data from three Aranet4 sensor locations: Bedroom, Entry, and Outside
     - 6-minute rolling average applied to reduce sensor noise
-    - Fixed 2-hour decay analysis window starting at :50 (10 min before shower hour)
-    - Three source concentration methods for uncertainty assessment
-    - Linear regression to determine λ from log-transformed decay equation
+    - Fixed 2-hour decay analysis window starting 10 minutes after shower_on
+    - Three source concentration methods (average, outside, entry) for uncertainty
+      assessment
+    - Linear regression to determine λ from the log-transformed decay equation
+    - Events loaded from unified event registry; falls back to direct log parsing
+      if registry is not available
 
 Methodology:
     The mass balance equation for a well-mixed zone:
@@ -33,24 +45,35 @@ Methodology:
     Analytical solution (integrated form):
         -ln[(C(t) - C_avg) / (C_0 - C_avg)] = λ·t
 
-    Where C_avg is the weighted combination of C_outside and C_entry over
-    the decay window, and λ is determined by linear regression (slope of y vs t).
+    Where C_avg = α·C_outside + β·C_entry averaged over the decay window, and
+    λ is determined by linear regression (slope of y vs t, forced through origin).
 
-    1. Load and merge CO2 data from three Aranet4 sensors (Bedroom, Entry, Outside)
-    2. Resample to 1-minute intervals and apply 6-minute rolling average
-    3. Identify CO2 injection events from the state-change log
-    4. For each event, extract 2-hour decay window starting at :50
-    5. Calculate y = -ln[(C(t) - C_avg) / (C_0 - C_avg)] for each timestep
-    6. Perform linear regression of y vs t to obtain λ (slope)
-    7. Repeat with three source concentration methods (average, outside, entry)
-    8. Generate diagnostic plots and summary statistics
+    1. Load and merge CO2 data from three Aranet4 sensor locations (Bedroom, Entry,
+       Outside); resample to 1-minute intervals and apply 6-minute rolling average
+    2. Load CO2 injection events from the unified event registry (or directly from
+       the CO2 injection log if the registry is unavailable)
+    3. For each event, set decay window: shower_on + 10 min to shower_on + 2 h 10 min
+    4. Calculate y = -ln[(C(t) - C_avg) / (C_0 - C_avg)] for each timestep
+    5. Perform linear regression of y vs t to obtain λ (slope, forced through origin)
+    6. Repeat steps 4–5 using three source concentration methods (average, outside,
+       entry) for uncertainty assessment
+    7. Generate per-event decay plots, a summary bar chart, and a λ-by-water-
+       temperature box-and-whisker plot
 
 Output Files:
     - co2_lambda_summary.csv: Per-event results with all λ calculations
-    - co2_lambda_overall_summary.csv: Aggregated statistics across all events
-    - plots/event_figures/event_NN-YYYYYY_co2_decay.png: Individual event decay plots
+    - co2_lambda_overall_summary.csv: Aggregated statistics by test configuration
+    - plots/event_figures/event_NN-testname_co2_decay.png: Individual event decay plots
     - plots/lambda_summary.png: Summary bar chart of λ values across all events
     - plots/air_change_rate_boxplot.png: Box-and-whisker of λ by water temperature
+
+Applications:
+    - Characterizing the natural ventilation rate of the manufactured home test
+      facility across varying water temperatures and door/window configurations
+    - Providing λ as an input parameter to the particle decay analysis
+      (particle_decay_analysis.py) for deposition and emission rate calculations
+    - Supporting uncertainty quantification by comparing three source concentration
+      methods (average, outside, entry)
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
