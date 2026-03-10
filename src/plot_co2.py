@@ -16,7 +16,7 @@ Key Functions:
 
 Plot Features:
     - Two-panel figures showing CO2 concentrations and linearized regression
-    - Color-coded sensor traces (Bedroom, Entry, Outside)
+    - Color-coded sensor traces (Bedroom, Bathroom, Entry, Outside)
     - Exponential fit curves with uncertainty bands
     - Injection and decay window markers
     - Configuration-based grouping for multi-configuration experiments
@@ -324,7 +324,8 @@ def plot_co2_decay_event_analytical(
     Bottom panel: Linearized plot (y vs t) with regression line
 
     Parameters:
-        co2_data: DataFrame with columns: datetime, C_bedroom, C_entry, C_outside
+        co2_data: DataFrame with columns: datetime, C_bedroom, C_entry, C_outside,
+            and optionally C_bathroom (plotted for context if present)
         event: Dict with injection_start, decay_start, decay_end
         result: Dict with lambda_average_mean, lambda_average_std,
                 lambda_average_r_squared, c_source_mean, _y_values, _t_values
@@ -383,6 +384,14 @@ def plot_co2_decay_event_analytical(
         linewidth=LINE_WIDTH_DATA,
         label="Outside",
     )
+    if "C_bathroom" in plot_data.columns:
+        ax1.plot(
+            plot_data["datetime"],
+            plot_data["C_bathroom"],
+            color=COLORS["bathroom"],
+            linewidth=LINE_WIDTH_DATA,
+            label="Bathroom",
+        )
 
     # Add fitted exponential decay curve
     if not np.isnan(lambda_value):

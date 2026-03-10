@@ -14,8 +14,10 @@ Each test follows a fixed protocol: CO2 gas is injected into the bedroom from
 distribute the tracer uniformly. The shower starts at the top of the hour (:00),
 and the 2-hour decay window begins 10 minutes after shower_on (:10) to allow
 the injection mixing transient to settle. CO2 is measured at 1-minute intervals
-by Aranet4 sensors at three of four deployed locations — Bedroom (tracer zone),
-Entry (intermediate zone), and Mh Outside (outdoor reference).
+by Aranet4 sensors at all four deployed locations — Bedroom (tracer zone),
+Bathroom (context only), Entry (intermediate zone), and Mh Outside (outdoor
+reference). Bathroom CO2 is included on event plots for spatial context but
+is not used in λ calculations.
 
 Key Metrics Calculated:
     - λ (air-change rate): Rate of air exchange with outdoors (h⁻¹)
@@ -26,7 +28,8 @@ Key Metrics Calculated:
     - R² values: Goodness of fit for each linear regression
 
 Analysis Features:
-    - Merges data from three Aranet4 sensor locations: Bedroom, Entry, and Outside
+    - Merges data from all four Aranet4 sensor locations: Bedroom, Bathroom, Entry,
+      and Outside (Bathroom used for plotting context only, not λ calculations)
     - 6-minute rolling average applied to reduce sensor noise
     - Fixed 2-hour decay analysis window starting 10 minutes after shower_on
     - Three source concentration methods (average, outside, entry) for uncertainty
@@ -235,17 +238,23 @@ def load_all_aranet_files(location: str) -> pd.DataFrame:
 
 def load_and_merge_co2_data() -> pd.DataFrame:
     """
-    Load CO2 data from all three Aranet4 sensors and merge into a single DataFrame.
+    Load CO2 data from all four Aranet4 sensors and merge into a single DataFrame.
+
+    Bedroom, Entry, and Outside are used for λ calculations. Bathroom is loaded
+    for plotting context only and is not used in any decay computation.
 
     Returns:
-        pd.DataFrame: DataFrame with columns: datetime, C_bedroom, C_entry, C_outside,
-        T_bedroom, T_entry, T_outside, RH_bedroom, RH_entry, RH_outside
+        pd.DataFrame: DataFrame with columns: datetime, C_bedroom, C_bathroom,
+        C_entry, C_outside, T_bedroom, T_bathroom, T_entry, T_outside,
+        RH_bedroom, RH_bathroom, RH_entry, RH_outside
     """
     print("\nLoading Aranet4 CO2 data...")
 
-    # Load data for each location
+    # Load data for each location.
+    # Bathroom is included for plotting only; not used in λ calculations.
     locations = {
         "Bedroom": "bedroom",
+        "Bathroom": "bathroom",
         "Entry": "entry",
         "Mh Outside": "outside",
     }
@@ -290,7 +299,7 @@ def load_and_merge_co2_data() -> pd.DataFrame:
     merged = merged.interpolate(method="linear", limit=5)
 
     # Apply rolling average to reduce noise
-    co2_cols = ["C_bedroom", "C_entry", "C_outside"]
+    co2_cols = ["C_bedroom", "C_bathroom", "C_entry", "C_outside"]
     for col in co2_cols:
         if col in merged.columns:
             merged[col] = (
