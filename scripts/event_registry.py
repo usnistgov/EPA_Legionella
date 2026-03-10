@@ -4,18 +4,70 @@
 Unified Event Registry
 =======================
 
-This module provides a single source of truth for event identification, naming,
-and matching across all analysis scripts (CO2, particle, RH/temp).
+Builds and maintains a single source of truth for shower and CO2 injection
+event identification, numbering, and naming across all analysis scripts (CO2,
+particle, and RH/temp). By processing both event streams together, the registry
+guarantees that event numbers and test names are identical across every downstream
+analysis output.
 
-Key Features:
-    - Bidirectional synthetic event creation (shower<->CO2)
-    - Consistent event numbering and naming
-    - Duration inference from neighboring events
-    - User prompts for ambiguous cases
-    - Comprehensive logging of all events and decisions
+This script is both runnable (generates event_log.csv via ``python
+scripts/event_registry.py``) and importable (provides ``load_event_registry``
+and ``build_unified_event_registry`` for use by analysis scripts).
 
-The registry ensures that event_07 has the same test_name across all analysis
-scripts, eliminating naming inconsistencies.
+Key Functions:
+    - build_unified_event_registry: Match shower and CO2 events, assign unified
+      event numbers, generate test names, and log all decisions
+    - save_event_registry: Write the unified event log to event_log.csv with
+      lambda values and exclusion flags
+    - load_event_registry: Load event_log.csv for use in analysis scripts
+    - create_synthetic_co2_event: Create a placeholder CO2 event for showers
+      with no matching CO2 injection data
+    - infer_duration_from_neighbors: Estimate synthetic event duration from
+      neighboring real events or date-based defaults
+
+Processing Features:
+    - Bidirectional matching of shower and CO2 injection events within a
+      configurable time tolerance (default 10 min)
+    - Synthetic CO2 event creation for showers with no matched CO2 data;
+      duration inferred from neighboring events or historical defaults
+    - Duration-based exclusion of water-temperature-testing showers (outside
+      10 min ± 5 sec); these events retain metadata but receive no event number
+    - Programmatic PM exclusion checks: lambda R² < 0.80 (unreliable CO2 fit)
+      and QuantAQ bedroom RH peak outside the first 30 min of the deposition
+      window (poor room mixing)
+    - Consistent test name generation (W## water-temp codes, time-of-day,
+      replicate suffix) matching the convention used in event_manager.py
+
+Methodology:
+    1. Load shower events from the shower log and CO2 injection events from the
+       CO2 injection log.
+    2. Filter both streams to the experiment start date and match bidirectionally
+       within the time tolerance.
+    3. Apply duration-based exclusion to identify water-temperature-testing runs.
+    4. Create synthetic CO2 events for any showers with no matched injection.
+    5. Assign unified sequential event numbers based on shower order; propagate
+       numbers and test names to matched CO2 events.
+    6. Save an initial event_log.csv (without lambda values).
+    7. Run CO2 decay analysis and update the registry with lambda values.
+    8. Apply programmatic PM exclusion checks (lambda R² and RH mixing).
+    9. Re-save the final event_log.csv with all exclusion flags populated.
+
+Input Files:
+    - Shower log CSV (via load_shower_log from src.env_data_loader)
+    - CO2 injection log CSV (via load_co2_injection_log from co2_decay_analysis)
+    - QuantAQ inside processed CSV files (met_rh column, for RH mixing check)
+    - co2_lambda_summary.csv (output of co2_decay_analysis, for lambda values)
+
+Output Files:
+    - event_log.csv: Unified registry with one row per shower event, including
+      event number, test name, config metadata, matched CO2 timestamps, lambda
+      values, analysis windows, and exclusion flags.
+
+Applications:
+    - Provides consistent event numbering across all three analysis pipelines
+      (CO2, particle, RH/temp), eliminating naming inconsistencies between runs
+    - Centralizes exclusion logic so excluded events are skipped uniformly by
+      all analysis scripts without duplicating exclusion criteria
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
