@@ -40,8 +40,8 @@ Methodology:
     6. Return DataFrame with 'datetime' column and sensor data
 
 Supported Instruments:
-    - Aranet4: CO2, RH, Temperature (Entry, Bedroom, Outside)
-    - QuantAQ MODULAIR-PM: RH, Temperature (Inside, Outside)
+    - Aranet4: CO2, RH, Temperature (Entry, Bedroom, Bathroom, Outside)
+    - QuantAQ MODULAIR-PM: particle counts only (met_rh/met_temp excluded — flow cell measurements)
     - Vaisala HMP155/HMP45A: RH, Temperature (via DAQ)
     - HOBO UX100: RH, Temperature (Bathroom, Doorway, Bedroom)
     - AIO2: Wind speed and direction
@@ -87,6 +87,12 @@ SENSOR_CONFIG = {
         "column": "Relative humidity(%)",
         "variable_type": "rh",
     },
+    "Aranet4 Bathroom RH": {
+        "instrument": "Aranet4",
+        "location": "Bathroom",
+        "column": "Relative humidity(%)",
+        "variable_type": "rh",
+    },
     "Aranet4 Outside RH": {
         "instrument": "Aranet4",
         "location": "Mh Outside",
@@ -106,38 +112,21 @@ SENSOR_CONFIG = {
         "column": "Temperature(°C)",
         "variable_type": "temperature",
     },
+    "Aranet4 Bathroom Temp": {
+        "instrument": "Aranet4",
+        "location": "Bathroom",
+        "column": "Temperature(°C)",
+        "variable_type": "temperature",
+    },
     "Aranet4 Outside Temp": {
         "instrument": "Aranet4",
         "location": "Mh Outside",
         "column": "Temperature(°C)",
         "variable_type": "temperature",
     },
-    # QuantAQ RH sensors
-    "QuantAQ Inside RH": {
-        "instrument": "QuantAQ_MODULAIR_PM",
-        "location": "inside",
-        "column": "met_rh",
-        "variable_type": "rh",
-    },
-    "QuantAQ Outside RH": {
-        "instrument": "QuantAQ_MODULAIR_PM",
-        "location": "outside",
-        "column": "met_rh",
-        "variable_type": "rh",
-    },
-    # QuantAQ Temperature sensors
-    "QuantAQ Inside Temp": {
-        "instrument": "QuantAQ_MODULAIR_PM",
-        "location": "inside",
-        "column": "met_temp",
-        "variable_type": "temperature",
-    },
-    "QuantAQ Outside Temp": {
-        "instrument": "QuantAQ_MODULAIR_PM",
-        "location": "outside",
-        "column": "met_temp",
-        "variable_type": "temperature",
-    },
+    # QuantAQ RH and Temperature sensors intentionally omitted:
+    # Per manufacturer spec, met_rh and met_temp are measured inside the flow
+    # cell and should not be interpreted as true ambient measurements.
     # DAQ Vaisala HMP155 RH sensors
     "Vaisala Bed1 RH": {
         "instrument": "Vaisala_HMP155",

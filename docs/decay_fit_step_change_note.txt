@@ -1,0 +1,79 @@
+Decay Fit Step-Change — Root Cause and Resolution
+===================================================
+
+Observed Symptom
+----------------
+For certain events (e.g., Event 105, and others including 91, 77, 75, 73, 69, 50,
+48), the Predicted Ct dashed line in the PM decay figure rises sharply roughly
+80–90 minutes into the 2-hour deposition window.  The effect is most dramatic for
+larger-particle bins (Bin 2 through Bin 6), and the reported decay R² values for
+those bins are extremely negative (e.g., R²=-1.4e+02 for Bin 4).
+
+Root Cause
+----------
+The phenomenon is caused by a physically incorrect beta value (0) being used in the
+forward-Euler simulation when the R²-based beta selection reaches step (c).
+
+The indoor particle concentration during the deposition window is governed by:
+
+    dC/dt = p·λ·C_out,t − (λ + β)·C_t
+
+The equilibrium (steady-state) concentration that this equation approaches is:
+
+    C_ss = p·λ·C_out / (λ + β)
+
+When a true positive deposition rate β > 0 exists (common for larger bins where
+gravitational settling and diffusion are significant), C_ss is lower than p·C_out
+because the denominator is larger.  The indoor concentration decays toward this
+lower equilibrium and continues to fall throughout the 2-hour window.
+
+However, when the R²-based three-step beta selection fails to find a beta that
+produces R² ≥ 0.80, step (c) previously forced β = 0.  With β = 0 the steady
+state simplifies to:
+
+    C_ss = p·C_out   (no deposition loss)
+
+Because C_out is non-zero throughout the night/day measurement period, this
+"no-deposition" equilibrium is often higher than the actual indoor concentration
+after 80–90 minutes of real decay.  Once the forward-Euler simulation drives the
+indoor concentration below C_ss, the infiltration term (p·λ·C_out) dominates
+losses (λ·C_t), and the simulation reverses direction and rises back toward
+p·C_out.  This produces the characteristic "step-change" or "elbow" shape
+visible in the figure.
+
+Example: Event 105 (2026-03-06, W40pw Open Night)
+--------------------------------------------------
+File: event_105-0306_w40pw_open_night_pm_decay.png
+  - λ = 0.53 h⁻¹
+  - Bins 0–1: R² ≥ 0.80 achieved in step (a) or (b); predicted curves behave well.
+  - Bins 2–3: step (c) forced β = 0; R²(β=0) = 0.51 and 0.68 — below threshold
+              but not catastrophic; mild rise visible late in window.
+  - Bins 4–6: step (c) forced β = 0; R²(β=0) = −1.4×10², −1.7×10², −1.2×10²;
+              the simulation rises strongly against the decaying measured data.
+
+The true deposition rate for 1–3 µm particles can be 1–5 h⁻¹ or higher.  For
+Event 105 the outdoor concentration C_out was approximately 0.01–0.05 #/cm³ and
+λ = 0.53 h⁻¹, meaning the steady-state with β = 0 was ~p·0.03 ≈ 0.01–0.03 #/cm³,
+whereas the measured indoor concentration at 80 min post-shower had already
+decayed below ~0.01 #/cm³ for Bins 4–6.  Once below this threshold, the
+simulation reversed.
+
+Resolution (implemented 2026-03)
+---------------------------------
+In src/particle_calculations.py, the R²-based beta selection was extended with
+a fourth outcome:
+
+    Step (a): unclamped trimmed mean  → accept if R² ≥ 0.80
+    Step (b): clamp beta to ≥ 0      → accept if R² ≥ 0.80
+    Step (c): set beta = 0            → accept if R² ≥ 0.80
+    Step (d): R²(β=0) < 0.80         → return beta = NaN (bin marked INVALID)
+
+When beta = NaN the bin is treated as invalid everywhere downstream:
+  - No Predicted Ct curve is drawn for that bin in the event figure.
+  - The bin is rendered as a dashed, faded measured line (not solid) in the
+    concentration panel to visually distinguish it from valid bins.
+  - Emission rate, E_total, and Ct prediction calculations are all skipped.
+  - The bin's R² is still recorded as beta_other_r_squared for diagnostics.
+
+This eliminates the misleading rising fit lines and makes the validity of each
+bin's prediction explicit in the figure.

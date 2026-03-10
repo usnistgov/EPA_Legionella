@@ -84,13 +84,12 @@ SENSOR_DISPLAY_NAMES = {
     "HOBO Bedroom1": "HOBO Bedroom1",
     "HOBO Bedroom2": "HOBO Bedroom2",
     "HOBO Bedroom3": "HOBO Bedroom3",
-    "QuantAQ Inside": "QuantAQ Bedroom",
     "Vaisala Liv": "Vaisala Livingroom",
     "Aranet4 Entry": "Aranet4 Livingroom",
     "Aranet4 Outside": "Aranet4 OutsideN",
-    "QuantAQ Outside": "QuantAQ OutsideS",
     # AIO2 OutsideS stays the same (no rename needed)
-    # Aranet4 Bedroom stays the same (no mapping needed)
+    # Aranet4 Bedroom/Bathroom stay the same (no mapping needed)
+    # QuantAQ Inside/Outside omitted: met_rh/met_temp are flow-cell measurements
 }
 
 # Canonical display order for sensors in plots (legends, box plots, bar charts)
@@ -98,17 +97,16 @@ SENSOR_DISPLAY_ORDER = [
     "Vaisala Bathroom",
     "HOBO Bathroom1",
     "HOBO Bathroom2",
+    "Aranet4 Bathroom",
     "HOBO Bath/Bed",
     "Vaisala Bedroom",
     "HOBO Bedroom1",
     "HOBO Bedroom2",
     "HOBO Bedroom3",
     "Aranet4 Bedroom",
-    "QuantAQ Bedroom",
     "Vaisala Livingroom",
     "Aranet4 Livingroom",
     "Aranet4 OutsideN",
-    "QuantAQ OutsideS",
     "AIO2 OutsideS",
 ]
 

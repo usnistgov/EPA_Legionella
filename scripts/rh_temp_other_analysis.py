@@ -108,7 +108,6 @@ BEDROOM_RH_SENSORS = [
     "HOBO Bedroom2 RH",
     "HOBO Bedroom3 RH",
     "Aranet4 Bedroom RH",
-    "QuantAQ Inside RH",
 ]
 BEDROOM_TEMP_SENSORS = [
     "Vaisala Bed1 Temp",
@@ -116,7 +115,6 @@ BEDROOM_TEMP_SENSORS = [
     "HOBO Bedroom2 Temp",
     "HOBO Bedroom3 Temp",
     "Aranet4 Bedroom Temp",
-    "QuantAQ Inside Temp",
 ]
 
 # Sensors excluded from per-event RH time-series figures (non-bedroom / outdoor sensors
@@ -127,7 +125,6 @@ RH_TIMESERIES_EXCLUDE = {
     "Vaisala Liv RH",      # Vaisala livingroom
     "Aranet4 Entry RH",    # Aranet livingroom
     "Aranet4 Outside RH",  # Aranet outside
-    "QuantAQ Outside RH",  # QuantAQ outside
     "AIO2 OutsideS RH",    # AIO2 outside
 }
 
@@ -140,17 +137,16 @@ SENSOR_DISPLAY_ORDER = [
     "Vaisala MBa",
     "HOBO Bathroom1",
     "HOBO Bathroom2",
+    "Aranet4 Bathroom",
     "HOBO Bath/Bed",
     "Vaisala Bed1",
     "HOBO Bedroom1",
     "HOBO Bedroom2",
     "HOBO Bedroom3",
     "Aranet4 Bedroom",
-    "QuantAQ Inside",
     "Vaisala Liv",
     "Aranet4 Entry",
     "Aranet4 Outside",
-    "QuantAQ Outside",
     "AIO2 OutsideS",
 ]
 

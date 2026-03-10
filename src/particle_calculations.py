@@ -38,9 +38,10 @@ Step-by-step methodology:
         so negative values from noise or rising-concentration steps are
         included to avoid upward bias).  A 5th-95th percentile trim then
         removes extreme outliers on both sides symmetrically.  Beta is then
-        selected via an R²-based three-step procedure (threshold 0.80):
+        selected via an R²-based four-step procedure (threshold 0.80):
         (a) try unclamped trimmed mean; (b) if R² < 0.80 clamp to ≥ 0;
-        (c) if still R² < 0.80 set beta = 0.
+        (c) if still R² < 0.80 set beta = 0; (d) if beta=0 also R² < 0.80,
+        return beta=NaN (bin invalid — no Ct prediction plotted).
 
     Step 4 - Emission rate (E):
         Using the shower-on-to-peak window:
@@ -365,8 +366,15 @@ def calculate_other_process_rate(
           net particle growth — coagulation / condensation > settling).
           Step (b): if R² < 0.80, clamp beta to max(beta_mean, 0) and re-run
           the simulation.  If R² ≥ 0.80, accept the non-negative beta.
-          Step (c): if still R² < 0.80, set beta = 0 and record the R² for
-          that zero-deposition scenario (typically noise-dominated small bins).
+          Step (c): if still R² < 0.80, set beta = 0 and re-run.  If R² ≥ 0.80,
+          accept beta = 0 (no net deposition beyond ventilation).
+          Step (d): if beta = 0 still yields R² < 0.80, the bin is invalid —
+          return beta = NaN.  Downstream code skips Ct prediction and emission
+          calculation for this bin, and omits its predicted curve from figures.
+          This prevents the forward-Euler simulation from producing a spurious
+          upward trend (the simulation would otherwise converge to the
+          beta=0 steady state p·C_out even as measured concentrations continue
+          to fall, producing a visible "step-change" at ~80–90 min post-shower).
         - c_t <= 0 steps skipped (division by c_t unstable).
         - DEPOSITION_WINDOW_HOURS (2.0): decay window length; 2 h is long
           enough for measurable decay of larger bins and short enough to
@@ -381,10 +389,11 @@ def calculate_other_process_rate(
         lambda_ach (float): Air change rate (h⁻¹)
     Returns:
         Dict: Dictionary with beta (R²-selected value; may be negative if
-              step (a) succeeds, or 0 if step (c) is reached),
-              beta_raw_mean (unclamped trimmed mean), beta_std, beta_r_squared,
-              n_points, c_steady_state, and peak_time; or NaN values +
-              skip_reason on failure
+              step (a) succeeds, 0 if step (c) is reached, or NaN if step (d)
+              is reached — meaning the bin is invalid and no Ct prediction
+              should be plotted), beta_raw_mean (unclamped trimmed mean),
+              beta_std, beta_r_squared, n_points, c_steady_state, and
+              peak_time; or NaN values + skip_reason on failure
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -524,6 +533,9 @@ def calculate_other_process_rate(
 
     # R²-based multi-step beta selection (threshold = 0.80).
     # Step (a): unclamped trimmed-mean beta (may be negative → particle growth)
+    # Step (b): clamp to non-negative
+    # Step (c): force beta = 0
+    # Step (d): beta = 0 still fails → bin is invalid (beta returned as NaN)
     R2_THRESHOLD = 0.80
     r2_a = _r2_for_beta(beta_mean)
     if not np.isnan(r2_a) and r2_a >= R2_THRESHOLD:
@@ -537,9 +549,17 @@ def calculate_other_process_rate(
             beta_val = beta_nonneg
             r_squared = r2_b
         else:
-            # Step (c): noise-dominated; set beta = 0
-            beta_val = 0.0
-            r_squared = _r2_for_beta(0.0)
+            # Step (c): noise-dominated; try beta = 0
+            r2_c = _r2_for_beta(0.0)
+            if not np.isnan(r2_c) and r2_c >= R2_THRESHOLD:
+                beta_val = 0.0
+                r_squared = r2_c
+            else:
+                # Step (d): beta = 0 also fails; bin is invalid — return NaN so
+                # downstream code skips Ct prediction and omits the predicted curve.
+                # beta_r_squared is still recorded (R² for beta=0) for diagnostics.
+                beta_val = np.nan
+                r_squared = r2_c if not np.isnan(r2_c) else _r2_for_beta(0.0)
 
     # Steady-state concentration (using mean outdoor concentration)
     total_loss = lambda_ach + beta_val

@@ -389,6 +389,7 @@ def plot_particle_decay_event(
 
         ax.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
         ax.set_ylabel(f"E (#/cm³·min)\n{panel_label}", fontsize=FONT_SIZE_LABEL - 1)
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0), useMathText=True)
         ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=FONT_SIZE_TICK)
         ax.set_xlim(ax_e_left, ax_e_right)
