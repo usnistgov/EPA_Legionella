@@ -4,7 +4,9 @@
 Data Path Utilities
 ===================
 
-This module provides portable data access functions for the EPA Legionella project. It abstracts file system paths through a JSON configuration file, enabling the codebase to work across different machines without hardcoded paths.
+This module provides portable data access functions for the EPA Legionella project. It abstracts
+file system paths through a JSON configuration file (data_config.json), enabling the codebase to
+work across different machines without hardcoded paths.
 
 Key Functions:
     - _load_config: Load the data configuration JSON.
@@ -25,9 +27,9 @@ Key Functions:
     - get_indoor_data_path / get_outdoor_data_path: Convenience wrappers for indoor/outdoor data directories.
     - get_indoor_data_file / get_outdoor_data_file: Convenience wrappers for indoor/outdoor data files.
     - get_quantaq_data_path: Convenience wrapper for QuantAQ data directory.
-    - get_event_figures_dir: Compute directory for per‑event figure files.
+    - get_event_figures_dir: Compute directory for per-event figure files.
 
-Configuration Features:
+Module Features:
     - Machine-independent paths via data_config.json
     - Support for year-based directory structures
     - Flexible file naming templates with date formatting
@@ -35,11 +37,18 @@ Configuration Features:
     - DAQ system configuration
 
 Methodology:
-    1. Load data_config.json from project root or current directory.
-    2. Parse instrument configurations including paths and templates.
+    1. Load data_config.json from project root, src/, or current working directory.
+    2. Parse instrument configurations including paths and file templates.
     3. Construct full paths by combining data_root with relative paths.
     4. Handle year subdirectories automatically for dated instruments.
-    5. Support glob patterns for finding multiple files.
+    5. Support glob patterns for finding multiple files across years.
+
+Input Files:
+    - data_config.json: Project configuration JSON searched in project root, src/, and cwd.
+      Contains data_root, per-instrument paths/templates/variables, common_files, and daq_system.
+
+Output Files:
+    - None — this module returns Python objects (Path, dict, list); it does not write files.
 
 Configuration File (data_config.json):
     - data_root: Base directory for all data files
