@@ -30,6 +30,11 @@ Methodology:
     5. Check for consecutive ON states without intervening OFF
     6. Calculate and validate shower durations
 
+Input Files:
+    - shower_log_file.csv: State-change shower log produced by process_shower_log.py
+    - CO2_log_file.csv: State-change CO2 injection log produced by process_co2_log.py
+    - Both paths resolved via data_config.json through src/data_paths.py
+
 Output Files:
     - Console output with analysis results and potential issues
 
