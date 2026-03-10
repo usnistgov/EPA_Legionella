@@ -221,7 +221,6 @@ def _prompt_for_duration(
 # =============================================================================
 
 
-
 def create_synthetic_co2_event(
     shower_time: datetime,
     event_number: int,
@@ -859,7 +858,7 @@ def _apply_pm_exclusion_checks(
 
     Two-stage check (only applied to non-excluded, numbered events):
 
-    Stage 1 — Lambda R² < 0.9:
+    Stage 1 — Lambda R² < 0.8:
         The CO2 decay fit is too poor for reliable air-change-rate estimation,
         so PM analysis cannot be trusted.
 
@@ -891,23 +890,27 @@ def _apply_pm_exclusion_checks(
         # --- Stage 1: Lambda R² check ---
         lambda_r2 = np.nan
         if not co2_results_df.empty and "injection_start" in co2_results_df.columns:
-            expected_injection = shower_on - timedelta(minutes=EXPECTED_CO2_BEFORE_SHOWER)
+            expected_injection = shower_on - timedelta(
+                minutes=EXPECTED_CO2_BEFORE_SHOWER
+            )
             time_diffs = abs(
-                (co2_results_df["injection_start"] - expected_injection).dt.total_seconds()
+                (
+                    co2_results_df["injection_start"] - expected_injection
+                ).dt.total_seconds()
             )
             if len(time_diffs) > 0 and time_diffs.min() < 600:
                 result_row = co2_results_df.loc[time_diffs.idxmin()]
                 lambda_r2 = result_row.get("lambda_average_r_squared", np.nan)
 
-        if not np.isnan(lambda_r2) and lambda_r2 < 0.9:
+        if not np.isnan(lambda_r2) and lambda_r2 < 0.8:
             event["is_excluded"] = True
             event["exclusion_reason"] = (
-                f"Lambda R\u00b2 less than 0.9 (R\u00b2={lambda_r2:.3f})"
+                f"Lambda R\u00b2 less than 0.8 (R\u00b2={lambda_r2:.3f})"
             )
             n_lambda_excluded += 1
             print(
                 f"  Event {event.get('event_number')}: Excluded — "
-                f"lambda R²={lambda_r2:.3f} < 0.9"
+                f"lambda R²={lambda_r2:.3f} < 0.8"
             )
             continue
 
@@ -1020,7 +1023,10 @@ def main():
 
     # STEP 2: Load CO2 injection events
     print("\nLoading CO2 injection events...")
-    from scripts.co2_decay_analysis import identify_injection_events, load_co2_injection_log
+    from scripts.co2_decay_analysis import (
+        identify_injection_events,
+        load_co2_injection_log,
+    )
 
     co2_log = load_co2_injection_log()
     co2_events = identify_injection_events(co2_log)

@@ -4,23 +4,25 @@
 Event Matching Utilities
 ========================
 
-This module provides functions for matching CO2 injection events with shower events.
+This module provides a collection of helper functions for aligning CO₂ injection events with corresponding shower events in the experimental protocol. The protocol follows a fixed timing pattern within each testing cycle:
 
-The experimental protocol follows this sequence within each testing cycle:
-1. CO2 injection at :40 (40 minutes into the hour, e.g., 08:40, 14:40)
-2. CO2 injection ends at :44 (4-minute injection period)
-3. Mixing fan turns off at :45
-4. Shower ON at :00 (top of next hour, e.g., 09:00, 15:00)
-5. Shower OFF after 5-15 minutes
-6. CO2 decay measurement starts at :50 (10 minutes before top of hour after injection)
+1. CO₂ injection starts at :40 of the hour (e.g., 08:40) and ends at :44.
+2. Mixing fan turns off at :45.
+3. Shower turns on at the top of the next hour (:00, e.g., 09:00) and runs for 5–15 minutes.
+4. CO₂ decay measurement begins at :50 (10 minutes before the next hour).
 
-This creates a timing offset where the CO2 injection occurs approximately 20 minutes
-BEFORE the shower starts. The matching logic must account for this timing relationship.
+Because the CO₂ injection occurs roughly 20 minutes before the shower, the matching logic accounts for this offset.
 
-Key Functions:
-    - match_shower_to_co2_event: Find the CO2 event corresponding to a shower event
-    - get_testing_cycle_hour: Extract the testing cycle hour from an event time
-    - build_event_mapping: Create a complete mapping between shower and CO2 events
+Key Functions
+-----------------
+- **get_testing_cycle_hour(event_time)** – Normalizes any event timestamp to the start of its testing‑cycle hour.
+- **match_shower_to_co2_event(shower_time, co2_events_df, …)** – Finds the CO₂ injection event that best matches a given shower start time.
+- **match_co2_to_shower_event(co2_injection_time, shower_events, …)** – Reverse lookup: finds the shower event that matches a CO₂ injection.
+- **build_event_mapping(shower_events, co2_events_df, …)** – Constructs a dictionary mapping each shower event index (1‑based) to the matching CO₂ event index (0‑based) or ``None``.
+- **get_lambda_for_shower(shower_time, co2_events_df, …)** – Retrieves the air‑change rate (λ) associated with a shower event, automatically detecting the appropriate column name.
+- **print_event_matching_summary(shower_events, co2_events_df, mapping=None)** – Prints a formatted summary of the matching results for debugging and reporting.
+
+All matching functions use a configurable time‑tolerance window (default ±10 minutes) around the expected 20‑minute offset.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -59,7 +61,7 @@ def match_shower_to_co2_event(
     shower_time: datetime,
     co2_events_df: pd.DataFrame,
     time_tolerance_before: float = 10.0,  # minutes before expected CO2 time
-    time_tolerance_after: float = 10.0,   # minutes after expected CO2 time
+    time_tolerance_after: float = 10.0,  # minutes after expected CO2 time
     injection_column: str = "injection_start",
 ) -> Optional[int]:
     """
@@ -278,8 +280,10 @@ def print_event_matching_summary(
             co2_time = pd.to_datetime(co2_row["injection_start"])
             co2_time_str = co2_time.strftime("%Y-%m-%d %H:%M")
             # Handle both old and new column names
-            lambda_val = co2_row.get("lambda_average_mean",
-                                     co2_row.get("lambda_average_mean (h-1)", float("nan")))
+            lambda_val = co2_row.get(
+                "lambda_average_mean",
+                co2_row.get("lambda_average_mean (h-1)", float("nan")),
+            )
             co2_num = co2_idx + 1
             print(
                 f"{shower_num:<10} {shower_time_str:<20} {co2_num:<10} {co2_time_str:<20} {lambda_val:.4f}"

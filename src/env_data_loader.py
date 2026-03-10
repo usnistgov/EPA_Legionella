@@ -13,9 +13,11 @@ Key Functions:
     - load_quantaq_data: Load QuantAQ MODULAIR-PM processed CSV files
     - load_daq_data: Load indoor DAQ data (Vaisala RH/Temp sensors)
     - load_aio2_data: Load AIO2 weather station data (wind speed/direction)
+    - load_hobo_data: Load HOBO UX100 data for specific sensor locations
     - load_sensor_data: Generic loader using SENSOR_CONFIG mapping
     - load_shower_log: Load shower event state-change log
     - identify_shower_events: Parse log into individual shower events
+    - get_sensors_by_type: Retrieve sensor configurations filtered by variable type
 
 Data Loading Features:
     - Automatic date range filtering across multiple files
@@ -632,12 +634,14 @@ def load_hobo_data(location: str, start_date, end_date) -> pd.DataFrame:
 
             # Rename columns by position (headers vary by serial number)
             col_names = list(df.columns)
-            df = df.rename(columns={
-                col_names[0]: "row_num",
-                col_names[1]: "datetime_str",
-                col_names[2]: "temp_f",
-                col_names[3]: "rh_pct",
-            })
+            df = df.rename(
+                columns={
+                    col_names[0]: "row_num",
+                    col_names[1]: "datetime_str",
+                    col_names[2]: "temp_f",
+                    col_names[3]: "rh_pct",
+                }
+            )
 
             # Keep only the columns we need
             df = df[["datetime_str", "temp_f", "rh_pct"]].copy()
