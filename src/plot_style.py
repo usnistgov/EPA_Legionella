@@ -2,21 +2,57 @@
 # -*- coding: utf-8 -*-
 """
 Plot Styling Configuration and Core Utilities
-==============================================
+=============================================
 
-This module provides consistent styling constants and core helper functions
-for generating publication-quality figures across the EPA Legionella project.
+Centralised styling constants and helper functions for generating
+publication-quality figures across the EPA Legionella project. All
+calling scripts apply these shared settings so that every plot maintains
+consistent fonts, colors, line widths, and DPI regardless of which
+analysis module produces it.
 
-All plots use these shared settings to maintain visual consistency suitable
-for scientific publications, presentations, and reports.
+Key Functions:
+    - apply_style(): Set global matplotlib rcParams (fonts, DPI, grid, spines)
+    - create_figure(): Create figures with standard size, layout, and style applied
+    - save_figure(): Write figures to disk at FIGURE_DPI with tight bounding box
+    - format_datetime_axis(): Format datetime x-axis with major/minor tick locators
+    - format_title(): Build event figure titles with optional event number and datetime
+    - format_test_name_for_filename(): Sanitize test name for filesystem-safe filenames
+    - format_test_name_for_title(): Convert test name to space-separated title form
+    - get_config_color(): Map a W## config key to a WATER_TEMP_COLORS hex color
+    - add_vertical_marker(): Draw a vertical line at a specific datetime on an axes
+    - add_shower_on_marker(): Add shower ON marker using SHOWER_ON_STYLE (green dotted)
+    - add_shower_off_marker(): Add shower OFF marker using SHOWER_OFF_STYLE (red dotted)
+    - add_shaded_window(): Shade a time window between two datetimes on an axes
 
-Key Components:
-    - Style constants: Colors, fonts, line widths, DPI settings
-    - apply_style(): Apply matplotlib rcParams for consistent styling
-    - create_figure(): Create figures with standard settings
-    - save_figure(): Save figures with proper DPI and formatting
-    - format_datetime_axis(): Standard datetime axis formatting
-    - format_title(): Standard title formatting for consistency
+Processing Features:
+    - COLORS dict: 17 named colorblind-friendly entries for CO2, environmental sensors,
+      shower events, and wind data (single source of truth for shower_on/off colors)
+    - SENSOR_COLORS list: 16 distinct colors for multi-sensor time-series plots
+    - WATER_TEMP_COLORS dict: 12 temperature keys (11–53 °C) mapping to a cool-blue →
+      green → amber → dark-red diverging palette for W## water temperature groups
+    - CONFIG_COLORS dict: door-position (Open/Closed/Partial) and fan-status colors
+    - BOXPLOT_CONFIG dict: centralized geometry and axis ranges shared by all five
+      summary boxplot functions (figsize, temp x-axis, box widths, alpha, flier style)
+    - SHOWER_ON_STYLE / SHOWER_OFF_STYLE: dotted ":" line dicts distinguishing shower
+      event markers from fitted/predicted "--" lines; reference COLORS dict for single
+      source of truth on shower_on/off hex values
+    - get_config_color() strips W##b / W##pw suffixes before nearest-neighbor lookup
+      in WATER_TEMP_COLORS, falling back to CONFIG_KEY_COLORS for unrecognized keys
+    - format_datetime_axis() guards against MinuteLocator crash on spans exceeding 2 days
+
+Methodology:
+    1. Calling scripts invoke apply_style() once at startup to set rcParams project-wide
+    2. create_figure() produces figures with constrained_layout and auto-sized defaults
+    3. Per-series colors are drawn from COLORS, SENSOR_COLORS, or get_config_color()
+    4. Shower-timing annotations use add_shower_on_marker() / add_shower_off_marker()
+       and add_shaded_window() with styles centrally defined in this module
+    5. format_title() and format_test_name_*() standardize titles and output filenames
+    6. save_figure() writes output at FIGURE_DPI = 300 dpi with tight bounding box
+
+Output Files:
+    None; consumed by plot_co2.py, plot_particle.py, plot_environmental.py,
+    plot_utils.py, and the three analysis scripts. All figure files are saved
+    by the calling scripts.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

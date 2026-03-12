@@ -6,12 +6,10 @@ Significant Figures Utility
 
 This module provides significant figure rounding and formatting for the EPA
 Legionella project analysis scripts. It enforces consistent reporting precision
-across all calculated output data (CSV/Excel files and figure annotations).
-
-The default behavior applies significant figure rounding when analysis scripts
-are run normally. Passing --no-sig-figs to any analysis script disables rounding
-and preserves full floating-point precision, which is useful for debugging or
-when downstream calculations require exact values.
+across all calculated output data (CSV/Excel files and figure annotations). The
+default behavior applies rounding when scripts run normally; passing --no-sig-figs
+to any analysis script disables rounding and preserves full floating-point precision
+for debugging or when downstream calculations require exact values.
 
 Key Functions:
     - set_enabled: Enable or disable sig fig rounding globally (call once at startup)
@@ -20,31 +18,33 @@ Key Functions:
     - fmt_fig: Format a value as a string for figure annotations (uses SIG_FIGS_FIGURE)
     - apply_sig_figs_to_df: Apply rounding to all float columns in a DataFrame
 
+Processing Features:
+    - Global enabled flag: set once at script startup, applies to all subsequent calls
+    - Two precision constants: SIG_FIGS_DATA=3 for CSV/Excel, SIG_FIGS_FIGURE=2 for figures
+    - Column-type awareness: only float64/float32 columns are rounded; integers, strings,
+      object, and datetime columns always pass through unchanged
+    - Special-value passthrough: NaN, Inf, and zero values are never modified
+    - Bedroom_Conditions sheet in rh_temp_wind_summary.xlsx intentionally exempted from
+      rounding because those values feed downstream calculations
+    - skip_cols parameter in apply_sig_figs_to_df allows per-call column exclusions
+
+Methodology:
+    1. Call sf.set_enabled(not args.no_sig_figs) once at the start of each analysis
+       script's run function to configure the global state
+    2. Before writing DataFrames to CSV or Excel, call sf.apply_sig_figs_to_df(df) to
+       round all float columns to SIG_FIGS_DATA significant figures
+    3. In plot annotation strings, replace fixed-precision format strings with
+       sf.fmt_fig(value, fallback='.4f') to respect the enabled/disabled state
+    4. For individual value rounding outside a DataFrame context, call
+       sf.round_sig_figs(value, n_sig_figs) directly
+
+Output Files:
+    - None; pure utility module — all output is returned to the calling script for
+      use in CSV/Excel writes or figure annotation strings
+
 Configuration Constants:
     - SIG_FIGS_DATA: Significant figures for CSV and Excel output (default: 3)
     - SIG_FIGS_FIGURE: Significant figures for figure annotation text (default: 2)
-
-Usage:
-    At the start of an analysis script's main() or run_*() function:
-
-        import src.sig_figs as sf
-        sf.set_enabled(not args.no_sig_figs)
-
-    Then, before saving DataFrames:
-
-        results_df = sf.apply_sig_figs_to_df(results_df)
-
-    In plot functions, replace fixed-precision format strings with:
-
-        f"λ = {sf.fmt_fig(lambda_val, fallback='.4f')} h⁻¹"
-
-Notes:
-    - Integer columns, string/object columns, and datetime columns are always
-      skipped by apply_sig_figs_to_df (only float64/float32 columns are rounded).
-    - NaN and Inf values pass through unchanged.
-    - Zero is returned as-is (no rounding needed).
-    - The Bedroom_Conditions sheet in rh_temp_wind_summary.xlsx is intentionally
-      exempt from rounding because those values feed downstream calculations.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)

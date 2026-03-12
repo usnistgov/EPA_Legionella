@@ -10,8 +10,8 @@ style suitable for scientific publications.
 
 Key Functions:
     - add_injection_marker: Add CO2 injection event markers to axes
-    - plot_co2_decay_event: Plot decay with numerical method exponential fit
-    - plot_co2_decay_event_analytical: Plot decay with linear regression fit
+    - plot_co2_decay_event: Plot single-panel decay with numerical exponential fit
+    - plot_co2_decay_event_analytical: Plot two-panel decay with linear regression fit
     - plot_lambda_summary: Summary bar chart of λ values across events
 
 Plot Features:
@@ -19,18 +19,24 @@ Plot Features:
     - Color-coded sensor traces (Bedroom, Bathroom, Entry, Outside)
     - Exponential fit curves with uncertainty bands
     - Injection and decay window markers
-    - Configuration-based grouping for multi-configuration experiments
+    - Configuration-based color-coding and grouping for multi-temperature experiments
+    - Significant-figures formatting for figure annotation values (sf.fmt_fig())
 
 Methodology:
     1. Extract data window around injection event (±hours_before/after)
     2. Plot raw CO2 concentrations from all sensors
     3. Calculate and overlay exponential fit: C(t) = C_avg + (C_0 - C_avg) * exp(-λ*t)
-    4. Add linearized regression panel showing y = -ln[(C(t) - C_avg)/(C_0 - C_avg)] vs t
-    5. Display λ value, R², and uncertainty in legend
+    4. (Analytical method only) Add linearized regression panel:
+       y = -ln[(C(t) - C_avg)/(C_0 - C_avg)] vs t
+    5. Annotate figure with λ, R², and uncertainty values
+    6. (Summary chart) Group events by water-temperature configuration and plot λ bar chart
+
+Input Files:
+    None; all data received as DataFrame and dict arguments from calling scripts.
 
 Output Files:
-    - Individual event plots: {test_name}_co2_decay.png
-    - Summary chart: co2_lambda_summary.png
+    - {test_name}_co2_decay.png: Individual event decay figure (path specified by caller)
+    - co2_lambda_summary.png: Summary λ bar chart (path specified by caller)
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
