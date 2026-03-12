@@ -1,3 +1,8 @@
 1. Review the (  )script docstring and ensure it properly captures the script's content and follows the docs/python_script_styles.txt guidelines. It is okay if the main scripts more strictly conform to the guidelines, whereas utility scripts can conform to a less strict version.
-2. For PM plots, reduce time before shower to 1 hour.
+2. For the *_pm_decay.png plots, reduce the time before the shower on to 1 hour.
 3. Add shower on and off to co2 plots.
+4. Adjust the *_summery.png plots to be more readable (text not running on plot, spacing, etc.). change should still use the Style Constants values; maybe adjust figure sizes to make them work.
+5. Review the *_pre_post_boxplot.png plots, the W23, W40pm, W40pw, and W52pm have problems where there is just an orange line for each value. 
+6. for the *_pm_decay.png plots, change the x10^# y-axis to be 1e# (for all figures that have large values (greater than 100) in the y-axis, change the axis to be 1e#). When beta decay is not valid, do not plot the instrument data as invalid; only the decay is invalid (still do not show calculated decay with not valid), not the data. 
+7. Most *_pm_decay.png plots look good, but something is up with event_69. There is way to much time after the end of the emissions to the end of figure (maybe has to do with the figure being set by the peak value time for the whole decay period vs peak decay within 30 mins.) 
+8. For the event_77-0220_w14_open_night_pm_decay.png figure, add the outdoor PM concentration for the same bins. Maybe make the outdoor concentration addition as a utility script, where if a variable is set (with event #s) at the start of the script, it will add the outdoor concentrations to those figures. 

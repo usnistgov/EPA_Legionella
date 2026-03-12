@@ -252,9 +252,7 @@ def analyze_event_all_bins(
         "replicate_num": event.get("replicate_num", 0),
         "shower_on": event["shower_on"],
         "shower_off": event["shower_off"],
-        "shower_duration_min": event.get(
-            "shower_duration_min", event.get("duration_min", 0)
-        ),
+        "shower_duration_min": event.get("shower_duration_min", event.get("duration_min", 0)),
         "lambda_ach": lambda_ach,
         "co2_event_idx": event.get("co2_event_idx", None),
     }
@@ -283,9 +281,7 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
             results[f"bin{bin_num}_E_r_squared"] = np.nan
-            results[f"bin{bin_num}_skip_reason"] = p_result.get(
-                "skip_reason", "Unknown"
-            )
+            results[f"bin{bin_num}_skip_reason"] = p_result.get("skip_reason", "Unknown")
             results[f"bin{bin_num}_c_steady_state"] = np.nan
             results[f"bin{bin_num}_peak_time"] = None
             results[f"bin{bin_num}_ct_datetimes"] = []
@@ -315,16 +311,10 @@ def analyze_event_all_bins(
         )
 
         results[f"bin{bin_num}_beta_other"] = beta_result.get("beta", np.nan)
-        results[f"bin{bin_num}_beta_other_raw_mean"] = beta_result.get(
-            "beta_raw_mean", np.nan
-        )
+        results[f"bin{bin_num}_beta_other_raw_mean"] = beta_result.get("beta_raw_mean", np.nan)
         results[f"bin{bin_num}_beta_other_std"] = beta_result.get("beta_std", np.nan)
-        results[f"bin{bin_num}_beta_other_r_squared"] = beta_result.get(
-            "beta_r_squared", np.nan
-        )
-        results[f"bin{bin_num}_c_steady_state"] = beta_result.get(
-            "c_steady_state", np.nan
-        )
+        results[f"bin{bin_num}_beta_other_r_squared"] = beta_result.get("beta_r_squared", np.nan)
+        results[f"bin{bin_num}_c_steady_state"] = beta_result.get("c_steady_state", np.nan)
         results[f"bin{bin_num}_peak_time"] = beta_result.get("peak_time", None)
 
         # Skip emission calculation if beta is invalid
@@ -334,9 +324,7 @@ def analyze_event_all_bins(
             results[f"bin{bin_num}_E_std"] = np.nan
             results[f"bin{bin_num}_E_total"] = np.nan
             results[f"bin{bin_num}_E_r_squared"] = np.nan
-            results[f"bin{bin_num}_skip_reason"] = beta_result.get(
-                "skip_reason", "Unknown"
-            )
+            results[f"bin{bin_num}_skip_reason"] = beta_result.get("skip_reason", "Unknown")
             results[f"bin{bin_num}_ct_datetimes"] = []
             results[f"bin{bin_num}_ct_predicted"] = []
             results[f"bin{bin_num}_emission_datetimes"] = []
@@ -395,12 +383,8 @@ def analyze_event_all_bins(
         )
         results[f"bin{bin_num}_ct_datetimes"] = ct_result.get("datetimes", [])
         results[f"bin{bin_num}_ct_predicted"] = ct_result.get("predicted_ct", [])
-        results[f"bin{bin_num}_emission_datetimes"] = ct_result.get(
-            "emission_datetimes", []
-        )
-        results[f"bin{bin_num}_emission_predicted"] = ct_result.get(
-            "emission_predicted", []
-        )
+        results[f"bin{bin_num}_emission_datetimes"] = ct_result.get("emission_datetimes", [])
+        results[f"bin{bin_num}_emission_predicted"] = ct_result.get("emission_predicted", [])
         results[f"bin{bin_num}_decay_datetimes"] = ct_result.get("decay_datetimes", [])
         results[f"bin{bin_num}_decay_predicted"] = ct_result.get("decay_predicted", [])
         results[f"bin{bin_num}_E_r_squared"] = ct_result.get("E_r_squared", np.nan)
@@ -430,9 +414,7 @@ def analyze_event_all_bins(
         if col_inside in particle_data.columns:
             time_diffs_end = (particle_data["datetime"] - pd.Timestamp(depo_end)).abs()
             end_row = int(time_diffs_end.argmin())
-            results[f"bin{bin_num}_deposition_end_measured"] = float(
-                col_values[end_row]
-            )
+            results[f"bin{bin_num}_deposition_end_measured"] = float(col_values[end_row])
         else:
             results[f"bin{bin_num}_deposition_end_measured"] = np.nan
 
@@ -477,9 +459,7 @@ def run_particle_analysis(
     print(f"Time step: {TIME_STEP_MINUTES} minute(s)")
     print("Penetration factor: averaged before/after windows (p capped at 1)")
     print(f"Deposition window: {DEPOSITION_WINDOW_HOURS} hour(s) after shower")
-    print(
-        "Beta selection: R²-based 3-step (unclamped → clamped ≥ 0 → 0; threshold 0.80)"
-    )
+    print("Beta selection: R²-based 3-step (unclamped → clamped ≥ 0 → 0; threshold 0.80)")
     print("\nValidation thresholds:")
     print(f"  Max other process rate (beta_other): {MAX_OTHER_PROCESS_RATE} h^-1")
     print(
@@ -611,15 +591,12 @@ def run_particle_analysis(
                     # Use pd.isna() to catch both None and pd.NaT from the registry
                     if pd.isna(event.get("deposition_end")):
                         event = dict(event)
-                        event["deposition_end"] = event["shower_off"] + timedelta(
-                            hours=2
-                        )
+                        event["deposition_end"] = event["shower_off"] + timedelta(hours=2)
 
                     empty_result = {}
                     formatted_name = format_test_name_for_filename(test_name)
                     plot_path = (
-                        excluded_dir
-                        / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
+                        excluded_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
                     )
                     plot_particle_decay_event(
                         particle_data=particle_data,
@@ -631,9 +608,7 @@ def run_particle_analysis(
                         test_name=test_name,
                     )
                 except Exception as e:
-                    print(
-                        f"    Warning: Failed to generate excluded plot for {test_name}: {e}"
-                    )
+                    print(f"    Warning: Failed to generate excluded plot for {test_name}: {e}")
             continue
 
         # Skip events without lambda
@@ -642,8 +617,7 @@ def run_particle_analysis(
             continue
 
         print(
-            f"  {test_name} ({shower_time.strftime('%m/%d %H:%M')}): "
-            f"lambda={lambda_ach:.4f} h^-1"
+            f"  {test_name} ({shower_time.strftime('%m/%d %H:%M')}): lambda={lambda_ach:.4f} h^-1"
         )
 
         result = analyze_event_all_bins(particle_data, event, lambda_ach)
@@ -681,8 +655,7 @@ def run_particle_analysis(
                 # Format filename: event_01-0114_hw_morning_pm_decay.png
                 formatted_name = format_test_name_for_filename(test_name)
                 plot_path = (
-                    event_figures_dir
-                    / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
+                    event_figures_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
                 )
                 plot_particle_decay_event(
                     particle_data=particle_data,
@@ -723,9 +696,7 @@ def _print_overall_summary(results_df: pd.DataFrame, results: list) -> None:
     print("=" * 80)
 
     if results_df.empty:
-        print(
-            "\nNo events were analyzed (all skipped due to missing lambda or exclusions)."
-        )
+        print("\nNo events were analyzed (all skipped due to missing lambda or exclusions).")
         return
 
     for bin_num, bin_info in PARTICLE_BINS.items():
@@ -740,17 +711,11 @@ def _print_overall_summary(results_df: pd.DataFrame, results: list) -> None:
 
         print(f"\nBin {bin_num} ({bin_name} um):")
         if len(valid_p) > 0:
-            print(
-                f"  p (penetration):     {valid_p.mean():.3f} +/- {valid_p.std():.3f}"
-            )
+            print(f"  p (penetration):     {valid_p.mean():.3f} +/- {valid_p.std():.3f}")
         if len(valid_beta) > 0:
-            print(
-                f"  beta (deposition):   {valid_beta.mean():.3f} +/- {valid_beta.std():.3f} h^-1"
-            )
+            print(f"  beta (deposition):   {valid_beta.mean():.3f} +/- {valid_beta.std():.3f} h^-1")
         if len(valid_E) > 0:
-            print(
-                f"  E (emission):        {valid_E.mean():.2e} +/- {valid_E.std():.2e} #/min"
-            )
+            print(f"  E (emission):        {valid_E.mean():.2e} +/- {valid_E.std():.2e} #/min")
         print(f"  Valid events:        {len(valid_E)}/{len(results)}")
 
 
@@ -785,9 +750,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         column_rename[f"bin{bin_num}_beta_other_raw_mean"] = (
             f"bin{bin_num}_beta_other_raw_mean (h-1)"
         )
-        column_rename[f"bin{bin_num}_beta_other_std"] = (
-            f"bin{bin_num}_beta_other_std (h-1)"
-        )
+        column_rename[f"bin{bin_num}_beta_other_std"] = f"bin{bin_num}_beta_other_std (h-1)"
         column_rename[f"bin{bin_num}_E_mean"] = f"bin{bin_num}_E_mean (#/min)"
         column_rename[f"bin{bin_num}_E_std"] = f"bin{bin_num}_E_std (#/min)"
         column_rename[f"bin{bin_num}_E_total"] = f"bin{bin_num}_E_total (#)"
@@ -809,9 +772,7 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
             for i in PARTICLE_BINS.keys()
             for col in (f"bin{i}_beta_other (h-1)", f"bin{i}_beta_other_raw_mean (h-1)")
         ]
-        beta_r2_cols = id_cols + [
-            f"bin{i}_beta_other_r_squared" for i in PARTICLE_BINS.keys()
-        ]
+        beta_r2_cols = id_cols + [f"bin{i}_beta_other_r_squared" for i in PARTICLE_BINS.keys()]
         E_cols = id_cols + [f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()]
         E_total_cols = id_cols + [f"bin{i}_E_total (#)" for i in PARTICLE_BINS.keys()]
         E_total_cols = [c for c in E_total_cols if c in results_df_export.columns]
@@ -819,23 +780,15 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         E_r2_cols = id_cols + [f"bin{i}_E_r_squared" for i in PARTICLE_BINS.keys()]
         E_r2_cols = [c for c in E_r2_cols if c in results_df_export.columns]
 
-        results_df_export[p_cols].to_excel(
-            writer, sheet_name="p_penetration", index=False
-        )
-        results_df_export[beta_cols].to_excel(
-            writer, sheet_name="beta_deposition", index=False
-        )
-        results_df_export[beta_r2_cols].to_excel(
-            writer, sheet_name="beta_r_squared", index=False
-        )
+        results_df_export[p_cols].to_excel(writer, sheet_name="p_penetration", index=False)
+        results_df_export[beta_cols].to_excel(writer, sheet_name="beta_deposition", index=False)
+        results_df_export[beta_r2_cols].to_excel(writer, sheet_name="beta_r_squared", index=False)
         results_df_export[E_cols].to_excel(writer, sheet_name="E_emission", index=False)
         results_df_export[E_total_cols].to_excel(
             writer, sheet_name="E_total_particles", index=False
         )
         if E_r2_cols:
-            results_df_export[E_r2_cols].to_excel(
-                writer, sheet_name="E_r_squared", index=False
-            )
+            results_df_export[E_r2_cols].to_excel(writer, sheet_name="E_r_squared", index=False)
 
         # Peak comparison sheet: measured vs. predicted at peak_time and deposition_end.
         # Wide format: one row per event, bins as column groups.
@@ -852,25 +805,13 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
             peak_df[f"bin{bin_num}_peak_measured (#/cm3)"] = results_df[meas_pk].values
             peak_df[f"bin{bin_num}_peak_predicted (#/cm3)"] = results_df[pred_pk].values
             with np.errstate(invalid="ignore", divide="ignore"):
-                pct_pk = (
-                    (results_df[pred_pk] - results_df[meas_pk])
-                    / results_df[meas_pk]
-                    * 100.0
-                )
+                pct_pk = (results_df[pred_pk] - results_df[meas_pk]) / results_df[meas_pk] * 100.0
             peak_df[f"bin{bin_num}_peak_pct_diff (%)"] = pct_pk.values
 
-            peak_df[f"bin{bin_num}_deposition_end_measured (#/cm3)"] = results_df[
-                meas_de
-            ].values
-            peak_df[f"bin{bin_num}_deposition_end_predicted (#/cm3)"] = results_df[
-                pred_de
-            ].values
+            peak_df[f"bin{bin_num}_deposition_end_measured (#/cm3)"] = results_df[meas_de].values
+            peak_df[f"bin{bin_num}_deposition_end_predicted (#/cm3)"] = results_df[pred_de].values
             with np.errstate(invalid="ignore", divide="ignore"):
-                pct_de = (
-                    (results_df[pred_de] - results_df[meas_de])
-                    / results_df[meas_de]
-                    * 100.0
-                )
+                pct_de = (results_df[pred_de] - results_df[meas_de]) / results_df[meas_de] * 100.0
             peak_df[f"bin{bin_num}_deposition_end_pct_diff (%)"] = pct_de.values
 
         peak_df = sf.apply_sig_figs_to_df(peak_df)
@@ -919,9 +860,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         rh_data["datetime"] = _pd.to_datetime(rh_data["datetime"])
         print("  Loaded Bedroom_Conditions RH for boxplot annotations.")
     except Exception as _rh_err:
-        print(
-            f"  Note: Could not load Bedroom_Conditions RH data (n= only annotations): {_rh_err}"
-        )
+        print(f"  Note: Could not load Bedroom_Conditions RH data (n= only annotations): {_rh_err}")
 
     # Bar-chart summary plots (no RH annotation needed)
     for plot_func, filename in [
@@ -942,11 +881,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
 
     # Average beta and p across all 7 bins per event
     _df7["avg_beta"] = _df7[
-        [
-            f"bin{b}_beta_other"
-            for b in _bin_nums
-            if f"bin{b}_beta_other" in _df7.columns
-        ]
+        [f"bin{b}_beta_other" for b in _bin_nums if f"bin{b}_beta_other" in _df7.columns]
     ].mean(axis=1)
     _df7["avg_p"] = _df7[
         [f"bin{b}_p_mean" for b in _bin_nums if f"bin{b}_p_mean" in _df7.columns]
@@ -958,9 +893,7 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
 
         from src.data_paths import get_common_file as _gcf7
 
-        _bc7 = _pd7.read_excel(
-            _gcf7("rh_temp_wind_summary"), sheet_name="Bedroom_Conditions"
-        )
+        _bc7 = _pd7.read_excel(_gcf7("rh_temp_wind_summary"), sheet_name="Bedroom_Conditions")
         _bc7 = _bc7[["event_number", "rh_mean (%)", "temp_mean (degC)"]].rename(
             columns={"rh_mean (%)": "bedroom_rh", "temp_mean (degC)": "bedroom_temp"}
         )
@@ -999,25 +932,25 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "bedroom_rh",
             "Bedroom RH (%)",
             "emission_etotal_by_bedroom_rh_boxplot.png",
-            (20, 50, 2),
+            (22, 43, 1),
         ),
         (
             "bedroom_temp",
             "Bedroom Temperature (°C)",
             "emission_etotal_by_bedroom_temp_boxplot.png",
-            (14, 19, 0.5),
+            (14.5, 18.5, 0.1),
         ),
         (
             "lambda_ach",
             "Air Change Rate λ (h⁻¹)",
             "emission_etotal_by_acr_boxplot.png",
-            (0.8, 1.6, 0.1),
+            (0.8, 1.5, 0.05),
         ),
         (
             "avg_beta",
             "Avg. Other Process Rate β (h⁻¹)",
             "emission_etotal_by_beta_boxplot.png",
-            (-0.3, 0.3, 0.05),
+            (-0.4, 0.5, 0.05),
         ),
         (
             "avg_p",
