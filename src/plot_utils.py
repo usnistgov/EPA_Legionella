@@ -4,35 +4,57 @@
 Plotting Utilities for EPA Legionella Project
 ==============================================
 
-This module provides consistent styling and helper functions for generating
-publication-quality figures across the EPA Legionella project. All plots
-produced by this module follow a unified visual style suitable for scientific
-publications, presentations, and reports.
-
-This is the main entry point that re-exports all plotting functions from
-specialized submodules for backward compatibility:
-    - plot_style: Core styling constants and utilities
-    - plot_co2: CO2 decay analysis plots
-    - plot_environmental: Environmental data plots (RH, Temp, Wind)
-    - plot_particle: Particle decay and emission analysis plots
+Backward-compatibility re-export module that aggregates all public plotting
+symbols from four specialized submodules (plot_style, plot_co2,
+plot_environmental, plot_particle) into a single namespace. Callers that
+previously imported from plot_utils continue to work without modification
+while each submodule remains independently importable.
 
 Key Functions:
-    - create_figure: Create consistently styled matplotlib figures
-    - save_figure: Save figures with proper DPI and formatting
-    - format_datetime_axis: Apply standard datetime axis formatting
-    - add_injection_marker: Add CO2 injection event markers to plots
-    - add_shower_markers: Add shower ON/OFF event markers to plots
-    - plot_co2_decay_event: Generate CO2 decay plots (numerical method)
-    - plot_co2_decay_event_analytical: Generate CO2 decay plots (analytical method)
-    - plot_lambda_summary: Generate summary bar charts of air-change rates
-    - plot_environmental_time_series: Time series plots for RH/Temp/Wind data
-    - plot_pre_post_comparison: Box plots comparing pre vs post shower periods
-    - plot_sensor_summary_bars: Bar charts comparing sensor readings
-    - plot_particle_decay_event: Individual particle decay curves per event/bin
-    - plot_penetration_summary: Bar charts of penetration factors by size
-    - plot_deposition_summary: Bar charts of other process rates by size
-    - plot_emission_summary: Bar charts of emission rates by size
-    - plot_size_distribution_summary: Multi-panel summary of all metrics
+    plot_style — core styling constants and low-level helpers:
+        - create_figure: Create consistently styled matplotlib figures
+        - save_figure: Save figures with proper DPI and format
+        - format_datetime_axis: Apply standard datetime axis formatting
+        - add_vertical_marker / add_shaded_window: Annotate time axes
+        - add_shower_on_marker / add_shower_off_marker: Shower event markers
+        - apply_style / format_test_name_for_filename / format_test_name_for_title
+
+    plot_co2 — CO2 decay analysis plots:
+        - plot_co2_decay_event: CO2 decay curves (numerical method)
+        - plot_co2_decay_event_analytical: CO2 decay curves (analytical method)
+        - plot_lambda_summary: Summary bar charts of air-change rates
+        - add_injection_marker: CO2 injection event markers
+
+    plot_environmental — environmental sensor time series and comparisons:
+        - plot_environmental_time_series: RH / temperature / wind time series
+        - plot_pre_post_comparison: Box plots comparing pre vs. post shower
+        - plot_sensor_summary_bars: Bar charts comparing sensor readings
+        - add_shower_markers / add_analysis_windows: Overlay event annotations
+
+    plot_particle — particle decay and emission analysis plots:
+        - plot_particle_decay_event: Per-event / per-bin decay curves
+        - plot_penetration_summary: Penetration factors by particle size
+        - plot_deposition_summary: Deposition rates by particle size
+        - plot_emission_summary: Emission rates by particle size
+        - plot_size_distribution_summary: Multi-panel summary of all metrics
+
+Module Features:
+    - Single import point for all project plotting functions
+    - __all__ defines the explicit public API surface
+    - Style constants (COLORS, FIGURE_DPI, FONT_SIZE_*, etc.) also re-exported
+    - Shower marker styles (SHOWER_ON_STYLE, SHOWER_OFF_STYLE) and SENSOR_COLORS
+
+Methodology:
+    1. Each submodule is imported at module load time via explicit named imports
+    2. __all__ enumerates every re-exported symbol for IDE autocompletion and
+       wildcard-import safety
+    3. No processing logic resides in this file; all behavior is delegated to
+       the respective submodules
+
+Output Files:
+    None — this module contains no standalone execution logic. Output files
+    (PNG / PDF figures) are produced by the individual plotting functions when
+    called from analysis scripts.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
