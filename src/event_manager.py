@@ -205,11 +205,19 @@ WATER_TEMP_TRANSITIONS = [
     (
         datetime(2026, 3, 6, 8, 47, 0),
         "W40pm",
-    ),  # Pepco wide spray from Mar 6 8:47AM
+    ),  # Pepco Mid-limp spray from Mar 6 8:47AM
     (
         datetime(2026, 3, 9, 8, 47, 0),
-        "W40pw2",
-    ),  # Pepco wide spray from Mar 9 8:47AM
+        "W40pn2",
+    ),  # Pepco narrow spray from Mar 9 8:47AM
+    (
+        datetime(2026, 3, 11, 9, 47, 0),
+        "W40pn3",
+    ),  # Pepco narrow spray from Mar 11 9:47AM
+    (
+        datetime(2026, 3, 12, 10, 47, 0),
+        "W38pn",
+    ),  # Pepco narrow spray from Mar 12 10:47AM
 ]
 
 # Door position transitions: (datetime, position)
@@ -342,9 +350,7 @@ def get_time_of_day(dt: datetime) -> str:
         return "Night"
 
 
-def _get_config_value_at_time(
-    dt: datetime, transitions: List[Tuple[datetime, str]]
-) -> str:
+def _get_config_value_at_time(dt: datetime, transitions: List[Tuple[datetime, str]]) -> str:
     """
     Get configuration value at a given time based on transition list.
 
@@ -504,9 +510,7 @@ def check_fan_during_test(
     test_end = shower_off + timedelta(hours=2)
 
     # Filter log to test period
-    mask = (shower_log["datetime_EDT"] >= test_start) & (
-        shower_log["datetime_EDT"] <= test_end
-    )
+    mask = (shower_log["datetime_EDT"] >= test_start) & (shower_log["datetime_EDT"] <= test_end)
     test_period_log = shower_log[mask]
 
     # Check if fan was ever on during this period
@@ -588,9 +592,7 @@ def filter_events_by_date(
             # CO2 event - compare expected shower time (injection + 20 min)
             # This handles cases where CO2 injection is before midnight
             # but the corresponding shower is after midnight
-            event_time = event["injection_start"] + timedelta(
-                minutes=EXPECTED_CO2_BEFORE_SHOWER
-            )
+            event_time = event["injection_start"] + timedelta(minutes=EXPECTED_CO2_BEFORE_SHOWER)
         else:
             continue
 
@@ -680,9 +682,9 @@ def create_synthetic_co2_event(shower_time: datetime, event_number: int) -> Dict
     fan_off = injection_start + timedelta(minutes=5)  # Fan off at 5 minutes
 
     # Decay analysis would start at :50 (10 minutes before next hour)
-    hour_after_injection = injection_start.replace(
-        minute=0, second=0, microsecond=0
-    ) + timedelta(hours=1)
+    hour_after_injection = injection_start.replace(minute=0, second=0, microsecond=0) + timedelta(
+        hours=1
+    )
     decay_start = hour_after_injection + timedelta(minutes=-10)  # At :50
     decay_end = decay_start + timedelta(hours=2)  # 2-hour analysis window
 
@@ -761,9 +763,7 @@ def detect_missing_events(
 # =============================================================================
 
 
-def assign_test_names(
-    shower_events: List[Dict], shower_log: pd.DataFrame
-) -> List[Dict]:
+def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> List[Dict]:
     """
     Assign test condition names to all shower events.
 
@@ -923,9 +923,7 @@ def process_events_with_management(
 
     if process_co2:
         print("\nDetecting missing events...")
-        showers_missing_co2, co2_missing_shower = detect_missing_events(
-            shower_events, co2_events
-        )
+        showers_missing_co2, co2_missing_shower = detect_missing_events(shower_events, co2_events)
 
         if showers_missing_co2:
             print(f"  Found {len(showers_missing_co2)} shower events without CO2 data")

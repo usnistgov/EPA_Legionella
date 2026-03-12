@@ -63,6 +63,7 @@ from src.plot_style import (
     COLORS,
     FONT_SIZE_LABEL,
     FONT_SIZE_LEGEND,
+    FONT_SIZE_TICK,
     FONT_SIZE_TITLE,
     LINE_WIDTH_ANNOTATION,
     LINE_WIDTH_DATA,
@@ -143,9 +144,7 @@ def _calculate_exponential_decay(
     c_outside: npt.NDArray[np.float64] = np.asarray(
         decay_data["C_outside"].values, dtype=np.float64
     )
-    c_entry: npt.NDArray[np.float64] = np.asarray(
-        decay_data["C_entry"].values, dtype=np.float64
-    )
+    c_entry: npt.NDArray[np.float64] = np.asarray(decay_data["C_entry"].values, dtype=np.float64)
 
     c_source: npt.NDArray[np.float64] = alpha * c_outside + beta * c_entry
     c_source_mean = float(np.mean(c_source))
@@ -157,19 +156,13 @@ def _calculate_exponential_decay(
     )
 
     delta_c = c_bedroom_0 - c_source_mean
-    c_fit: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(
-        -lambda_value * t_hours
-    )
+    c_fit: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(-lambda_value * t_hours)
 
     lambda_upper = max(lambda_value - lambda_std, 0.001)
     lambda_lower = lambda_value + lambda_std
 
-    c_fit_upper: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(
-        -lambda_upper * t_hours
-    )
-    c_fit_lower: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(
-        -lambda_lower * t_hours
-    )
+    c_fit_upper: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(-lambda_upper * t_hours)
+    c_fit_lower: npt.NDArray[np.float64] = c_source_mean + delta_c * np.exp(-lambda_lower * t_hours)
 
     return pd.DataFrame(
         {
@@ -305,9 +298,7 @@ def plot_co2_decay_event(
 
     ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
     ax.set_ylim(bottom=0)
-    ax.set_xlim(
-        float(mdates.date2num(window_start)), float(mdates.date2num(window_end))
-    )
+    ax.set_xlim(float(mdates.date2num(window_start)), float(mdates.date2num(window_end)))
 
     format_datetime_axis(ax, interval_minutes=30)
 
@@ -405,9 +396,7 @@ def plot_co2_decay_event_analytical(
 
     # Add fitted exponential decay curve
     if not np.isnan(lambda_value):
-        decay_mask = (co2_data["datetime"] >= decay_start) & (
-            co2_data["datetime"] <= decay_end
-        )
+        decay_mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= decay_end)
         decay_data = co2_data[decay_mask].copy()
 
         if len(decay_data) > 0:
@@ -475,9 +464,7 @@ def plot_co2_decay_event_analytical(
             event_datetime=injection_time,
         )
     ax1.set_title(title, fontweight=TITLE_FONTWEIGHT)
-    ax1.set_xlim(
-        float(mdates.date2num(window_start)), float(mdates.date2num(window_end))
-    )
+    ax1.set_xlim(float(mdates.date2num(window_start)), float(mdates.date2num(window_end)))
 
     format_datetime_axis(ax1, interval_minutes=30)
 
@@ -489,9 +476,7 @@ def plot_co2_decay_event_analytical(
         y_arr = np.array(y_values)
         t_arr = np.array(t_values)
 
-        ax2.scatter(
-            t_arr, y_arr, color=COLORS["bedroom"], alpha=0.5, s=10, label="Data"
-        )
+        ax2.scatter(t_arr, y_arr, color=COLORS["bedroom"], alpha=0.5, s=10, label="Data")
 
         t_line = np.array([0, t_arr.max()])
         y_line = lambda_value * t_line
@@ -593,9 +578,7 @@ def plot_lambda_summary(
             config_df = results_df
 
         if len(config_df) == 0:
-            ax.text(
-                0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes
-            )
+            ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
             continue
 
         # Get event numbers
