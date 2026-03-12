@@ -5,44 +5,70 @@ Particle Analysis Plotting Functions
 =====================================
 
 This module provides specialized plotting functions for particle decay and
-emission analysis in the EPA Legionella project. Plots are designed for
-analyzing aerosol behavior during and after shower events.
+emission analysis in the EPA Legionella project. Functions are called by
+particle_decay_analysis.py and produce individual event figures, cross-event
+summary bar charts, and water-temperature/metric-axis boxplots for all seven
+particle size bins (0.35–3.0 µm).
 
 Key Functions:
-    - plot_particle_decay_event: Individual event decay curves per bin (two panels)
-    - plot_penetration_summary: Bar chart of penetration factors by size
-    - plot_other_process_summary: Bar chart of other process rates by size
-    - plot_emission_summary: Bar chart of emission rates by size
-    - plot_emission_boxplot: Box-and-whisker of E_total by water temperature and bin
-    - plot_size_distribution_summary: Multi-panel summary of all metrics
+    - plot_particle_decay_event: Two-panel individual event figure (concentration + emission)
+    - plot_penetration_summary: Bar chart of penetration factors by size bin
+    - plot_deposition_summary: Bar chart of other process (deposition) rates by size bin
+    - plot_emission_summary: Bar chart of emission rates by size bin
+    - plot_size_distribution_summary: Multi-panel summary of all metrics by size bin
+    - plot_emission_boxplot: E_total box-and-whisker by water temperature (fixed 5–60 °C axis)
+    - plot_deposition_rate_boxplot: beta_raw_mean box-and-whisker by water temperature
+    - plot_emission_rate_boxplot: E_mean box-and-whisker by water temperature
+    - plot_penetration_factor_boxplot: p_mean box-and-whisker by water temperature
+    - plot_emission_etotal_by_metric_boxplot: E_total vs. continuous metric axis (RH, temp, ACR, beta, p)
+    - plot_emission_etotal_by_showerhead_boxplot: E_total grouped by shower head type
 
 Plot Features:
-    - Two-panel event plots: concentration time series (top) + emission rates (bottom)
-    - Color-coded particle size bins (0.35-3.0 µm)
-    - Shaded deposition analysis window
-    - Shower ON/OFF markers (dotted lines) distinct from fitted/predicted lines (dashed)
+    - Two-panel event plots: concentration time series (top) + per-step emission rates (bottom)
+    - Color-coded particle size bins; solid lines for valid beta, faded/dashed for invalid (NaN) beta
+    - Shaded deposition analysis window (2 hr post-shower)
+    - Shower ON/OFF dotted markers distinct from fit/predicted dashed lines
     - Decay R² values listed in top-panel text box alongside lambda and valid-bin count
     - Log-scale concentration axis for wide dynamic range
-    - Emission subplot shows per-step E_t lines, E_mean dashed lines, and R² annotation
-    - Emission subplot x-axis matches concentration panel; y-axis clipped to 2nd-98th percentile
-    - Configuration-based subplot grouping; temperature-based colors from get_config_color()
+    - Emission panel: per-step E_t as faint lines, E_mean as dashed horizontal lines
+      spanning shower_on to peak_time; y-axis clipped to 2nd–98th percentile of E_per_step data
+    - Emission panel x-axis matches concentration panel (shared time axis)
+    - Fixed water-temperature axis boxplots (5–60 °C, configurable); box widths scale
+      with bin particle size (Bin 0 narrowest → Bin 6 widest)
+    - Metric-axis boxplots: each W## group centred at the group mean of the predictor column;
+      box widths proportional to data range
+    - Shower-head boxplot: categorical x-axis with three temperature clusters and visible gaps
+    - W##\nn=#\nRH=##% annotation above each group on all boxplot figures
+    - Temperature-based colors from get_config_color(); RH from rh_temp_wind_summary.xlsx
 
 Methodology:
     1. Extract data window around shower event (2 hr before to 1.5 hr after deposition end)
-    2. Top panel: plot particle concentrations for all 7 size bins (solid = valid beta,
-       dashed = invalid beta)
-    3. Shade deposition window (2 hr post-shower)
-    4. Overlay continuous predicted Ct curves (emission phase + decay phase as one
-       unbroken dashed line per valid bin); decay phase starts from the predicted
-       concentration at peak_time, not the measured peak value
-    5. Bottom panel: per-step E_t as faint lines, E_mean as dashed horizontal lines
-       spanning shower_on to peak_time per bin, R² annotation
-    6. Display λ (air change rate) and valid-bin count in text box
+    2. Top panel: plot measured particle concentrations for all 7 size bins
+    3. Shade deposition window and overlay continuous predicted Ct curves per valid bin
+       (emission phase shower_on→peak_time, then decay phase; decay starts from predicted
+       concentration at peak_time, not the measured peak value)
+    4. Bottom panel: per-step E_t as faint lines; E_mean as dashed horizontal lines
+       per valid bin; R² annotation displayed in panel
+    5. Summary bar charts: compute mean ± std across all events for each metric and bin
+    6. Fixed-axis boxplots: group events by W## config key; draw one box per group per bin;
+       annotate with W##, n count, and mean bedroom RH
+    7. Metric-axis boxplots: position each W## group at group mean of continuous predictor
+       with proportional box widths; otherwise same grouping and annotation logic
+    8. Shower-head boxplot: categorical grouping with temperature-ordered clusters
 
 Output Files:
-    - Individual event plots: {test_name}_particle_decay.png
-    - Summary charts: penetration_summary.png, other_process_summary.png,
-      emission_summary.png, size_distribution_summary.png
+    - {test_name}_particle_decay.png: Individual event concentration + emission figure
+    - penetration_summary.png: Bar chart of penetration factors across all events
+    - deposition_summary.png: Bar chart of other process (beta) rates across all events
+    - emission_summary.png: Bar chart of emission rates across all events
+    - size_distribution_summary.png: Multi-panel summary of all metrics
+    - emission_etotal_boxplot_{bin0-2,bin3-6}.png: E_total by water temperature
+    - deposition_rate_boxplot_{bin0-2,bin3-6}.png: beta_raw_mean by water temperature
+    - emission_rate_boxplot_{bin0-2,bin3-6}.png: E_mean by water temperature
+    - penetration_factor_boxplot_{bin0-2,bin3-6}.png: p_mean by water temperature
+    - emission_etotal_by_{metric}_{bin0-2,bin3-6}.png: E_total vs. continuous metric
+      (10 figures: bedroom_rh, bedroom_temp, acr, beta, p × two bin groups)
+    - emission_etotal_by_showerhead_{bin0-2,bin3-6}.png: E_total by shower head type
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
