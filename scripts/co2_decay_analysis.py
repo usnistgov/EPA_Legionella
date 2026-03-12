@@ -37,6 +37,9 @@ Analysis Features:
     - Linear regression to determine λ from the log-transformed decay equation
     - Events loaded from unified event registry; falls back to direct log parsing
       if registry is not available
+    - Shower ON/OFF dotted markers overlaid on per-event CO2 concentration plots
+    - Optional --entry-stop flag: truncates the decay window when C_entry ≥ C_bedroom,
+      preventing entry-zone CO2 leakage from contaminating the bedroom decay fit
 
 Methodology:
     The mass balance equation for a well-mixed zone:
@@ -66,7 +69,8 @@ Methodology:
 Output Files:
     - co2_lambda_summary.csv: Per-event results with all λ calculations
     - co2_lambda_overall_summary.csv: Aggregated statistics by test configuration
-    - plots/event_figures/event_NN-testname_co2_decay.png: Individual event decay plots
+    - plots/event_figures/co2_decay/event_NN-testname_co2_decay.png: Individual event decay plots
+      with shower ON/OFF markers overlaid on the concentration panel
     - plots/lambda_summary.png: Summary bar chart of λ values across all events
     - plots/air_change_rate_boxplot.png: Box-and-whisker of λ by water temperature
 
@@ -112,6 +116,7 @@ from src.data_paths import (  # noqa: E402
     get_common_file,
     get_data_root,
     get_event_figures_dir,
+    get_event_figures_subdir,
     get_instrument_config,
     get_instrument_path,
 )
@@ -538,6 +543,11 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "water_temp": row.get("water_temp", ""),
                     "time_of_day": row.get("time_of_day", ""),
                     "shower_on": shower_on_dt,
+                    "shower_off": pd.to_datetime(
+                        row.get("shower_off", pd.NaT), errors="coerce"
+                    )
+                    if pd.notna(row.get("shower_off", pd.NaT))
+                    else None,
                     "injection_start": pd.to_datetime(
                         row["co2_injection_start"], errors="coerce"
                     )
@@ -983,12 +993,58 @@ def plot_air_change_rate_boxplot(
 # =============================================================================
 
 
+def _apply_entry_stop(
+    event: Dict,
+    co2_data: pd.DataFrame,
+) -> Dict:
+    """
+    Truncate the decay window when the entry CO2 concentration exceeds the bedroom.
+
+    Scans the decay window and sets decay_end to the first timestep where
+    C_entry >= C_bedroom.  If no crossing is found the event is returned unchanged.
+
+    Parameters:
+        event: Event dict with decay_start, decay_end, and other timing info.
+        co2_data: CO2 DataFrame with 'datetime', 'C_bedroom', 'C_entry' columns.
+
+    Returns:
+        Updated event dict (copy) with potentially shortened decay_end.
+    """
+    decay_start = event.get("decay_start")
+    decay_end = event.get("decay_end")
+    if decay_start is None or decay_end is None:
+        return event
+
+    mask = (co2_data["datetime"] >= decay_start) & (co2_data["datetime"] <= decay_end)
+    window = co2_data[mask].copy()
+
+    if window.empty or "C_entry" not in window.columns or "C_bedroom" not in window.columns:
+        return event
+
+    # Find first row where entry >= bedroom
+    crossing = window[window["C_entry"] >= window["C_bedroom"]]
+    if crossing.empty:
+        return event
+
+    new_end = crossing["datetime"].iloc[0]
+    # Clamp to at least 30 minutes of decay data to avoid degenerate fits
+    min_end = decay_start + timedelta(minutes=30)
+    if new_end < min_end:
+        new_end = min_end
+
+    updated = dict(event)
+    updated["decay_end"] = new_end
+    updated["decay_duration_hours"] = (new_end - decay_start).total_seconds() / 3600.0
+    return updated
+
+
 def run_co2_decay_analysis(
     alpha: float = DEFAULT_ALPHA,
     beta: float = DEFAULT_BETA,
     output_dir: Optional[Path] = None,
     generate_plots: bool = True,
     apply_sig_figs: bool = True,
+    entry_stop: bool = False,
 ) -> pd.DataFrame:
     """
     Run the complete CO2 decay analysis.
@@ -1002,6 +1058,9 @@ def run_co2_decay_analysis(
             SIG_FIGS_DATA significant figures before writing CSV output files and
             apply SIG_FIGS_FIGURE significant figures to figure annotations.
             Pass False (via --no-sig-figs) to preserve full floating-point precision.
+        entry_stop (bool): If True, truncate each event's decay window at the
+            first point where the entry CO2 concentration exceeds the bedroom
+            concentration, instead of using the fixed 2-hour window.
 
     Returns:
         pd.DataFrame: DataFrame with analysis results for all injection events
@@ -1012,10 +1071,16 @@ def run_co2_decay_analysis(
     print("Analytical Method (Linear Regression)")
     print("=" * 60)
     print(f"Parameters: α={alpha}, β={beta}")
-    print(
-        f"Decay window: shower_on + {DECAY_START_AFTER_SHOWER_ON_MIN} min to "
-        f"+{DECAY_DURATION_HOURS + DECAY_START_AFTER_SHOWER_ON_MIN / 60:.2g} hours after shower_on"
-    )
+    if entry_stop:
+        print(
+            f"Decay window: shower_on + {DECAY_START_AFTER_SHOWER_ON_MIN} min → "
+            f"entry-stop mode (truncated when C_entry ≥ C_bedroom)"
+        )
+    else:
+        print(
+            f"Decay window: shower_on + {DECAY_START_AFTER_SHOWER_ON_MIN} min to "
+            f"+{DECAY_DURATION_HOURS + DECAY_START_AFTER_SHOWER_ON_MIN / 60:.2g} hours after shower_on"
+        )
 
     # Set output directory
     if output_dir is None:
@@ -1120,7 +1185,7 @@ def run_co2_decay_analysis(
     print("\nAnalyzing injection events...")
     results = []
     plot_dir = output_dir / "plots"
-    event_figures_dir = get_event_figures_dir(output_dir)
+    co2_decay_dir = get_event_figures_subdir(output_dir, "co2_decay")
 
     for i, event in enumerate(events):
         event_num = event.get("event_number", i + 1)
@@ -1179,7 +1244,7 @@ def run_co2_decay_analysis(
             if generate_plots and event_num is not None:
                 from src.plot_style import format_test_name_for_filename
 
-                excluded_dir = event_figures_dir / "excluded_events"
+                excluded_dir = get_event_figures_subdir(output_dir, "excluded_events")
                 excluded_dir.mkdir(parents=True, exist_ok=True)
                 formatted_name = format_test_name_for_filename(test_name)
                 plot_path = (
@@ -1208,6 +1273,15 @@ def run_co2_decay_analysis(
 
         print(f"  {test_name}: {injection_time.strftime('%Y-%m-%d %H:%M')}")
 
+        # Optionally truncate decay window at first entry > bedroom crossing
+        if entry_stop:
+            event = _apply_entry_stop(event, co2_data)
+            orig_end = event.get("decay_start") + timedelta(hours=DECAY_DURATION_HOURS) if event.get("decay_start") else None
+            new_end = event.get("decay_end")
+            if orig_end is not None and new_end is not None and new_end < orig_end:
+                dur = event["decay_duration_hours"]
+                print(f"    Entry-stop: decay window shortened to {dur:.2f} h")
+
         result = analyze_injection_event(co2_data, event, alpha, beta)
         result["test_name"] = test_name  # Add test_name to result
         result["config_key"] = config_key  # Add configuration key for grouping
@@ -1229,9 +1303,9 @@ def run_co2_decay_analysis(
                 from src.plot_style import format_test_name_for_filename
 
                 formatted_name = format_test_name_for_filename(test_name)
-                event_figures_dir.mkdir(parents=True, exist_ok=True)
+                co2_decay_dir.mkdir(parents=True, exist_ok=True)
                 plot_path = (
-                    event_figures_dir
+                    co2_decay_dir
                     / f"event_{event_num:02d}-{formatted_name}_co2_decay.png"
                 )
                 plot_co2_decay_event_analytical(
@@ -1478,6 +1552,16 @@ def main():
         help="Disable significant figure rounding on output data and figure annotations "
         "(default: 3 sig figs for files, 2 sig figs for figures)",
     )
+    parser.add_argument(
+        "--entry-stop",
+        action="store_true",
+        help=(
+            "Truncate each event's decay window at the first timestep where the "
+            "entry CO2 concentration exceeds the bedroom concentration, instead of "
+            "using the fixed 2-hour decay window.  Useful for events with strong "
+            "re-infiltration from the entry zone."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -1498,6 +1582,7 @@ def main():
         output_dir=output_dir,
         generate_plots=not args.no_plot,
         apply_sig_figs=not args.no_sig_figs,
+        entry_stop=args.entry_stop,
     )
 
 

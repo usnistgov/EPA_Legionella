@@ -42,9 +42,10 @@ Output Files:
         * Event_Log: event metadata (test_name, config_key, shower times, door/fan status)
         * Bedroom_Conditions: per-event bedroom RH and temperature (30-min pre-shower window);
           not rounded by sig figs; consumed by particle_decay_analysis.py for boxplot annotations
-    - plots/event_figures/event_NN-MMDD_temp_door_tod_rh_timeseries.png: RH time series per event
-    - plots/event_figures/event_NN-MMDD_temp_door_tod_temperature_timeseries.png: Temp per event
-    - plots/event_figures/event_NN-MMDD_temp_door_tod_wind_timeseries.png: Wind per event
+    - plots/event_figures/rh_timeseries/event_NN-MMDD_temp_door_tod_rh_timeseries.png: RH per event
+    - plots/event_figures/temperature_timeseries/event_NN-MMDD_..._temperature_timeseries.png
+    - plots/event_figures/wind_timeseries/event_NN-MMDD_temp_door_tod_wind_timeseries.png
+    - plots/event_figures/excluded_events/: Time series figures for duration-excluded events
     - plots/rh_pre_post_boxplot.png: Pre/post RH comparison
     - plots/temperature_pre_post_boxplot.png: Pre/post temperature comparison
     - plots/wind_speed_pre_post_boxplot.png: Pre/post wind speed comparison
@@ -94,7 +95,7 @@ from src.plot_utils import (  # noqa: E402
     plot_pre_post_comparison,
     plot_sensor_summary_bars,
 )
-from src.data_paths import get_data_root, get_event_figures_dir  # noqa: E402
+from src.data_paths import get_data_root, get_event_figures_dir, get_event_figures_subdir  # noqa: E402
 from src.env_data_loader import (  # noqa: E402
     SENSOR_CONFIG,
     identify_shower_events,
@@ -725,9 +726,6 @@ def generate_time_series_plots(
         max_events: Maximum events to plot (None=all, ignored if specific_events set)
         specific_events: List of specific event numbers to plot (1-indexed)
     """
-    event_figures_dir = get_event_figures_dir(output_dir)
-    event_figures_dir.mkdir(parents=True, exist_ok=True)
-
     # Determine which events to plot
     if specific_events:
         # Convert 1-indexed to 0-indexed and filter valid indices
@@ -756,15 +754,15 @@ def generate_time_series_plots(
         is_excluded = event.get("is_excluded", False)
         print(f"  {test_name}: {event['shower_on'].strftime('%Y-%m-%d %H:%M')}")
 
-        # Excluded events go in a dedicated subdirectory
-        if is_excluded:
-            plot_dir = event_figures_dir / "excluded_events"
-            plot_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            plot_dir = event_figures_dir
-
         start_date = event["pre_start"] - timedelta(hours=1)
         end_date = event["post_end"] + timedelta(hours=1)
+
+        # Map var_type to the type-specific subdir name
+        _type_to_subdir = {
+            "rh": "rh_timeseries",
+            "temperature": "temperature_timeseries",
+            "wind": "wind_timeseries",
+        }
 
         for var_type in ["rh", "temperature", "wind"]:
             sensors = {
@@ -774,6 +772,13 @@ def generate_time_series_plots(
             }
             if var_type == "rh":
                 sensors = {k: v for k, v in sensors.items() if k not in RH_TIMESERIES_EXCLUDE}
+
+            # Excluded events go to a single excluded_events dir; others use type subdir
+            if is_excluded:
+                plot_dir = get_event_figures_subdir(output_dir, "excluded_events")
+            else:
+                plot_dir = get_event_figures_subdir(output_dir, _type_to_subdir[var_type])
+            plot_dir.mkdir(parents=True, exist_ok=True)
 
             # Use cached data instead of reloading for each plot
             data_dict = {}
@@ -1176,7 +1181,7 @@ def run_rh_temp_analysis(
     if generate_plots:
         generate_time_series_plots(events, output_dir, max_plot_events, specific_events)
         generate_comparison_plots(all_results, events, output_dir)
-        print(f"\nEvent timeseries saved to: {get_event_figures_dir(output_dir)}")
+        print(f"\nEvent timeseries saved to: {get_event_figures_dir(output_dir)}/<type>_timeseries/")
         print(f"Summary plots saved to: {output_dir / 'plots'}")
 
     # Print summary

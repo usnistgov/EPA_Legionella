@@ -7,11 +7,11 @@ Particle Analysis Plotting Functions
 This module provides specialized plotting functions for particle decay and
 emission analysis in the EPA Legionella project. Functions are called by
 particle_decay_analysis.py and produce individual event figures, cross-event
-summary bar charts, and water-temperature/metric-axis boxplots for all seven
-particle size bins (0.35–3.0 µm).
+summary bar charts, and water-temperature/metric-axis boxplots for all twelve
+particle size bins (0.35–10.0 µm).
 
 Key Functions:
-    - plot_particle_decay_event: Two-panel individual event figure (concentration + emission)
+    - plot_particle_decay_event: Four-panel individual event figure (concentration + three emission groups)
     - plot_penetration_summary: Bar chart of penetration factors by size bin
     - plot_deposition_summary: Bar chart of other process (deposition) rates by size bin
     - plot_emission_summary: Bar chart of emission rates by size bin
@@ -24,8 +24,11 @@ Key Functions:
     - plot_emission_etotal_by_showerhead_boxplot: E_total grouped by shower head type
 
 Plot Features:
-    - Two-panel event plots: concentration time series (top) + per-step emission rates (bottom)
-    - Color-coded particle size bins; solid lines for valid beta, faded/dashed for invalid (NaN) beta
+    - Four-panel event plots: concentration time series (top) + three per-step emission panels
+      (bins 0–2 small, 3–6 medium, 7–11 large)
+    - Color-coded particle size bins; all bins plotted as solid lines regardless of beta validity
+    - Optional outdoor PM overlay: dotted lines at 55% alpha showing outdoor concentrations
+      for events listed in OUTDOOR_PM_EVENTS (e.g., event 77)
     - Shaded deposition analysis window (2 hr post-shower)
     - Shower ON/OFF dotted markers distinct from fit/predicted dashed lines
     - Decay R² values listed in top-panel text box alongside lambda and valid-bin count
@@ -34,7 +37,7 @@ Plot Features:
       spanning shower_on to peak_time; y-axis clipped to 2nd–98th percentile of E_per_step data
     - Emission panel x-axis matches concentration panel (shared time axis)
     - Fixed water-temperature axis boxplots (5–60 °C, configurable); box widths scale
-      with bin particle size (Bin 0 narrowest → Bin 6 widest)
+      with bin particle size (Bin 0 narrowest → Bin 11 widest)
     - Metric-axis boxplots: each W## group centred at the group mean of the predictor column;
       box widths proportional to data range
     - Shower-head boxplot: categorical x-axis with three temperature clusters and visible gaps
@@ -42,13 +45,14 @@ Plot Features:
     - Temperature-based colors from get_config_color(); RH from rh_temp_wind_summary.xlsx
 
 Methodology:
-    1. Extract data window around shower event (2 hr before to 1.5 hr after deposition end)
-    2. Top panel: plot measured particle concentrations for all 7 size bins
+    1. Extract data window around shower event (1 hr before to 0.5 hr after deposition end)
+    2. Top panel: plot measured particle concentrations for all 12 size bins
     3. Shade deposition window and overlay continuous predicted Ct curves per valid bin
        (emission phase shower_on→peak_time, then decay phase; decay starts from predicted
        concentration at peak_time, not the measured peak value)
-    4. Bottom panel: per-step E_t as faint lines; E_mean as dashed horizontal lines
-       per valid bin; R² annotation displayed in panel
+    4. Bottom panels (3): small bins 0–2, medium bins 3–6, large bins 7–11; per-step E_t
+       as faint lines; E_mean as dashed horizontal lines per valid bin; y-axis uses 1e#
+       notation; R² annotation displayed in the small-bins emission panel
     5. Summary bar charts: compute mean ± std across all events for each metric and bin
     6. Fixed-axis boxplots: group events by W## config key; draw one box per group per bin;
        annotate with W##, n count, and mean bedroom RH
@@ -62,13 +66,13 @@ Output Files:
     - deposition_summary.png: Bar chart of other process (beta) rates across all events
     - emission_summary.png: Bar chart of emission rates across all events
     - size_distribution_summary.png: Multi-panel summary of all metrics
-    - emission_etotal_boxplot_{bin0-2,bin3-6}.png: E_total by water temperature
-    - deposition_rate_boxplot_{bin0-2,bin3-6}.png: beta_raw_mean by water temperature
-    - emission_rate_boxplot_{bin0-2,bin3-6}.png: E_mean by water temperature
-    - penetration_factor_boxplot_{bin0-2,bin3-6}.png: p_mean by water temperature
-    - emission_etotal_by_{metric}_{bin0-2,bin3-6}.png: E_total vs. continuous metric
-      (10 figures: bedroom_rh, bedroom_temp, acr, beta, p × two bin groups)
-    - emission_etotal_by_showerhead_{bin0-2,bin3-6}.png: E_total by shower head type
+    - emission_etotal_boxplot_{bin0-2,bin3-6,bin7-11}.png: E_total by water temperature
+    - deposition_rate_boxplot_{bin0-2,bin3-6,bin7-11}.png: beta_raw_mean by water temperature
+    - emission_rate_boxplot_{bin0-2,bin3-6,bin7-11}.png: E_mean by water temperature
+    - penetration_factor_boxplot_{bin0-2,bin3-6,bin7-11}.png: p_mean by water temperature
+    - emission_etotal_by_{metric}_{bin0-2,bin3-6,bin7-11}.png: E_total vs. continuous metric
+      (15 figures: bedroom_rh, bedroom_temp, acr, beta, p × three bin groups)
+    - emission_etotal_by_showerhead_{bin0-2,bin3-6,bin7-11}.png: E_total by shower head type
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -122,6 +126,7 @@ def plot_particle_decay_event(
     output_path: Path,
     event_number: int,
     test_name: Optional[str] = None,
+    show_outdoor: bool = False,
 ) -> None:
     """
     Plot particle concentration decay for a single event showing all bins.
@@ -129,19 +134,17 @@ def plot_particle_decay_event(
     Creates a two-panel figure matching the CO2 analytical plot style:
 
     Top panel (ax1) — concentration time series:
-      - Measured particle concentrations for all 7 bins (solid = valid beta,
-        dashed = invalid beta)
-      - Continuous predicted Ct curve per valid bin (emission phase from
-        shower_on to peak_time, then decay phase from peak_time to
-        deposition_end, both as dashed lines of the same colour forming one
-        unbroken model prediction; decay starts from predicted concentration
-        at peak, not from measured peak value)
+      - Measured indoor particle concentrations for all bins
+      - Continuous predicted Ct curve per valid bin (emission + decay phases)
       - Shower ON/OFF markers and shaded deposition window
+      - Optional outdoor PM overlay (when show_outdoor=True): plots
+        opc_binN_outside columns using the same per-bin colours with
+        reduced alpha and dotted lines
 
-    Bottom panel (ax2) — per-step emission rates:
+    Bottom panels (ax2–ax4) — per-step emission rates by bin group:
       - Per-step E_t values as faint lines for each valid bin
       - E_mean as a horizontal dashed line spanning shower_on to peak_time
-      - Emission R² annotation in the panel
+      - Emission R² annotation in each panel
 
     Parameters:
         particle_data: DataFrame with particle concentrations
@@ -151,12 +154,14 @@ def plot_particle_decay_event(
         output_path: Path to save the figure
         event_number: Event number for title
         test_name: Test name for title (e.g., "0114_HW_Morning_R01")
+        show_outdoor: If True, overlay outdoor PM concentration on the top
+            panel using opc_binN_outside columns (same colours, dotted lines).
     """
     apply_style()
 
-    # Extract data for plotting window (2 hours before shower to 1.5 hours after deposition end)
-    plot_start = event["shower_on"] - timedelta(hours=2)
-    plot_end = event["deposition_end"] + timedelta(hours=1.5)
+    # Extract data for plotting window (1 hour before shower to 0.5 hours after deposition end)
+    plot_start = event["shower_on"] - timedelta(hours=1)
+    plot_end = event["deposition_end"] + timedelta(hours=0.5)
 
     mask = (particle_data["datetime"] >= plot_start) & (
         particle_data["datetime"] <= plot_end
@@ -167,11 +172,11 @@ def plot_particle_decay_event(
         print(f"    Warning: No data for event {event_number}")
         return
 
-    # Three-panel figure: concentration (top) + emission small bins + emission large bins
+    # Four-panel figure: concentration (top) + three emission panels by bin group
     fig, axes_array = create_figure(
-        nrows=3, ncols=1, figsize=(12, 11), height_ratios=[2, 1, 1]
+        nrows=4, ncols=1, figsize=(12, 14), height_ratios=[2, 1, 1, 1]
     )
-    ax1, ax2, ax3 = cast(np.ndarray, axes_array)
+    ax1, ax2, ax3, ax4 = cast(np.ndarray, axes_array)
 
     lambda_ach = result.get("lambda_ach", np.nan)
 
@@ -183,21 +188,15 @@ def plot_particle_decay_event(
         color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
 
         if col_inside in plot_data.columns:
-            # Check if this bin has valid decay results
-            beta_val = result.get(f"bin{bin_num}_beta_other", np.nan)
-            is_valid = not np.isnan(beta_val)
-            linestyle = "-" if is_valid else "--"
-            alpha = 0.9 if is_valid else 0.4
-
-            # Plot raw data
+            # Plot raw instrument data — always solid regardless of beta validity
             ax1.plot(
                 plot_data["datetime"],
                 plot_data[col_inside],
                 label=f"Bin {bin_num} ({bin_info['name']} µm)",
                 color=color,
                 linewidth=LINE_WIDTH_DATA,
-                linestyle=linestyle,
-                alpha=alpha,
+                linestyle="-",
+                alpha=0.9,
             )
 
             # Plot continuous predicted Ct: emission phase then decay phase
@@ -247,6 +246,33 @@ def plot_particle_decay_event(
             linewidth=LINE_WIDTH_FIT,
             label="Predicted Ct",
         )
+
+    # Optional outdoor PM concentration overlay
+    if show_outdoor:
+        outdoor_added = False
+        for bin_num, bin_info in particle_bins.items():
+            col_outside = f"{bin_info['column']}_outside"
+            color = SENSOR_COLORS[bin_num % len(SENSOR_COLORS)]
+            if col_outside in plot_data.columns:
+                ax1.plot(
+                    plot_data["datetime"],
+                    plot_data[col_outside],
+                    color=color,
+                    linewidth=LINE_WIDTH_DATA * 0.8,
+                    linestyle=":",
+                    alpha=0.55,
+                )
+                outdoor_added = True
+        if outdoor_added:
+            ax1.plot(
+                [],
+                [],
+                color="gray",
+                linestyle=":",
+                linewidth=LINE_WIDTH_DATA * 0.8,
+                alpha=0.55,
+                label="Outdoor Concentration",
+            )
 
     # Add shaded window for deposition analysis period
     add_shaded_window(
@@ -341,12 +367,14 @@ def plot_particle_decay_event(
 
     # =========================================================================
     # Emission panels: per-step emission rates split by bin group
-    # ax2 = Bins 0–2 (small particles, higher E)
-    # ax3 = Bins 3–6 (large particles, lower E)
-    # Each panel has its own y-axis scale so both groups are readable.
+    # ax2 = Bins 0–2  (small particles)
+    # ax3 = Bins 3–6  (medium particles)
+    # ax4 = Bins 7–11 (large particles)
+    # Each panel has its own y-axis scale so all groups are readable.
     # =========================================================================
     bins_small = [bn for bn in particle_bins.keys() if bn <= 2]
-    bins_large = [bn for bn in particle_bins.keys() if bn > 2]
+    bins_medium = [bn for bn in particle_bins.keys() if 3 <= bn <= 6]
+    bins_large = [bn for bn in particle_bins.keys() if bn >= 7]
 
     # Shared x-axis limits: 10 min before shower_on to 10 min after latest peak_time
     peak_times = []
@@ -415,7 +443,7 @@ def plot_particle_decay_event(
 
         ax.axhline(0, color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
         ax.set_ylabel(f"E (#/cm³·min)\n{panel_label}", fontsize=FONT_SIZE_LABEL - 1)
-        ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0), useMathText=True)
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0), useMathText=False)
         ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=FONT_SIZE_TICK)
         ax.set_xlim(ax_e_left, ax_e_right)
@@ -461,7 +489,8 @@ def plot_particle_decay_event(
             )
 
     _populate_emission_panel(ax2, bins_small, "Bins 0–2 (small)")
-    _populate_emission_panel(ax3, bins_large, "Bins 3–6 (large)")
+    _populate_emission_panel(ax3, bins_medium, "Bins 3–6 (medium)")
+    _populate_emission_panel(ax4, bins_large, "Bins 7–11 (large)")
 
     plt.tight_layout()
     save_figure(fig, output_path)
@@ -535,13 +564,15 @@ def _plot_summary_bar_chart(
         config_keys = ["All"]
         n_configs = 1
 
+    # Scale figure width with bin count (at least 1.4 in per bin, min 14 in wide)
+    fig_width = max(14, len(bin_nums) * 1.4)
     if n_configs > 1:
         fig, axes = plt.subplots(
-            n_configs, 1, figsize=(12, 5 * n_configs), squeeze=False
+            n_configs, 1, figsize=(fig_width, 6 * n_configs), squeeze=False
         )
         axes = axes.flatten()
     else:
-        fig, _ax = create_figure(figsize=(10, 6))
+        fig, _ax = create_figure(figsize=(fig_width, 6))
         if isinstance(_ax, list):
             _ax = _ax[0]
         axes = [_ax]
@@ -571,23 +602,25 @@ def _plot_summary_bar_chart(
             x,
             means,
             yerr=stds,
-            capsize=5,
+            capsize=4,
             color=bar_color,
             alpha=0.7,
             edgecolor="black",
             linewidth=1,
         )
 
-        for bar, mean, std in zip(bars, means, stds):
-            if mean > 0:
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() + std + cfg["label_offset"],
-                    sf.fmt_fig(mean, fallback=cfg["label_fmt"]),
-                    ha="center",
-                    va="bottom",
-                    fontsize=FONT_SIZE_TICK - 1,
-                )
+        # Only add value labels if the number of bins is small enough to avoid overlap
+        if len(bin_nums) <= 8:
+            for bar, mean, std in zip(bars, means, stds):
+                if mean > 0:
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        bar.get_height() + std + cfg["label_offset"],
+                        sf.fmt_fig(mean, fallback=cfg["label_fmt"]),
+                        ha="center",
+                        va="bottom",
+                        fontsize=FONT_SIZE_TICK - 2,
+                    )
 
         ax.set_xlabel("Particle Size Bin (µm)", fontsize=FONT_SIZE_LABEL)
         ax.set_ylabel(cfg["ylabel"], fontsize=FONT_SIZE_LABEL)
@@ -603,7 +636,7 @@ def _plot_summary_bar_chart(
             )
 
         ax.set_xticks(x)
-        ax.set_xticklabels(bin_labels, rotation=45, ha="right")
+        ax.set_xticklabels(bin_labels, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
 
         if cfg["ylim"] is not None:
             ax.set_ylim(*cfg["ylim"])
@@ -620,10 +653,9 @@ def _plot_summary_bar_chart(
             cfg["title"],
             fontsize=FONT_SIZE_TITLE + 2,
             fontweight=TITLE_FONTWEIGHT,
-            y=1.02,
         )
 
-    plt.tight_layout()
+    plt.tight_layout(pad=2.0)
     save_figure(fig, output_path)
     plt.close(fig)
 
@@ -1033,7 +1065,8 @@ def _draw_temp_axis_boxplot(
     )
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
-        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
+        ([b for b in all_bin_nums if 3 <= b <= 6], "bin3-6"),
+        ([b for b in all_bin_nums if b >= 7], "bin7-11"),
     ]
 
     for group_bins, group_label in bin_groups:
@@ -1310,7 +1343,8 @@ def plot_emission_etotal_by_metric_boxplot(
 
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
-        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
+        ([b for b in all_bin_nums if 3 <= b <= 6], "bin3-6"),
+        ([b for b in all_bin_nums if b >= 7], "bin7-11"),
     ]
 
     for group_bins, group_label in bin_groups:
@@ -1531,7 +1565,8 @@ def plot_emission_etotal_by_showerhead_boxplot(
 
     bin_groups = [
         ([b for b in all_bin_nums if b <= 2], "bin0-2"),
-        ([b for b in all_bin_nums if b >= 3], "bin3-6"),
+        ([b for b in all_bin_nums if 3 <= b <= 6], "bin3-6"),
+        ([b for b in all_bin_nums if b >= 7], "bin7-11"),
     ]
 
     for group_bins, group_label in bin_groups:

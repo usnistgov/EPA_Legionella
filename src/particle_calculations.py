@@ -22,7 +22,7 @@ Key Functions:
       from shower_on to deposition_end; split into emission and decay phases
 
 Processing Features:
-    - Seven Alphasense OPC-N3 particle size bins (0.35–3.0 µm) processed
+    - Twelve Alphasense OPC-N3 particle size bins (0.35–10.0 µm) processed
       independently via PARTICLE_BINS configuration
     - All rate parameters (lambda, beta) use consistent h⁻¹ units; conversions
       to min⁻¹ applied internally where needed
@@ -104,6 +104,11 @@ PARTICLE_BINS = {
     4: {"name": "1.3-1.7", "min": 1.3, "max": 1.7, "column": "opc_bin4"},
     5: {"name": "1.7-2.3", "min": 1.7, "max": 2.3, "column": "opc_bin5"},
     6: {"name": "2.3-3.0", "min": 2.3, "max": 3.0, "column": "opc_bin6"},
+    7: {"name": "3.0-4.0", "min": 3.0, "max": 4.0, "column": "opc_bin7"},
+    8: {"name": "4.0-5.2", "min": 4.0, "max": 5.2, "column": "opc_bin8"},
+    9: {"name": "5.2-6.5", "min": 5.2, "max": 6.5, "column": "opc_bin9"},
+    10: {"name": "6.5-8.0", "min": 6.5, "max": 8.0, "column": "opc_bin10"},
+    11: {"name": "8.0-10.0", "min": 8.0, "max": 10.0, "column": "opc_bin11"},
 }
 
 # Physical parameters

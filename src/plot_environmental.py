@@ -26,6 +26,8 @@ Analysis Features:
     - Wind data: raw trace shown faintly (alpha=0.3), 1-minute rolling average overlaid bold
     - Shaded pre-shower (30 min) and post-shower (2 hr) analysis windows
     - Configuration-grouped subplots for multi-condition pre/post comparisons
+    - Jittered scatter overlay on all pre/post boxplots (individual data points visible,
+      solves the "orange median line only" issue for n=1 groups)
     - Sensor name suffix removal (RH, Temp, Speed, Direction) for cleaner legends
 
 Methodology:
@@ -613,6 +615,15 @@ def plot_pre_post_comparison(
                 for patch in bp_pre["boxes"]:
                     patch.set_facecolor(COLORS["pre_shower"])
                     patch.set_alpha(0.7)
+                # Overlay individual data points
+                for sensor_idx, vals in valid_pre:
+                    x_pos = positions_pre[sensor_idx]
+                    jitter = np.random.uniform(-0.15, 0.15, size=len(vals))
+                    sub_ax.scatter(
+                        x_pos + jitter, vals, color=COLORS["pre_shower"],
+                        s=18, alpha=0.8, zorder=4, linewidths=0.5,
+                        edgecolors="black",
+                    )
 
             if valid_post:
                 bp_post = sub_ax.boxplot(
@@ -624,6 +635,15 @@ def plot_pre_post_comparison(
                 for patch in bp_post["boxes"]:
                     patch.set_facecolor(COLORS["post_shower"])
                     patch.set_alpha(0.7)
+                # Overlay individual data points
+                for sensor_idx, vals in valid_post:
+                    x_pos = positions_post[sensor_idx]
+                    jitter = np.random.uniform(-0.15, 0.15, size=len(vals))
+                    sub_ax.scatter(
+                        x_pos + jitter, vals, color=COLORS["post_shower"],
+                        s=18, alpha=0.8, zorder=4, linewidths=0.5,
+                        edgecolors="black",
+                    )
 
             sub_ax.set_xticks((positions_pre + 0.35).tolist())
             simplified_names = [simplify_sensor_name(s) for s in sensors]
@@ -713,6 +733,14 @@ def plot_pre_post_comparison(
         for patch in bp_pre["boxes"]:
             patch.set_facecolor(COLORS["pre_shower"])
             patch.set_alpha(0.7)
+        # Overlay individual data points
+        for sensor_idx, vals in valid_pre:
+            x_pos = positions_pre[sensor_idx]
+            jitter = np.random.uniform(-0.15, 0.15, size=len(vals))
+            ax.scatter(
+                x_pos + jitter, vals, color=COLORS["pre_shower"],
+                s=18, alpha=0.8, zorder=4, linewidths=0.5, edgecolors="black",
+            )
 
     if valid_post:
         bp_post = ax.boxplot(
@@ -724,6 +752,14 @@ def plot_pre_post_comparison(
         for patch in bp_post["boxes"]:
             patch.set_facecolor(COLORS["post_shower"])
             patch.set_alpha(0.7)
+        # Overlay individual data points
+        for sensor_idx, vals in valid_post:
+            x_pos = positions_post[sensor_idx]
+            jitter = np.random.uniform(-0.15, 0.15, size=len(vals))
+            ax.scatter(
+                x_pos + jitter, vals, color=COLORS["post_shower"],
+                s=18, alpha=0.8, zorder=4, linewidths=0.5, edgecolors="black",
+            )
 
     ax.set_xticks((positions_pre + 0.35).tolist())
     # Simplify sensor names by removing variable type suffix (title has this info)

@@ -16,13 +16,18 @@ companion analysis constrain the mass balance, enabling independent estimation o
 penetration, deposition, and emission for each size bin across all shower events.
 
 Particle size bins analyzed (um):
-    - Bin 0: 0.35-0.46
-    - Bin 1: 0.46-0.66
-    - Bin 2: 0.66-1.0
-    - Bin 3: 1.0-1.3
-    - Bin 4: 1.3-1.7
-    - Bin 5: 1.7-2.3
-    - Bin 6: 2.3-3.0
+    - Bin 0:  0.35-0.46
+    - Bin 1:  0.46-0.66
+    - Bin 2:  0.66-1.0
+    - Bin 3:  1.0-1.3
+    - Bin 4:  1.3-1.7
+    - Bin 5:  1.7-2.3
+    - Bin 6:  2.3-3.0
+    - Bin 7:  3.0-4.0
+    - Bin 8:  4.0-5.2
+    - Bin 9:  5.2-6.5
+    - Bin 10: 6.5-8.0
+    - Bin 11: 8.0-10.0
 
 Key Metrics Calculated:
     - p: Particle penetration factor (dimensionless, 0-1 range)
@@ -33,9 +38,11 @@ Key Metrics Calculated:
 Analysis Features:
     - Numerical solution of time-dependent mass balance equation
     - Integration with CO2-derived air change rates
-    - Per-bin analysis for size-dependent behavior
+    - Per-bin analysis for size-dependent behavior (12 bins, 0.35–10.0 µm)
     - Statistical summaries across all shower events
     - Comprehensive visualization of decay curves and emissions
+    - OUTDOOR_PM_EVENTS list: events for which outdoor PM concentrations are overlaid
+      on the concentration panel (dotted lines); currently [77]
 
 Methodology:
     The mass balance equation for indoor particle concentration:
@@ -114,25 +121,28 @@ Output Files:
         * peak_comparison: Measured vs. predicted concentration at peak_time and
           deposition_end for each bin, with percent difference (wide format,
           one row per event)
-    - plots/event_figures/event_NN-YYYYYY_pm_decay.png: Individual event decay curves
-      (two-panel): top panel shows measured concentrations and continuous
-      predicted Ct (emission + decay phases) with decay R² in text box;
-      bottom panel shows per-step E_t, E_mean dashed lines, and emission R²
-      annotation; shower markers use dotted lines; E plot x-axis matches
-      concentration panel; E plot y-axis clipped to 2nd-98th percentile
+    - plots/event_figures/pm_decay/event_NN-YYYYYY_pm_decay.png: Individual event decay
+      curves (four-panel): top panel shows measured concentrations and continuous
+      predicted Ct (emission + decay phases) with decay R² in text box; three emission
+      panels (bins 0–2, 3–6, 7–11) show per-step E_t, E_mean dashed lines, and emission
+      R² annotation (first emission panel); shower markers use dotted lines; emission
+      x-axes match concentration panel; emission y-axes clipped to 2nd-98th percentile;
+      events in OUTDOOR_PM_EVENTS also overlay outdoor PM concentrations (dotted lines)
+    - plots/event_figures/excluded_events/: Figures for excluded events (duration-excluded
+      showers saved here for reference rather than in type-specific subdirs)
     - plots/penetration_summary.png: Summary bar chart of penetration factors by size
     - plots/deposition_summary.png: Summary bar chart of other process rates by size
     - plots/emission_summary.png: Summary bar chart of emission rates by size
-    - plots/emission_etotal_boxplot.png: E_total by water temperature and bin (fixed temp axis)
-    - plots/other_process_rate_boxplot.png: β by water temperature and bin (fixed temp axis)
-    - plots/emission_rate_boxplot.png: E_mean by water temperature and bin (fixed temp axis)
-    - plots/penetration_factor_boxplot.png: p by water temperature and bin (fixed temp axis)
-    - plots/emission_etotal_by_bedroom_rh_boxplot.png: E_total vs. bedroom RH (metric axis)
-    - plots/emission_etotal_by_bedroom_temp_boxplot.png: E_total vs. bedroom temperature (metric axis)
-    - plots/emission_etotal_by_acr_boxplot.png: E_total vs. air change rate (metric axis)
-    - plots/emission_etotal_by_beta_boxplot.png: E_total vs. other process rate (metric axis)
-    - plots/emission_etotal_by_p_boxplot.png: E_total vs. penetration factor (metric axis)
-    - plots/emission_etotal_by_showerhead_boxplot.png: E_total by shower head type
+    - plots/emission_etotal_boxplot_{bin0-2,bin3-6,bin7-11}.png: E_total by water temp (fixed axis)
+    - plots/other_process_rate_boxplot_{bin0-2,bin3-6,bin7-11}.png: β by water temp (fixed axis)
+    - plots/emission_rate_boxplot_{bin0-2,bin3-6,bin7-11}.png: E_mean by water temp (fixed axis)
+    - plots/penetration_factor_boxplot_{bin0-2,bin3-6,bin7-11}.png: p by water temp (fixed axis)
+    - plots/emission_etotal_by_bedroom_rh_boxplot_{bin0-2,bin3-6,bin7-11}.png: vs. bedroom RH
+    - plots/emission_etotal_by_bedroom_temp_boxplot_{bin0-2,bin3-6,bin7-11}.png: vs. bedroom temp
+    - plots/emission_etotal_by_acr_boxplot_{bin0-2,bin3-6,bin7-11}.png: vs. air change rate
+    - plots/emission_etotal_by_beta_boxplot_{bin0-2,bin3-6,bin7-11}.png: vs. other process rate
+    - plots/emission_etotal_by_p_boxplot_{bin0-2,bin3-6,bin7-11}.png: vs. penetration factor
+    - plots/emission_etotal_by_showerhead_boxplot_{bin0-2,bin3-6,bin7-11}.png: by shower head
 
 Applications:
     - Characterizing size-resolved particle penetration and deposition in residential
@@ -175,7 +185,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import src.sig_figs as sf  # noqa: E402
-from src.data_paths import get_data_root, get_event_figures_dir  # noqa: E402
+from src.data_paths import get_data_root, get_event_figures_dir, get_event_figures_subdir  # noqa: E402
 from src.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
@@ -201,6 +211,16 @@ from src.particle_data_loader import (  # noqa: E402
     load_co2_lambda_results,
     load_shower_log,
 )
+
+# =============================================================================
+# User-Configurable: Outdoor PM Overlay
+# =============================================================================
+# List event numbers for which the outdoor PM concentration should be overlaid
+# on the pm_decay figure alongside the indoor concentration.  Useful for events
+# where outdoor aerosol infiltration context is important (e.g. event 77,
+# which occurred during an open-window night test).
+# Set to an empty list [] to disable for all events.
+OUTDOOR_PM_EVENTS: list = [77]
 
 # =============================================================================
 # Event Analysis Orchestration
@@ -560,10 +580,10 @@ def run_particle_analysis(
 
     # Setup plot directory
     plot_dir = output_dir / "plots"
-    event_figures_dir = get_event_figures_dir(output_dir)
+    pm_decay_dir = get_event_figures_subdir(output_dir, "pm_decay")
     if generate_plots:
         plot_dir.mkdir(exist_ok=True)
-        event_figures_dir.mkdir(parents=True, exist_ok=True)
+        pm_decay_dir.mkdir(parents=True, exist_ok=True)
 
     for event in events:
         event_num = event.get("event_number", 0)
@@ -584,7 +604,7 @@ def run_particle_analysis(
                     from src.plot_particle import plot_particle_decay_event
                     from src.plot_style import format_test_name_for_filename
 
-                    excluded_dir = event_figures_dir / "excluded_events"
+                    excluded_dir = get_event_figures_subdir(output_dir, "excluded_events")
                     excluded_dir.mkdir(parents=True, exist_ok=True)
 
                     # Ensure deposition_end is set (fall back to shower_off + 2h)
@@ -655,7 +675,7 @@ def run_particle_analysis(
                 # Format filename: event_01-0114_hw_morning_pm_decay.png
                 formatted_name = format_test_name_for_filename(test_name)
                 plot_path = (
-                    event_figures_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
+                    pm_decay_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
                 )
                 plot_particle_decay_event(
                     particle_data=particle_data,
@@ -665,6 +685,7 @@ def run_particle_analysis(
                     output_path=plot_path,
                     event_number=event_num,
                     test_name=test_name,
+                    show_outdoor=event_num in OUTDOOR_PM_EVENTS,
                 )
             except ImportError:
                 pass  # Already warned about missing plot module

@@ -19,8 +19,10 @@ Plot Features:
     - Color-coded sensor traces (Bedroom, Bathroom, Entry, Outside)
     - Exponential fit curves with uncertainty bands
     - Injection and decay window markers
+    - Shower ON/OFF dotted vertical markers overlaid on the CO2 concentration panel
     - Configuration-based color-coding and grouping for multi-temperature experiments
     - Significant-figures formatting for figure annotation values (sf.fmt_fig())
+    - Lambda summary figure: wider layout (14×5n), 45° x-tick rotation, tight_layout padding
 
 Methodology:
     1. Extract data window around injection event (±hours_before/after)
@@ -66,6 +68,8 @@ from src.plot_style import (
     LINE_WIDTH_DATA,
     LINE_WIDTH_FIT,
     TITLE_FONTWEIGHT,
+    add_shower_off_marker,
+    add_shower_on_marker,
     apply_style,
     create_figure,
     format_datetime_axis,
@@ -448,6 +452,14 @@ def plot_co2_decay_event_analytical(
         alpha=0.7,
     )
 
+    # Add shower ON/OFF markers if available in the event dict
+    shower_on = event.get("shower_on")
+    shower_off = event.get("shower_off")
+    if shower_on is not None and not pd.isnull(pd.Timestamp(shower_on)):
+        add_shower_on_marker(ax1, pd.Timestamp(shower_on), label="Shower ON")
+    if shower_off is not None and not pd.isnull(pd.Timestamp(shower_off)):
+        add_shower_off_marker(ax1, pd.Timestamp(shower_off), label="Shower OFF")
+
     ax1.set_ylabel("CO$_2$ Concentration (ppm)")
     ax1.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
     ax1.set_ylim(bottom=0)
@@ -560,7 +572,7 @@ def plot_lambda_summary(
     # Create figure with subplots (one row per configuration)
     if n_configs > 1:
         fig, axes = plt.subplots(
-            n_configs, 1, figsize=(12, 4 * n_configs), sharex=False, squeeze=False
+            n_configs, 1, figsize=(14, 5 * n_configs), sharex=False, squeeze=False
         )
         axes = axes.flatten()
         # Cast ndarray of Axes to list[Axes] for type checking
@@ -661,6 +673,7 @@ def plot_lambda_summary(
             )
 
         ax.set_xticks([int(e) for e in event_numbers])
+        ax.tick_params(axis="x", labelsize=FONT_SIZE_TICK - 2, rotation=45)
         ax.legend(loc="upper right", fontsize=FONT_SIZE_LEGEND)
         ax.set_ylim(bottom=0)
         ax.grid(True, alpha=0.3, axis="y")
@@ -671,10 +684,9 @@ def plot_lambda_summary(
             "Air-Change Rate Summary by Configuration",
             fontsize=FONT_SIZE_TITLE + 2,
             fontweight=TITLE_FONTWEIGHT,
-            y=1.02,
         )
 
-    plt.tight_layout()
+    plt.tight_layout(pad=2.0)
 
     if output_path is not None:
         save_figure(fig, output_path, close=False)

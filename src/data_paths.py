@@ -27,7 +27,10 @@ Key Functions:
     - get_indoor_data_path / get_outdoor_data_path: Convenience wrappers for indoor/outdoor data directories.
     - get_indoor_data_file / get_outdoor_data_file: Convenience wrappers for indoor/outdoor data files.
     - get_quantaq_data_path: Convenience wrapper for QuantAQ data directory.
-    - get_event_figures_dir: Compute directory for per-event figure files.
+    - get_event_figures_dir: Compute root directory for per-event figure files.
+    - get_event_figures_subdir: Compute type-specific subdirectory for per-event figures
+      (co2_decay/, pm_decay/, rh_timeseries/, temperature_timeseries/, wind_timeseries/,
+      excluded_events/).
 
 Module Features:
     - Machine-independent paths via data_config.json
@@ -475,10 +478,10 @@ def get_quantaq_data_path() -> Path:
 
 def get_event_figures_dir(output_dir: Path) -> Path:
     """
-    Get the directory path for per-event figure files.
+    Get the root directory path for per-event figure files.
 
     Per-event figures (CO2 decay, PM decay, RH/Temp/Wind timeseries) are saved
-    in a subdirectory of the main plots folder to keep the plots folder tidy.
+    in type-specific subdirectories under this root to keep figures organized.
 
     Args:
         output_dir: The analysis output directory (e.g. data_root/output)
@@ -491,3 +494,25 @@ def get_event_figures_dir(output_dir: Path) -> Path:
         "event_figures_subfolder", "event_figures"
     )
     return output_dir / "plots" / subfolder
+
+
+def get_event_figures_subdir(output_dir: Path, figure_type: str) -> Path:
+    """
+    Get the type-specific subdirectory path for per-event figure files.
+
+    Figure types and their subdirectory names:
+        - "co2_decay"              → event_figures/co2_decay/
+        - "pm_decay"               → event_figures/pm_decay/
+        - "rh_timeseries"          → event_figures/rh_timeseries/
+        - "temperature_timeseries" → event_figures/temperature_timeseries/
+        - "wind_timeseries"        → event_figures/wind_timeseries/
+        - "excluded_events"        → event_figures/excluded_events/
+
+    Args:
+        output_dir: The analysis output directory (e.g. data_root/output)
+        figure_type: One of the type strings listed above.
+
+    Returns:
+        Path: output_dir / "plots" / event_figures_subfolder / figure_type
+    """
+    return get_event_figures_dir(output_dir) / figure_type
