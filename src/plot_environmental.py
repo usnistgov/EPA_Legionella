@@ -4,37 +4,46 @@
 Environmental Data Plotting Functions
 ======================================
 
-This module provides plotting functions for environmental data (RH, Temperature,
-Wind) analysis around shower events in the EPA Legionella project. Supports
-multi-sensor visualization and pre/post shower comparisons.
+This module provides plotting functions for environmental data (RH, temperature,
+wind) around shower events in the EPA Legionella project. It handles multi-sensor
+visualization, sensor name mapping, canonical display ordering, and pre/post shower
+comparisons. Imported by rh_temp_other_analysis.py for per-event and summary figures.
 
 Key Functions:
-    - add_shower_markers: Add shower ON/OFF event markers with consistent styling
-    - add_analysis_windows: Add shaded pre/post analysis windows
-    - plot_environmental_time_series: Time series plots for RH/Temp/Wind
-    - plot_pre_post_comparison: Box plots comparing pre vs post shower
+    - simplify_sensor_name: Strip variable-type suffix and apply display name mapping
+    - sort_sensors_by_display_order: Order sensors by SENSOR_DISPLAY_ORDER list
+    - add_shower_markers: Add shower ON/OFF vertical markers with centralized styling
+    - add_analysis_windows: Shade pre-shower (30 min) and post-shower (2 hr) windows
+    - plot_environmental_time_series: Time series for RH/Temp/Wind around a shower event
+    - plot_pre_post_comparison: Box plots comparing pre vs post shower distributions
     - plot_sensor_summary_bars: Bar charts of sensor summary statistics
-    - simplify_sensor_name: Convert internal names to display names
 
-Plot Features:
-    - Multi-sensor overlay with distinct colors per sensor
-    - Dual y-axis support for wind speed + direction
-    - Shaded pre-shower (30 min) and post-shower (2 hr) windows
-    - Box plot distributions for pre/post comparison
-    - Configuration-based subplot grouping
-    - Sensor display name mapping for cleaner legends
+Analysis Features:
+    - Multi-sensor overlay with distinct colors per sensor (SENSOR_COLORS)
+    - Canonical sensor display order (SENSOR_DISPLAY_ORDER) for consistent legend/axis ordering
+    - Display name mapping (SENSOR_DISPLAY_NAMES): internal names → human-readable labels
+    - Dual y-axis wind plots: speed on left axis, direction (0–360°) on right axis
+    - Wind data: raw trace shown faintly (alpha=0.3), 1-minute rolling average overlaid bold
+    - Shaded pre-shower (30 min) and post-shower (2 hr) analysis windows
+    - Configuration-grouped subplots for multi-condition pre/post comparisons
+    - Sensor name suffix removal (RH, Temp, Speed, Direction) for cleaner legends
 
 Methodology:
-    1. Load time series data for all sensors of given variable type
-    2. Filter to event window (±hours before/after shower)
-    3. Plot each sensor with distinct color from SENSOR_COLORS
-    4. Add shower ON/OFF vertical line markers
-    5. Shade analysis windows for baseline and response periods
+    1. Caller provides sensor data as {sensor_name: DataFrame} dicts
+    2. Filter each sensor's data to the plot time window
+    3. Sort sensors by SENSOR_DISPLAY_ORDER for consistent legend and axis ordering
+    4. Apply display name mapping via simplify_sensor_name for cleaner labels
+    5. Route to wind-specific (_plot_wind_data) or standard (_plot_standard_data) renderer
+    6. Overlay shower ON/OFF markers and optional analysis window shading
+    7. Save to caller-supplied output_path if provided
 
 Output Files:
-    - Time series: event_NN-MMDD_temp_door_tod_{vartype}_timeseries.png
-    - Comparisons: {vartype}_pre_post_boxplot.png
-    - Summaries: {vartype}_pre_shower_summary.png, {vartype}_post_shower_summary.png
+    None; output paths are supplied by the caller. Typical conventions used by
+    rh_temp_other_analysis.py:
+    - event_NN-MMDD_temp_door_tod_{vartype}_timeseries.png  (per-event time series)
+    - {vartype}_pre_post_boxplot.png                        (pre/post comparison)
+    - {vartype}_pre_shower_summary.png                      (pre-shower bar chart)
+    - {vartype}_post_shower_summary.png                     (post-shower bar chart)
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
