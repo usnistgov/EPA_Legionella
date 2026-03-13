@@ -1,0 +1,28 @@
+(epa_mh) PS C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella> python scripts\export_event_timeseries.py --event 101
+============================================================
+Event Time-Series Export — Event 101
+============================================================
+
+Loading event registry...
+
+Loading events from registry: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\event_log.csv
+  Loaded 117 events from registry
+  Events with lambda values: 93
+Traceback (most recent call last):
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\export_event_timeseries.py", line 344, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\export_event_timeseries.py", line 335, in main
+    export_event_timeseries(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        event_number=args.event,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        apply_sig_figs=not args.no_sig_figs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nml\OneDrive - NIST\Documents\GitHub\python_coding\NIST_EPA_Legionella\scripts\export_event_timeseries.py", line 193, in export_event_timeseries
+    events, used_registry = get_events_from_registry(output_dir)
+    ^^^^^^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 2, got 3)
