@@ -105,7 +105,7 @@ def build_ct_dataframe(result: dict) -> pd.DataFrame:
         ct_dts = result.get(f"bin{bin_num}_ct_datetimes", [])
         ct_pred = result.get(f"bin{bin_num}_ct_predicted", [])
 
-        if not ct_dts or not ct_pred:
+        if not len(ct_dts) or not len(ct_pred):
             # Try reconstructing from emission + decay segments
             em_dts = result.get(f"bin{bin_num}_emission_datetimes", [])
             em_pred = result.get(f"bin{bin_num}_emission_predicted", [])
@@ -114,10 +114,10 @@ def build_ct_dataframe(result: dict) -> pd.DataFrame:
             ct_dts = list(em_dts) + list(dc_dts)
             ct_pred = list(em_pred) + list(dc_pred)
 
-        if ct_dts and ct_pred:
+        if len(ct_dts) and len(ct_pred):
             ts = pd.to_datetime(ct_dts)
             vals = np.array(ct_pred, dtype=float)
-            frames[f"bin{bin_num}_Ct"] = pd.Series(vals, index=ts)
+            frames[f"bin{bin_num}_Ct (#/cm3)"] = pd.Series(vals, index=ts)
 
     if not frames:
         return pd.DataFrame()
@@ -148,10 +148,10 @@ def build_et_dataframe(result: dict) -> pd.DataFrame:
         e_times = result.get(f"bin{bin_num}_E_times", [])
         e_per_step = result.get(f"bin{bin_num}_E_per_step", [])
 
-        if e_times and e_per_step:
+        if len(e_times) and len(e_per_step):
             ts = pd.to_datetime(e_times)
             vals = np.array(e_per_step, dtype=float)
-            frames[f"bin{bin_num}_Et"] = pd.Series(vals, index=ts)
+            frames[f"bin{bin_num}_Et (#/cm3/min)"] = pd.Series(vals, index=ts)
 
     if not frames:
         return pd.DataFrame()
@@ -190,7 +190,7 @@ def export_event_timeseries(
 
     # ── Load events from registry ──────────────────────────────────────────
     print("\nLoading event registry...")
-    events, used_registry = get_events_from_registry(output_dir)
+    events, _co2_results_df, used_registry = get_events_from_registry(output_dir)
     if not used_registry or not events:
         print("ERROR: Could not load event registry.")
         print("  Run 'python scripts/event_registry.py' first.")
@@ -235,7 +235,7 @@ def export_event_timeseries(
 
     # ── Load particle data ─────────────────────────────────────────────────
     print("\nLoading QuantAQ particle data...")
-    particle_data = load_and_merge_quantaq_data(output_dir)
+    particle_data = load_and_merge_quantaq_data()
     if particle_data is None or particle_data.empty:
         print("ERROR: Could not load particle data.")
         sys.exit(1)
