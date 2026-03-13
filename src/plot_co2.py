@@ -352,7 +352,7 @@ def plot_co2_decay_event_analytical(
     lambda_std = result.get("lambda_average_std", np.nan)
 
     hours_before = 1.0
-    hours_after = 0.5
+    hours_after = 1.0
     window_start = injection_time - pd.Timedelta(hours=hours_before)
     window_end = decay_end + pd.Timedelta(hours=hours_after)
 
