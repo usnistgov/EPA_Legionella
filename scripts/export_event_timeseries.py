@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Export Event Time-Series to Excel
-==================================
+Export Event Time-Series to CSV
+=================================
 
 One-off utility script that runs the particle decay analysis for a single
-event and writes the predicted per-step emission rate (E_t) and predicted
-indoor concentration (Ct) for all analysed size bins to a time-indexed
-Excel workbook.
+event and writes the predicted indoor concentration (Ct) for all analysed
+size bins to a time-indexed CSV file.
 
 Intended use: provide time-series data to collaborators who want the
 model predictions without regenerating all figures.
 
-Output Excel workbook contains two sheets:
-    - predicted_ct:  Timestamp | bin0_Ct (#/cm³) | bin1_Ct | … | bin11_Ct
-    - predicted_et:  Timestamp | bin0_Et (#/cm³·min) | bin1_Et | … | bin11_Et
+Output CSV columns:
+    Timestamp | bin0_Ct (#/cm³) | bin1_Ct | … | bin11_Ct
 
 Usage
 -----
@@ -22,7 +20,7 @@ Usage
     python scripts/export_event_timeseries.py --event 101
 
     # Specify output path explicitly:
-    python scripts/export_event_timeseries.py --event 101 --output my_output.xlsx
+    python scripts/export_event_timeseries.py --event 101 --output my_output.csv
 
     # Skip sig-fig rounding:
     python scripts/export_event_timeseries.py --event 101 --no-sig-figs
@@ -30,8 +28,8 @@ Usage
 Arguments
 ---------
     --event INT       Event number to export (required).
-    --output PATH     Path for the output Excel file.  Defaults to
-                      <output_dir>/event_{NN}_timeseries.xlsx.
+    --output PATH     Path for the output CSV file.  Defaults to
+                      <output_dir>/event_{NN}_timeseries.csv.
     --output-dir PATH Analysis output directory (default: data_root/output).
     --no-sig-figs     Disable significant-figure rounding on exported values.
 
@@ -128,39 +126,6 @@ def build_ct_dataframe(result: dict) -> pd.DataFrame:
     return df
 
 
-def build_et_dataframe(result: dict) -> pd.DataFrame:
-    """
-    Build a time-indexed DataFrame of per-step emission rate E_t (#/cm³·min)
-    for all bins.
-
-    Parameters
-    ----------
-    result : dict
-        Output of analyze_event_all_bins for a single event.
-
-    Returns
-    -------
-    pd.DataFrame
-        Indexed by timestamp; one column per bin (bin0_Et … binN_Et).
-    """
-    frames = {}
-    for bin_num in PARTICLE_BINS.keys():
-        e_times = result.get(f"bin{bin_num}_E_times", [])
-        e_per_step = result.get(f"bin{bin_num}_E_per_step", [])
-
-        if len(e_times) and len(e_per_step):
-            ts = pd.to_datetime(e_times)
-            vals = np.array(e_per_step, dtype=float)
-            frames[f"bin{bin_num}_Et (#/cm3/min)"] = pd.Series(vals, index=ts)
-
-    if not frames:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(frames)
-    df.index.name = "timestamp"
-    df.sort_index(inplace=True)
-    return df
-
 
 def export_event_timeseries(
     event_number: int,
@@ -247,11 +212,10 @@ def export_event_timeseries(
     print(f"\nRunning particle decay analysis for event {event_number:02d}...")
     result = analyze_event_all_bins(particle_data, event, lambda_ach)
 
-    # ── Build DataFrames ───────────────────────────────────────────────────
+    # ── Build DataFrame ────────────────────────────────────────────────────
     ct_df = build_ct_dataframe(result)
-    et_df = build_et_dataframe(result)
 
-    if ct_df.empty and et_df.empty:
+    if ct_df.empty:
         print("WARNING: No predicted data available for this event.")
         print("  Check that p, beta, and E were computed successfully.")
         sys.exit(1)
@@ -259,25 +223,13 @@ def export_event_timeseries(
     # ── Apply sig figs ─────────────────────────────────────────────────────
     if apply_sig_figs:
         ct_df = sf.apply_sig_figs_to_df(ct_df)
-        et_df = sf.apply_sig_figs_to_df(et_df)
 
-    # ── Write Excel ────────────────────────────────────────────────────────
+    # ── Write CSV ──────────────────────────────────────────────────────────
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"\nWriting Excel workbook: {output_path}")
-    with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-        if not ct_df.empty:
-            ct_out = ct_df.reset_index()
-            ct_out.to_excel(writer, sheet_name="predicted_ct", index=False)
-            print(f"  predicted_ct: {len(ct_out)} rows × {len(ct_out.columns)} columns")
-        else:
-            print("  predicted_ct: no data (skipping sheet)")
-
-        if not et_df.empty:
-            et_out = et_df.reset_index()
-            et_out.to_excel(writer, sheet_name="predicted_et", index=False)
-            print(f"  predicted_et: {len(et_out)} rows × {len(et_out.columns)} columns")
-        else:
-            print("  predicted_et: no data (skipping sheet)")
+    print(f"\nWriting CSV: {output_path}")
+    ct_out = ct_df.reset_index()
+    ct_out.to_csv(output_path, index=False)
+    print(f"  {len(ct_out)} rows × {len(ct_out.columns)} columns")
 
     print(f"\nDone. Output: {output_path}")
 
@@ -294,8 +246,8 @@ def export_event_timeseries(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Export predicted emission (E_t) and concentration (Ct) "
-        "time-series for a single particle decay event to Excel.",
+        description="Export predicted concentration (Ct) time-series for a "
+        "single particle decay event to CSV.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -308,8 +260,8 @@ def main() -> None:
         "--output",
         type=str,
         default=None,
-        help="Path for the output Excel file.  Defaults to "
-        "<output_dir>/event_NN_timeseries.xlsx.",
+        help="Path for the output CSV file.  Defaults to "
+        "<output_dir>/event_NN_timeseries.csv.",
     )
     parser.add_argument(
         "--output-dir",
@@ -330,7 +282,7 @@ def main() -> None:
     if args.output:
         output_path = Path(args.output)
     else:
-        output_path = output_dir / f"event_{args.event:02d}_timeseries.xlsx"
+        output_path = output_dir / f"event_{args.event:02d}_timeseries.csv"
 
     export_event_timeseries(
         event_number=args.event,
