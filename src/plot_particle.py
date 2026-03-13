@@ -159,13 +159,11 @@ def plot_particle_decay_event(
     """
     apply_style()
 
-    # Extract data for plotting window (1 hour before shower to 0.5 hours after deposition end)
+    # Extract data for plotting window (1 hour before shower to 1 hour after deposition end)
     plot_start = event["shower_on"] - timedelta(hours=1)
-    plot_end = event["deposition_end"] + timedelta(hours=0.5)
+    plot_end = event["deposition_end"] + timedelta(hours=1)
 
-    mask = (particle_data["datetime"] >= plot_start) & (
-        particle_data["datetime"] <= plot_end
-    )
+    mask = (particle_data["datetime"] >= plot_start) & (particle_data["datetime"] <= plot_end)
     plot_data = particle_data[mask].copy()
 
     if plot_data.empty:
@@ -173,9 +171,7 @@ def plot_particle_decay_event(
         return
 
     # Four-panel figure: concentration (top) + three emission panels by bin group
-    fig, axes_array = create_figure(
-        nrows=4, ncols=1, figsize=(12, 14), height_ratios=[2, 1, 1, 1]
-    )
+    fig, axes_array = create_figure(nrows=4, ncols=1, figsize=(12, 14), height_ratios=[2, 1, 1, 1])
     ax1, ax2, ax3, ax4 = cast(np.ndarray, axes_array)
 
     lambda_ach = result.get("lambda_ach", np.nan)
@@ -311,9 +307,7 @@ def plot_particle_decay_event(
         if not np.isnan(beta_val):
             valid_bins += 1
             r2_val = result.get(f"bin{bin_num}_beta_other_r_squared", np.nan)
-            r2_str = (
-                sf.fmt_fig(r2_val, fallback=".3f") if not np.isnan(r2_val) else "N/A"
-            )
+            r2_str = sf.fmt_fig(r2_val, fallback=".3f") if not np.isnan(r2_val) else "N/A"
             decay_r2_lines.append(f" B{bin_num}: R²={r2_str}")
 
     # Build text box content: lambda, valid-bin count, and per-bin decay R²
@@ -431,11 +425,7 @@ def plot_particle_decay_event(
                     linestyle="--",
                     alpha=0.9,
                 )
-                r2_str = (
-                    sf.fmt_fig(E_r2_val, fallback=".3f")
-                    if not np.isnan(E_r2_val)
-                    else "N/A"
-                )
+                r2_str = sf.fmt_fig(E_r2_val, fallback=".3f") if not np.isnan(E_r2_val) else "N/A"
                 r2_lines.append(f"B{bin_num}: R²={r2_str}")
 
         add_shower_on_marker(ax, event["shower_on"])
@@ -463,9 +453,7 @@ def plot_particle_decay_event(
 
         if r2_lines:
             r2_text = "Emission R²:\n" + "\n".join(r2_lines)
-            props_r2 = dict(
-                boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray"
-            )
+            props_r2 = dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray")
             ax.text(
                 0.02,
                 0.98,
@@ -488,9 +476,9 @@ def plot_particle_decay_event(
                 color="gray",
             )
 
-    _populate_emission_panel(ax2, bins_small, "Bins 0–2 (small)")
-    _populate_emission_panel(ax3, bins_medium, "Bins 3–6 (medium)")
-    _populate_emission_panel(ax4, bins_large, "Bins 7–11 (large)")
+    _populate_emission_panel(ax2, bins_small, "Bins 0–2")
+    _populate_emission_panel(ax3, bins_medium, "Bins 3–6")
+    _populate_emission_panel(ax4, bins_large, "Bins 7–11")
 
     plt.tight_layout()
     save_figure(fig, output_path)
@@ -567,9 +555,7 @@ def _plot_summary_bar_chart(
     # Scale figure width with bin count (at least 1.4 in per bin, min 14 in wide)
     fig_width = max(14, len(bin_nums) * 1.4)
     if n_configs > 1:
-        fig, axes = plt.subplots(
-            n_configs, 1, figsize=(fig_width, 6 * n_configs), squeeze=False
-        )
+        fig, axes = plt.subplots(n_configs, 1, figsize=(fig_width, 6 * n_configs), squeeze=False)
         axes = axes.flatten()
     else:
         fig, _ax = create_figure(figsize=(fig_width, 6))
@@ -631,9 +617,7 @@ def _plot_summary_bar_chart(
                 fontweight=TITLE_FONTWEIGHT,
             )
         else:
-            ax.set_title(
-                cfg["title"], fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
-            )
+            ax.set_title(cfg["title"], fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
 
         ax.set_xticks(x)
         ax.set_xticklabels(bin_labels, rotation=45, ha="right", fontsize=FONT_SIZE_TICK - 1)
@@ -685,14 +669,10 @@ def plot_deposition_summary(
         particle_bins: Dictionary of particle bin information.
         output_path: Path to save the figure.
     """
-    _plot_summary_bar_chart(
-        results_df, particle_bins, output_path, _BAR_CHART_CONFIG["deposition"]
-    )
+    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["deposition"])
 
 
-def plot_emission_summary(
-    results_df: pd.DataFrame, particle_bins: Dict, output_path: Path
-) -> None:
+def plot_emission_summary(results_df: pd.DataFrame, particle_bins: Dict, output_path: Path) -> None:
     """Bar chart of emission rates across all bins (mean ± std per bin).
 
     Parameters:
@@ -700,9 +680,7 @@ def plot_emission_summary(
         particle_bins: Dictionary of particle bin information.
         output_path: Path to save the figure.
     """
-    _plot_summary_bar_chart(
-        results_df, particle_bins, output_path, _BAR_CHART_CONFIG["emission"]
-    )
+    _plot_summary_bar_chart(results_df, particle_bins, output_path, _BAR_CHART_CONFIG["emission"])
 
 
 def plot_size_distribution_summary(
@@ -721,9 +699,7 @@ def plot_size_distribution_summary(
     apply_style()
 
     bin_nums = list(particle_bins.keys())
-    bin_centers = [
-        (particle_bins[i]["min"] + particle_bins[i]["max"]) / 2 for i in bin_nums
-    ]
+    bin_centers = [(particle_bins[i]["min"] + particle_bins[i]["max"]) / 2 for i in bin_nums]
 
     fig, axes_temp = create_figure(nrows=1, ncols=3, figsize=(15, 5))
     axes = cast(np.ndarray, axes_temp)
@@ -802,9 +778,7 @@ def plot_size_distribution_summary(
     )
     axes[2].set_xlabel("Particle Size (µm)", fontsize=FONT_SIZE_LABEL)
     axes[2].set_ylabel("Emission Rate E (#/min)", fontsize=FONT_SIZE_LABEL)
-    axes[2].set_title(
-        "(c) Emission Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT
-    )
+    axes[2].set_title("(c) Emission Rate", fontsize=FONT_SIZE_TITLE, fontweight=TITLE_FONTWEIGHT)
     axes[2].grid(True, alpha=0.3)
 
     # Apply log scale if needed
@@ -963,9 +937,7 @@ def _build_temp_stats(
             temp_stats[temp]["n"] += n
             if not np.isnan(max_val):
                 cur = temp_stats[temp].get("max_val", np.nan)
-                temp_stats[temp]["max_val"] = (
-                    max(cur, max_val) if not np.isnan(cur) else max_val
-                )
+                temp_stats[temp]["max_val"] = max(cur, max_val) if not np.isnan(cur) else max_val
             if "shower_on" in group_df.columns:
                 temp_stats[temp]["shower_on"] = pd.concat(
                     [temp_stats[temp]["shower_on"], group_df["shower_on"]]
@@ -1092,9 +1064,7 @@ def _draw_temp_axis_boxplot(
                 temp = temp_map.get(config_key)
                 if temp is None:
                     continue
-                values = (
-                    base_df[base_df["config_key"] == config_key][col].dropna().values
-                )
+                values = base_df[base_df["config_key"] == config_key][col].dropna().values
                 if len(values) > 0:
                     positions.append(temp)
                     data.append(values)
@@ -1142,15 +1112,12 @@ def _draw_temp_axis_boxplot(
         ax.set_ylabel(cfg["ylabel"], fontsize=FONT_SIZE_LABEL)
         bin_label = group_label.replace("-", "–").replace("bin", "Bin ")
         ax.set_title(
-            f"{cfg['title_metric']} by Water Temperature — {bin_label}"
-            f"\n{cfg['title_note']}",
+            f"{cfg['title_metric']} by Water Temperature — {bin_label}\n{cfg['title_note']}",
             fontsize=FONT_SIZE_TITLE,
             fontweight=TITLE_FONTWEIGHT,
         )
         if cfg["hline"] is not None:
-            ax.axhline(
-                cfg["hline"], color="gray", linewidth=0.8, linestyle=":", alpha=0.6
-            )
+            ax.axhline(cfg["hline"], color="gray", linewidth=0.8, linestyle=":", alpha=0.6)
         ax.grid(True, alpha=0.3, axis="y")
         ax.tick_params(labelsize=FONT_SIZE_TICK)
 
@@ -1169,9 +1136,7 @@ def _draw_temp_axis_boxplot(
             ncol=1,
         )
 
-        group_output = (
-            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
-        )
+        group_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
         plt.tight_layout()
         save_figure(fig, group_output)
         plt.close(fig)
@@ -1410,9 +1375,7 @@ def plot_emission_etotal_by_metric_boxplot(
                 x_pos = group_x_pos.get(config_key)
                 if x_pos is None:
                     continue
-                values = (
-                    base_df[base_df["config_key"] == config_key][col].dropna().values
-                )
+                values = base_df[base_df["config_key"] == config_key][col].dropna().values
                 if len(values) > 0:
                     positions.append(x_pos)
                     data.append(values)
@@ -1489,9 +1452,7 @@ def plot_emission_etotal_by_metric_boxplot(
             ncol=1,
         )
 
-        metric_output = (
-            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
-        )
+        metric_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
         plt.tight_layout()
         save_figure(fig, metric_output)
         plt.close(fig)
@@ -1709,9 +1670,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
             ncol=1,
         )
 
-        sh_output = (
-            output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
-        )
+        sh_output = output_path.parent / f"{output_path.stem}_{group_label}{output_path.suffix}"
         plt.tight_layout()
         save_figure(fig, sh_output)
         plt.close(fig)
