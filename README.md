@@ -238,7 +238,7 @@ Each step's output is logged to `output/logs/<script_name>.log`. Or run steps in
    | `--output-dir DIR` | Output directory (default: `data_root/output`) |
    | `--no-plot` | Disable plot generation |
    | `--no-sig-figs` | Disable significant figure rounding (default: 3 sig figs for files, 2 for figures) |
-   | `--entry-stop` | Truncate decay window when C_entry ≥ C_bedroom (prevents entry-zone leakage from contaminating the bedroom decay fit) |
+   | `--entry-stop` | Truncate decay window when C_bedroom ≤ 100 + (C_entry + C_outside) / 2 — stops the fit once the remaining bedroom decay signal is within 100 ppm of the entry/outside background mean |
 
 6. **Environmental Analysis**: Characterize RH, temperature, and wind conditions
    ```bash
