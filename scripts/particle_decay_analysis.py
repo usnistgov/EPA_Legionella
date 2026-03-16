@@ -185,7 +185,11 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import src.sig_figs as sf  # noqa: E402
-from src.data_paths import get_data_root, get_event_figures_dir, get_event_figures_subdir  # noqa: E402
+from src.data_paths import (  # noqa: E402
+    get_data_root,
+    get_event_figures_dir,
+    get_event_figures_subdir,
+)
 from src.event_manager import (  # noqa: E402
     is_event_excluded,
     process_events_with_management,
@@ -220,7 +224,7 @@ from src.particle_data_loader import (  # noqa: E402
 # where outdoor aerosol infiltration context is important (e.g. event 77,
 # which occurred during an open-window night test).
 # Set to an empty list [] to disable for all events.
-OUTDOOR_PM_EVENTS: list = [77]
+OUTDOOR_PM_EVENTS: list = [75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85]
 
 # =============================================================================
 # Event Analysis Orchestration
@@ -678,9 +682,7 @@ def run_particle_analysis(
 
                 # Format filename: event_01-0114_hw_morning_pm_decay.png
                 formatted_name = format_test_name_for_filename(test_name)
-                plot_path = (
-                    pm_decay_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
-                )
+                plot_path = pm_decay_dir / f"event_{event_num:02d}-{formatted_name}_pm_decay.png"
                 plot_particle_decay_event(
                     particle_data=particle_data,
                     event=event,
