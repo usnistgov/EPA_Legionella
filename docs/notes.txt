@@ -21,11 +21,11 @@ Date	Time	Change/Note
 3/4/2026	10:23 AM	Pepco shower head.  40 C.  Wide Spray Setting.
 3/6/2026	8:47 AM	Pepco Shower head.  40 C. Mid-limp spray setting
 3/9/2026	8:47 AM	Pepco shower head.  40 C.  Narrow Spray Setting
-3/11/2026	9:47 AM	Pepco shower head.  40 C.  Narrow Spray Setting. Manny!
-3/12/2026	10:47 AM	Pepco shower head.  38 C.  Narrow Spray Setting. NO Manny!
-3/13/2026	8:45 AM	Pepco shower head.  38 C.  Narrow Spray Setting. Manny!
+3/11/2026	9:47 AM	Pepco shower head.  40 C.  Narrow Spray Setting with mannequin
+3/12/2026	10:47 AM	Pepco shower head.  38 C.  Narrow Spray Setting
+3/13/2026	8:45 AM	Pepco shower head.  38 C.  Narrow Spray Setting with mannequin
 3/15/2026		CO2 failure
 		
-		Plan to put towel under door?
+		Plan to put towel under door bedroom to livingroom door?
 		Plan to remove HVAC covers, remove towel
-		Plan to turn on exhaust fan
+		Plan to turn on exhaust fan durring shower.
