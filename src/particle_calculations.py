@@ -29,7 +29,7 @@ Processing Features:
     - R²-based 4-step beta selection (threshold 0.80): (a) unclamped trimmed
       mean; (b) clamp ≥ 0; (c) set beta = 0; (d) if still R² < 0.80 return
       beta = NaN (bin invalid — no Ct prediction plotted)
-    - Penetration windows span ~5 h each and are time-of-day-aware to capture
+    - Penetration windows span ~6 h each and are time-of-day-aware to capture
       stable indoor/outdoor ratios without shower-influenced periods
     - Emission R² computed separately for the forward Euler emission-phase fit
 
@@ -124,14 +124,16 @@ ROLLING_WINDOW_MIN = 0  # Rolling average window in minutes (0 = no smoothing)
 
 # Validation thresholds
 # MAX_OTHER_PROCESS_RATE: upper cap on individual per-step beta estimates before
-# percentile-trimming.  Values above 15 h⁻¹ correspond to a half-life of
-# ~4 min for gravitational settling alone, which is physically unreasonable
-# for particles < 3 µm; these are almost certainly noise spikes.
-MAX_OTHER_PROCESS_RATE = 15.0  # Maximum reasonable β (h⁻¹)
+# percentile-trimming.  Values above 5 h⁻¹ correspond to a half-life of
+# ~12 min for gravitational settling alone, which is physically unreasonable
+# for particles < 3 µm; these are almost certainly noise spikes.  Measured
+# β values in this study range from −1.0 to +2.5 h⁻¹, so 5 h⁻¹ provides
+# a generous but defensible upper bound.
+MAX_OTHER_PROCESS_RATE = 5.0  # Maximum reasonable β (h⁻¹)
 
 # Minimum data point requirements
-# MIN_POINTS_PENETRATION: penetration windows are ~5 h long at 1-min resolution
-# (~300 data points); 10 is a very loose lower bound that only rejects windows
+# MIN_POINTS_PENETRATION: penetration windows are ~6 h long at 1-min resolution
+# (~360 data points); 10 is a very loose lower bound that only rejects windows
 # with severe data dropouts.
 MIN_POINTS_PENETRATION = 10  # Minimum points for penetration calculation
 # MIN_POINTS_OTHER_PROCESS: the 2-hr decay window contains ~120 points; 10 ensures
@@ -155,12 +157,12 @@ def get_penetration_windows(
     Calculate penetration factor averaging windows based on shower time and time of day.
 
     For Night events:
-        Before: 9pm (day before) to 2am (day of)
-        After:  9am (day of) to 2pm (day of)
+        Before: 8pm (day before) to 2am (day of)   [6 h window]
+        After:  8am (day of) to 2pm (day of)        [6 h window]
 
     For Day events:
-        Before: 9am (day of) to 2pm (day of)
-        After:  9pm (day of) to 2am (next day)
+        Before: 8am (day of) to 2pm (day of)        [6 h window]
+        After:  8pm (day of) to 2am (next day)      [6 h window]
 
     Parameters:
         shower_on (datetime): Shower start time
@@ -177,18 +179,18 @@ def get_penetration_windows(
     )
 
     if is_night_event:
-        # 3am event: before = 9pm (day before) to 2am (day of)
-        #             after  = 9am (day of) to 2pm (day of)
-        before_start = shower_date - timedelta(hours=3)  # 9pm day before
+        # 3am event: before = 8pm (day before) to 2am (day of)  [6 h window]
+        #             after  = 8am (day of) to 2pm (day of)      [6 h window]
+        before_start = shower_date - timedelta(hours=4)  # 8pm day before
         before_end = shower_date + timedelta(hours=2)  # 2am day of
-        after_start = shower_date + timedelta(hours=9)  # 9am day of
+        after_start = shower_date + timedelta(hours=8)  # 8am day of
         after_end = shower_date + timedelta(hours=14)  # 2pm day of
     else:
-        # 3pm event: before = 9am (day of) to 2pm (day of)
-        #             after  = 9pm (day of) to 2am (next day)
-        before_start = shower_date + timedelta(hours=9)  # 9am day of
+        # 3pm event: before = 8am (day of) to 2pm (day of)      [6 h window]
+        #             after  = 8pm (day of) to 2am (next day)    [6 h window]
+        before_start = shower_date + timedelta(hours=8)  # 8am day of
         before_end = shower_date + timedelta(hours=14)  # 2pm day of
-        after_start = shower_date + timedelta(hours=21)  # 9pm day of
+        after_start = shower_date + timedelta(hours=20)  # 8pm day of
         after_end = shower_date + timedelta(hours=26)  # 2am next day
 
     return [(before_start, before_end), (after_start, after_end)]
@@ -278,16 +280,16 @@ def calculate_penetration_factor(
 
     QA filters applied:
         - MIN_POINTS_PENETRATION (10): minimum valid points per window; each
-          window spans ~5 h at 1-min resolution (~300 points), so this only
+          window spans ~6 h at 1-min resolution (~360 points), so this only
           rejects windows with severe data dropouts.
         - Zero/NaN concentrations excluded before computing ratios.
         - p capped at 1.0 (physical upper bound for infiltration factor).
 
     Window timing (see get_penetration_windows for exact offsets):
-        Night events: before = 9 pm (day before) → 2 am (day of);
-                      after  = 9 am → 2 pm (day of)
-        Day events:   before = 9 am → 2 pm (day of);
-                      after  = 9 pm (day of) → 2 am (next day)
+        Night events: before = 8 pm (day before) → 2 am (day of);  [6 h]
+                      after  = 8 am → 2 pm (day of)                [6 h]
+        Day events:   before = 8 am → 2 pm (day of);               [6 h]
+                      after  = 8 pm (day of) → 2 am (next day)     [6 h]
 
     Parameters:
         particle_data (pd.DataFrame): DataFrame with particle concentrations
@@ -413,8 +415,10 @@ def calculate_other_process_rate(
               step (a) succeeds, 0 if step (c) is reached, or NaN if step (d)
               is reached — meaning the bin is invalid and no Ct prediction
               should be plotted), beta_raw_mean (unclamped trimmed mean),
-              beta_std, beta_r_squared, n_points, c_steady_state, and
-              peak_time; or NaN values + skip_reason on failure
+              beta_std, beta_r_squared, beta_step ("a"/"b"/"c"/"d" indicating
+              which selection step was accepted; NaN on early failure),
+              n_points, c_steady_state, and peak_time; or NaN values +
+              skip_reason on failure
     """
     bin_info = PARTICLE_BINS[bin_num]
     col_inside = f"{bin_info['column']}_inside"
@@ -425,6 +429,7 @@ def calculate_other_process_rate(
         "beta_raw_mean": np.nan,
         "beta_std": np.nan,
         "beta_r_squared": np.nan,
+        "beta_step": np.nan,
         "n_points": 0,
         "c_steady_state": np.nan,
         "peak_time": None,
@@ -557,11 +562,13 @@ def calculate_other_process_rate(
     # Step (b): clamp to non-negative
     # Step (c): force beta = 0
     # Step (d): beta = 0 still fails → bin is invalid (beta returned as NaN)
+    # beta_step records which step was accepted ("a"/"b"/"c"/"d") for traceability.
     R2_THRESHOLD = 0.80
     r2_a = _r2_for_beta(beta_mean)
     if not np.isnan(r2_a) and r2_a >= R2_THRESHOLD:
         beta_val = beta_mean
         r_squared = r2_a
+        beta_step = "a"
     else:
         # Step (b): clamp to non-negative; many events where indoor ≈ outdoor
         beta_nonneg = max(beta_mean, 0.0)
@@ -569,18 +576,21 @@ def calculate_other_process_rate(
         if not np.isnan(r2_b) and r2_b >= R2_THRESHOLD:
             beta_val = beta_nonneg
             r_squared = r2_b
+            beta_step = "b"
         else:
             # Step (c): noise-dominated; try beta = 0
             r2_c = _r2_for_beta(0.0)
             if not np.isnan(r2_c) and r2_c >= R2_THRESHOLD:
                 beta_val = 0.0
                 r_squared = r2_c
+                beta_step = "c"
             else:
                 # Step (d): beta = 0 also fails; bin is invalid — return NaN so
                 # downstream code skips Ct prediction and omits the predicted curve.
                 # beta_r_squared is still recorded (R² for beta=0) for diagnostics.
                 beta_val = np.nan
                 r_squared = r2_c if not np.isnan(r2_c) else _r2_for_beta(0.0)
+                beta_step = "d"
 
     # Steady-state concentration (using mean outdoor concentration)
     total_loss = lambda_ach + beta_val
@@ -593,6 +603,7 @@ def calculate_other_process_rate(
         "beta_raw_mean": beta_mean,
         "beta_std": beta_std_val,
         "beta_r_squared": r_squared,
+        "beta_step": beta_step,
         "n_points": len(beta_trimmed),
         "c_steady_state": float(c_steady_state),
         "peak_time": peak_time,
