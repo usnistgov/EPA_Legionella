@@ -187,55 +187,55 @@ EXPERIMENT_START_DATE = datetime(2026, 1, 15, 15, 0, 0)
 # Codes are pure numeric: W11, W22, W25, etc. Shower head and spray pattern
 # are tracked separately in SHOWER_HEAD_TRANSITIONS and SPRAY_PATTERN_TRANSITIONS.
 WATER_TEMP_TRANSITIONS = [
-    (datetime(2026, 1, 14,  0,  0, 0), "W48"),  # Experiment start
-    (datetime(2026, 1, 22, 14,  0, 0), "W11"),  # Cold water from Jan 22 2PM
-    (datetime(2026, 2,  2, 17,  0, 0), "W25"),  # Warm water from Feb 2 5PM
-    (datetime(2026, 2,  5, 10,  0, 0), "W30"),  # Warm water from Feb 5 10AM
-    (datetime(2026, 2,  9, 10,  0, 0), "W37"),  # Warm water from Feb 9 10AM
-    (datetime(2026, 2, 11,  8,  0, 0), "W23"),  # Feb 11 8AM (data excluded; kept for documentation)
-    (datetime(2026, 2, 13, 11,  0, 0), "W22"),  # Warm water from Feb 13 11AM
-    (datetime(2026, 2, 16, 11,  0, 0), "W43"),  # Hot water from Feb 16 11AM
+    (datetime(2026, 1, 14, 0, 0, 0), "W48"),  # Experiment start
+    (datetime(2026, 1, 22, 14, 0, 0), "W11"),  # Cold water from Jan 22 2PM
+    (datetime(2026, 2, 2, 17, 0, 0), "W25"),  # Warm water from Feb 2 5PM
+    (datetime(2026, 2, 5, 10, 0, 0), "W30"),  # Warm water from Feb 5 10AM
+    (datetime(2026, 2, 9, 10, 0, 0), "W37"),  # Warm water from Feb 9 10AM
+    (datetime(2026, 2, 11, 8, 0, 0), "W23"),  # Feb 11 8AM (data excluded; kept for documentation)
+    (datetime(2026, 2, 13, 11, 0, 0), "W22"),  # Warm water from Feb 13 11AM
+    (datetime(2026, 2, 16, 11, 0, 0), "W43"),  # Hot water from Feb 16 11AM
     (datetime(2026, 2, 18, 10, 23, 0), "W14"),  # Cold water from Feb 18 10:23AM
-    (datetime(2026, 2, 20,  8,  0, 0), "W53"),  # Hot water from Feb 20 8AM
-    (datetime(2026, 2, 24,  8,  0, 0), "W52"),  # Pepco head installed; 52°C from Feb 24 8AM
+    (datetime(2026, 2, 20, 8, 0, 0), "W53"),  # Hot water from Feb 20 8AM
+    (datetime(2026, 2, 24, 8, 0, 0), "W52"),  # Pepco head installed; 52°C from Feb 24 8AM
     (datetime(2026, 2, 26, 10, 23, 0), "W49"),  # Pepco 49°C from Feb 26 10:23AM
-    (datetime(2026, 3,  2,  9, 23, 0), "W40"),  # Pepco 40°C from Mar 2 9:23AM
-    (datetime(2026, 3,  4, 10, 23, 0), "W40"),  # Spray pattern change; temp unchanged Mar 4 10:23AM
-    (datetime(2026, 3,  6,  8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 6 8:47AM
-    (datetime(2026, 3,  9,  8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 9 8:47AM
-    (datetime(2026, 3, 11,  9, 47, 0), "W40"),  # Mannequin added; temp unchanged Mar 11 9:47AM
+    (datetime(2026, 3, 2, 9, 23, 0), "W40"),  # Pepco 40°C from Mar 2 9:23AM
+    (datetime(2026, 3, 4, 10, 23, 0), "W40"),  # Spray pattern change; temp unchanged Mar 4 10:23AM
+    (datetime(2026, 3, 6, 8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 6 8:47AM
+    (datetime(2026, 3, 9, 8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 9 8:47AM
+    (datetime(2026, 3, 11, 9, 47, 0), "W40"),  # Mannequin added; temp unchanged Mar 11 9:47AM
     (datetime(2026, 3, 12, 10, 47, 0), "W38"),  # 38°C from Mar 12 10:47AM
-    (datetime(2026, 3, 13,  8, 45, 0), "W38"),  # Mannequin re-added; temp unchanged Mar 13 8:45AM
+    (datetime(2026, 3, 13, 8, 45, 0), "W38"),  # Mannequin re-added; temp unchanged Mar 13 8:45AM
 ]
 
 # Shower head transitions: (datetime, head_type)
 # Types: "Standard", "Pepco"
 SHOWER_HEAD_TRANSITIONS = [
-    (datetime(2026, 1, 14,  0,  0, 0), "Standard"),  # Standard head from experiment start
-    (datetime(2026, 2, 24,  8,  0, 0), "Pepco"),     # Pepco shower head installed Feb 24
+    (datetime(2026, 1, 14, 0, 0, 0), "Standard"),  # Standard head from experiment start
+    (datetime(2026, 2, 24, 8, 0, 0), "Pepco"),  # Pepco shower head installed Feb 24
 ]
 
 # Spray pattern transitions: (datetime, pattern)
 # Patterns: None (standard head), "Wide", "Narrow", "Mid"
 SPRAY_PATTERN_TRANSITIONS = [
-    (datetime(2026, 1, 14,  0,  0, 0), None),       # Standard head; no spray pattern variable
-    (datetime(2026, 2, 24,  8,  0, 0), "Wide"),     # Pepco wide spray from Feb 24
-    (datetime(2026, 3,  2,  9, 23, 0), "Narrow"),   # Pepco narrow spray from Mar 2
-    (datetime(2026, 3,  4, 10, 23, 0), "Wide"),     # Pepco wide spray from Mar 4
-    (datetime(2026, 3,  6,  8, 47, 0), "Mid"),      # Pepco mid spray from Mar 6
-    (datetime(2026, 3,  9,  8, 47, 0), "Narrow"),   # Pepco narrow spray from Mar 9
-    (datetime(2026, 3, 11,  9, 47, 0), "Narrow"),   # Narrow spray (with mannequin) Mar 11
-    (datetime(2026, 3, 12, 10, 47, 0), "Narrow"),   # Narrow spray (no mannequin) Mar 12
-    (datetime(2026, 3, 13,  8, 45, 0), "Narrow"),   # Narrow spray (with mannequin) Mar 13
+    (datetime(2026, 1, 14, 0, 0, 0), None),  # Standard head; no spray pattern variable
+    (datetime(2026, 2, 24, 8, 0, 0), "Wide"),  # Pepco wide spray from Feb 24
+    (datetime(2026, 3, 2, 9, 23, 0), "Narrow"),  # Pepco narrow spray from Mar 2
+    (datetime(2026, 3, 4, 10, 23, 0), "Wide"),  # Pepco wide spray from Mar 4
+    (datetime(2026, 3, 6, 8, 47, 0), "Mid"),  # Pepco mid spray from Mar 6
+    (datetime(2026, 3, 9, 8, 47, 0), "Narrow"),  # Pepco narrow spray from Mar 9
+    (datetime(2026, 3, 11, 9, 47, 0), "Narrow"),  # Narrow spray (with mannequin) Mar 11
+    (datetime(2026, 3, 12, 10, 47, 0), "Narrow"),  # Narrow spray (no mannequin) Mar 12
+    (datetime(2026, 3, 13, 8, 45, 0), "Narrow"),  # Narrow spray (with mannequin) Mar 13
 ]
 
 # Mannequin transitions: (datetime, present)
 # Values: True (mannequin present), False (no mannequin)
 MANNEQUIN_TRANSITIONS = [
-    (datetime(2026, 1, 14,  0,  0, 0), False),  # No mannequin from experiment start
-    (datetime(2026, 3, 11,  9, 47, 0), True),   # Mannequin added Mar 11
+    (datetime(2026, 1, 14, 0, 0, 0), False),  # No mannequin from experiment start
+    (datetime(2026, 3, 11, 9, 47, 0), True),  # Mannequin added Mar 11
     (datetime(2026, 3, 12, 10, 47, 0), False),  # Mannequin removed Mar 12
-    (datetime(2026, 3, 13,  8, 45, 0), True),   # Mannequin re-added Mar 13
+    (datetime(2026, 3, 13, 8, 45, 0), True),  # Mannequin re-added Mar 13
 ]
 
 # Door position transitions: (datetime, position)
@@ -289,12 +289,7 @@ EXCLUDED_RANGES: List[Tuple[datetime, datetime, str]] = [
     ),
     (
         datetime(2026, 3, 15, 0, 0, 0),
-        datetime(2026, 3, 15, 23, 59, 59),
-        "CO2 system failure",
-    ),
-    (
-        datetime(2026, 3, 16, 3, 0, 0),
-        datetime(2026, 3, 16, 3, 59, 59),
+        datetime(2026, 3, 16, 12, 00, 00),
         "CO2 system failure",
     ),
 ]
