@@ -93,7 +93,10 @@ from src.event_manager import (
     filter_events_by_date,
     generate_test_name,
     get_door_position,
+    get_mannequin,
     get_planned_fan_status,
+    get_shower_head,
+    get_spray_pattern,
     get_test_configuration,
     get_time_of_day,
     get_water_temperature_code,
@@ -487,17 +490,25 @@ def build_unified_event_registry(
         # Duration-excluded events (water temperature testing) do not get test
         # names or replicate numbers — set minimal metadata and skip naming
         if event.get("is_excluded", False):
+            _cfg = get_test_configuration(shower_time)
             event.setdefault("test_name", "")
-            event.setdefault("water_temp", get_water_temperature_code(shower_time))
-            event.setdefault("door_position", get_door_position(shower_time))
+            event.setdefault("water_temp", _cfg["water_temp"])
+            event.setdefault("shower_head", _cfg["shower_head"])
+            event.setdefault("spray_pattern", _cfg["spray_pattern"])
+            event.setdefault("mannequin", _cfg["mannequin"])
+            event.setdefault("door_position", _cfg["door_position"])
             event.setdefault("time_of_day", get_time_of_day(shower_time))
             event.setdefault("fan_during_test", False)
             event.setdefault("replicate_num", 0)
             continue
 
         # Determine test parameters
-        water_temp = get_water_temperature_code(shower_time)
-        door_position = get_door_position(shower_time)
+        _cfg = get_test_configuration(shower_time)
+        water_temp = _cfg["water_temp"]
+        shower_head = _cfg["shower_head"]
+        spray_pattern = _cfg["spray_pattern"]
+        mannequin = _cfg["mannequin"]
+        door_position = _cfg["door_position"]
         time_of_day = get_time_of_day(shower_time)
 
         # Check fan status (can't check for synthetic events without real log data)
@@ -506,11 +517,21 @@ def build_unified_event_registry(
         else:
             fan_status = check_fan_during_test(shower_time, shower_off, shower_log)
 
-        # Create condition key (must match assign_test_names in event_manager.py)
+        # Condition key for replicate counting: date + all test parameters.
+        # time_of_day deliberately excluded (no analytical impact).
+        # Must match assign_test_names() in event_manager.py.
         date_str = shower_time.strftime("%m%d")
-        condition_key = f"{date_str}_{water_temp}_{door_position}_{time_of_day}"
+        condition_parts = [date_str, water_temp]
+        if shower_head != "Standard":
+            condition_parts.append(shower_head)
+            if spray_pattern:
+                condition_parts.append(spray_pattern)
+        if mannequin:
+            condition_parts.append("Mannequin")
+        condition_parts.append(door_position)
         if fan_status:
-            condition_key += "_Fan"
+            condition_parts.append("Fan")
+        condition_key = "_".join(condition_parts)
 
         # Get replicate number
         replicate_num = replicate_counters.get(condition_key, 0) + 1
@@ -520,15 +541,20 @@ def build_unified_event_registry(
         test_name = generate_test_name(
             shower_time,
             water_temp,
-            time_of_day,
             replicate_num,
-            fan_status,
-            door_position,
+            shower_head=shower_head,
+            spray_pattern=spray_pattern,
+            mannequin=mannequin,
+            fan_status=fan_status,
+            door_position=door_position,
         )
 
         # Add metadata to event
         event["test_name"] = test_name
         event["water_temp"] = water_temp
+        event["shower_head"] = shower_head
+        event["spray_pattern"] = spray_pattern
+        event["mannequin"] = mannequin
         event["door_position"] = door_position
         event["time_of_day"] = time_of_day
         event["fan_during_test"] = fan_status
@@ -548,6 +574,9 @@ def build_unified_event_registry(
             co2_event["event_number"] = shower_event["event_number"]
             co2_event["test_name"] = shower_event["test_name"]
             co2_event["water_temp"] = shower_event.get("water_temp")
+            co2_event["shower_head"] = shower_event.get("shower_head")
+            co2_event["spray_pattern"] = shower_event.get("spray_pattern")
+            co2_event["mannequin"] = shower_event.get("mannequin")
             co2_event["time_of_day"] = shower_event.get("time_of_day")
             co2_event["matched_shower_idx"] = shower_idx
         else:
@@ -558,16 +587,24 @@ def build_unified_event_registry(
             expected_shower = co2_event["injection_start"] + timedelta(
                 minutes=EXPECTED_CO2_BEFORE_SHOWER
             )
-            water_temp = get_water_temperature_code(expected_shower)
-            door_pos = get_door_position(expected_shower)
-            time_of_day = get_time_of_day(expected_shower)
+            _cfg = get_test_configuration(expected_shower)
             date_str = expected_shower.strftime("%m%d")
-            co2_event["test_name"] = (
-                f"{date_str}_{water_temp}_{door_pos}_{time_of_day}_R??"
-            )
-            co2_event["water_temp"] = water_temp
-            co2_event["door_position"] = door_pos
-            co2_event["time_of_day"] = time_of_day
+            _name_parts = [date_str, _cfg["water_temp"]]
+            if _cfg["shower_head"] != "Standard":
+                _name_parts.append(_cfg["shower_head"])
+                if _cfg["spray_pattern"]:
+                    _name_parts.append(_cfg["spray_pattern"])
+            if _cfg["mannequin"]:
+                _name_parts.append("Mannequin")
+            _name_parts.append(_cfg["door_position"])
+            _name_parts.append("R??")
+            co2_event["test_name"] = "_".join(_name_parts)
+            co2_event["water_temp"] = _cfg["water_temp"]
+            co2_event["shower_head"] = _cfg["shower_head"]
+            co2_event["spray_pattern"] = _cfg["spray_pattern"]
+            co2_event["mannequin"] = _cfg["mannequin"]
+            co2_event["door_position"] = _cfg["door_position"]
+            co2_event["time_of_day"] = get_time_of_day(expected_shower)
             co2_event["matched_shower_idx"] = None
 
     # Step 8: Create event log
@@ -728,6 +765,9 @@ def save_event_registry(
             "test_name": shower.get("test_name", ""),
             "config_key": _cfg["config_key"],
             "water_temp": shower.get("water_temp", "") or _cfg["water_temp"],
+            "shower_head": shower.get("shower_head", "") or _cfg["shower_head"],
+            "spray_pattern": shower.get("spray_pattern") if shower.get("spray_pattern") is not None else _cfg["spray_pattern"],
+            "mannequin": shower.get("mannequin", False) or _cfg["mannequin"],
             "door_position": shower.get("door_position", "Open"),
             "planned_fan": _cfg["planned_fan"],
             "time_of_day": shower.get("time_of_day", ""),

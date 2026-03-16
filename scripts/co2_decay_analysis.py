@@ -128,7 +128,6 @@ from src.event_manager import (  # noqa: E402
     filter_events_by_date,
     get_test_configuration,
     get_time_of_day,
-    get_water_temperature_code,
     is_event_excluded,
     sort_config_keys_by_water_temp,
 )
@@ -543,6 +542,9 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "event_number": int(row["event_number"]),
                     "test_name": row["test_name"],
                     "water_temp": row.get("water_temp", ""),
+                    "shower_head": row.get("shower_head", "Standard"),
+                    "spray_pattern": row.get("spray_pattern"),
+                    "mannequin": row.get("mannequin", False),
                     "time_of_day": row.get("time_of_day", ""),
                     "shower_on": shower_on_dt,
                     "shower_off": pd.to_datetime(
@@ -880,15 +882,20 @@ def plot_air_change_rate_boxplot(
     if lambda_col not in results_df.columns:
         return
 
-    # Keep only base W## water temps — no letter suffix
-    def _is_base_wt(wt: str) -> bool:
-        return bool(re.match(r"^W\d+$", str(wt)))
+    # Keep only standard-head, no-mannequin configs for the ACR boxplot.
+    # Water temps are now always pure W## so filtering must use config_key
+    # (or shower_head column) to exclude Pepco and mannequin events.
+    def _is_base_config_for_acr(key: str) -> bool:
+        return bool(re.match(r"^W\d+(_|$)", str(key))) and "_Pepco" not in str(key) and "_Mannequin" not in str(key)
 
     def _extract_temp(wt: str) -> "float | None":
-        m = re.match(r"^W(\d+)$", str(wt))
+        m = re.match(r"^W(\d+)", str(wt))
         return float(m.group(1)) if m else None
 
-    base_df = results_df[results_df["water_temp"].apply(_is_base_wt)].copy()
+    if "config_key" in results_df.columns:
+        base_df = results_df[results_df["config_key"].apply(_is_base_config_for_acr)].copy()
+    else:
+        base_df = results_df.copy()
 
     if base_df.empty:
         return
@@ -1138,6 +1145,9 @@ def run_co2_decay_analysis(
                 shower_event = shower_events[shower_idx]
                 event["test_name"] = shower_event.get("test_name")
                 event["water_temp"] = shower_event.get("water_temp")
+                event["shower_head"] = shower_event.get("shower_head")
+                event["spray_pattern"] = shower_event.get("spray_pattern")
+                event["mannequin"] = shower_event.get("mannequin")
                 event["time_of_day"] = shower_event.get("time_of_day")
                 shower_on = shower_event.get("shower_on")
                 if shower_on is not None:
@@ -1151,12 +1161,23 @@ def run_co2_decay_analysis(
             else:
                 # Fallback: generate test name based on CO2 injection time
                 expected_shower_time = injection_time + timedelta(minutes=20)
-                water_temp = get_water_temperature_code(expected_shower_time)
-                time_of_day = get_time_of_day(expected_shower_time)
+                _cfg = get_test_configuration(expected_shower_time)
                 date_str = expected_shower_time.strftime("%m%d")
-                event["test_name"] = f"{date_str}_{water_temp}_{time_of_day}_R??"
-                event["water_temp"] = water_temp
-                event["time_of_day"] = time_of_day
+                _name_parts = [date_str, _cfg["water_temp"]]
+                if _cfg["shower_head"] != "Standard":
+                    _name_parts.append(_cfg["shower_head"])
+                    if _cfg["spray_pattern"]:
+                        _name_parts.append(_cfg["spray_pattern"])
+                if _cfg["mannequin"]:
+                    _name_parts.append("Mannequin")
+                _name_parts.append(_cfg["door_position"])
+                _name_parts.append("R??")
+                event["test_name"] = "_".join(_name_parts)
+                event["water_temp"] = _cfg["water_temp"]
+                event["shower_head"] = _cfg["shower_head"]
+                event["spray_pattern"] = _cfg["spray_pattern"]
+                event["mannequin"] = _cfg["mannequin"]
+                event["time_of_day"] = get_time_of_day(expected_shower_time)
                 event["is_unmatched"] = True
 
                 # Diagnostic: show why no match was found

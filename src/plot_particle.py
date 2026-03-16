@@ -801,8 +801,17 @@ def plot_size_distribution_summary(
 
 
 def _is_base_config(key: str) -> bool:
-    """Return True if config_key is a base W## with no letter suffix (e.g. W48, not W48b)."""
-    return bool(re.match(r"^W\d+(_|$)", str(key)))
+    """Return True if config_key is a standard-head, no-mannequin config.
+
+    Excludes Pepco shower head configs and mannequin configs from fixed-axis
+    summary boxplots, keeping only the core temperature-variation dataset.
+    """
+    key_str = str(key)
+    return (
+        bool(re.match(r"^W\d+(_|$)", key_str))
+        and "_Pepco" not in key_str
+        and "_Mannequin" not in key_str
+    )
 
 
 def _extract_config_temp(key: str) -> "Optional[float]":

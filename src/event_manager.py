@@ -6,10 +6,11 @@ Event Management System
 
 Utility module providing event matching, filtering, naming, configuration
 lookup, and exclusion logic for the EPA Legionella shower experiment. Manages
-the mapping between physical test conditions (water temperature, door position,
-bath fan state) and the CO2/shower events recorded in the log files, assigns
-structured test names (e.g., 0115_W48_Open_Day_R01), and identifies events
-that should be excluded from analysis.
+the mapping between physical test conditions (water temperature, shower head,
+spray pattern, mannequin, door position, bath fan state) and the CO2/shower
+events recorded in the log files, assigns structured test names (e.g.,
+0115_W48_Open_R01), and identifies events that should be excluded from
+analysis.
 
 Key Functions:
     - process_events_with_management(): Main entry point; orchestrates date
@@ -21,9 +22,10 @@ Key Functions:
     - is_duration_excluded(): Flag short/long showers as water-temperature
       testing runs (excluded from analysis but retained in the log)
     - is_event_excluded(): Check against predefined exclusion list (tours,
-      conflicting log entries, DST misalignment, etc.)
-    - get_test_configuration(): Return water temp, door, fan, and config_key
-      for any datetime using the transition-table system
+      conflicting log entries, DST misalignment, etc.) and date ranges
+    - get_test_configuration(): Return water temp, shower head, spray pattern,
+      mannequin, door, fan, and config_key for any datetime using the
+      transition-table system
     - detect_missing_events(): Identify showers without CO2 data and vice versa
     - create_synthetic_co2_event(): Build a placeholder CO2 event with expected
       timing for unmatched shower events
@@ -31,15 +33,19 @@ Key Functions:
 
 Processing Features:
     - Transition-table configuration system: each parameter (water temperature,
-      door position, fan status) has a list of (datetime, value) pairs; the
-      active value is the most recent entry at or before the event time
+      shower head, spray pattern, mannequin, door position, fan status) has a
+      list of (datetime, value) pairs; the active value is the most recent
+      entry at or before the event time
     - Duration-based exclusion: computer-controlled analysis showers run
       exactly 10 min ± 5 s; events outside this window are flagged as water
       temperature testing runs and receive event_number=None
     - Predefined exclusion registry: EXCLUDED_EVENTS dict maps specific
-      datetimes (±60 s tolerance) to human-readable exclusion reasons
+      datetimes (±60 s tolerance) to human-readable exclusion reasons;
+      EXCLUDED_RANGES list covers multi-event spans (e.g., conflicting logs,
+      DST misalignment, instrument failures)
     - Replicate numbering: per-condition counters (keyed by date, water temp,
-      door position, and time-of-day) produce sequential R01, R02, … suffixes
+      shower head, spray pattern, mannequin, door position, fan) produce
+      sequential R01, R02, … suffixes
     - Bidirectional synthetic event creation: uses registry module (lazy
       import) for duration inference from neighboring events when available
     - Bath fan detection: checks shower_log for fan state from shower start
@@ -50,8 +56,9 @@ Methodology:
     2. Apply is_duration_excluded() to each shower; duration-excluded events
        receive is_excluded=True and event_number=None and are skipped for
        naming and replicate counting
-    3. Assign water temp, door position, fan status, time-of-day, config_key,
-       replicate number, and full test_name to each non-excluded shower event
+    3. Assign water temp, shower head, spray pattern, mannequin, door position,
+       fan status, config_key, replicate number, and full test_name to each
+       non-excluded shower event
     4. Detect showers without a matching CO2 event (within ±10 min)
     5. Optionally create synthetic CO2 events for unmatched showers
     6. Match each non-excluded shower event to its CO2 event; attach
@@ -66,39 +73,42 @@ Output Files:
       callers are responsible for writing event_log.csv and registry files)
 
 Naming Convention Format:
-    MMDD_TempCode_DoorPos_TimeOfDay[_Fan]_RNN
+    MMDD_W##[_ShowerHead[_SprayPattern]][_Mannequin]_DoorPos[_Fan]_RNN
 
     Components:
     - MMDD: Month and day (e.g., 0114 for January 14)
-    - TempCode: Water temperature code (e.g., W48, W11, W25, W48b)
+    - W##: Water temperature code (e.g., W48 = 48 °C); always pure numeric
+    - ShowerHead: Omitted for Standard; "Pepco" for the Pepco shower head
+    - SprayPattern: Omitted if no variable spray pattern; "Wide", "Narrow",
+      or "Mid" for spray settings on the Pepco head
+    - _Mannequin: Appended only when a mannequin was present during the test
     - DoorPos: Door position (Open, Closed, or Partial)
-    - TimeOfDay: Day or Night
     - _Fan: Appended only when the bath fan ran during the test period
     - RNN: Replicate number (R01, R02, etc.)
 
-    Repeat Temperature Convention:
-    When the same water temperature is retested (e.g., after a shower head
-    change), a suffix is appended to the temperature code: W48 (first run),
-    W48b (second run), W48c (third run), etc. Multi-character suffixes are
-    also supported for named variants, e.g. W52pw (Pepco wide-spray shower
-    head at 52 °C). The numeric temperature value determines sort order. Each
-    variant forms a separate config_key group for independent replicate
-    counting and plotting.
+    config_key Format:
+    W##[_ShowerHead[_SprayPattern]][_Mannequin]_DoorXxx_FanXxx
+    Used for grouping events across days with identical test conditions.
 
     Examples:
-    - 0115_W48_Open_Day_R01
-    - 0122_W11_Open_Night_R03
-    - 0203_W25_Open_Day_R01
-    - 0223_W48b_Open_Day_R01  (second W48 run, e.g. with new shower head)
-    - 0224_W52pw_Open_Day_R01 (Pepco wide-spray shower head at 52 °C)
+    - 0115_W48_Open_R01              (standard head, 48 °C, open door)
+    - 0122_W11_Open_R03              (standard head, 11 °C)
+    - 0224_W52_Pepco_Wide_Open_R01   (Pepco head, wide spray, 52 °C)
+    - 0309_W40_Pepco_Narrow_Open_R01 (Pepco head, narrow spray, 40 °C)
+    - 0311_W40_Pepco_Narrow_Mannequin_Open_R01
 
-Time of Day Categories:
-    - Day: 5am - 5pm
-    - Night: 5pm - 5am
+Time of Day:
+    get_time_of_day() is retained for internal use (penetration factor
+    averaging windows in particle_calculations.py) but is no longer included
+    in test names or replicate counters, as Day/Night has not shown an
+    analytical impact.
 
 Test Parameters:
-    - Water Temperature: Designated by W## code (e.g., W48 = 48 degrees C)
-    - Time of Day: Based on shower start time
+    - Water Temperature: W## code (e.g., W48 = 48 °C)
+    - Shower Head: Standard or Pepco
+    - Spray Pattern: Wide, Narrow, Mid, or None (for standard head)
+    - Mannequin: Whether a mannequin was present during the test
+    - Door Position: Open, Closed, or Partial
     - Bath Fan Status: Fan running during or within 2 hours after shower
 
 Author: Nathan Lima
@@ -173,60 +183,67 @@ EXPERIMENT_START_DATE = datetime(2026, 1, 15, 15, 0, 0)
 # Future configurations (e.g., new door positions, additional water temps) can
 # be added by simply extending the lists.
 
-# Water temperature transitions: (datetime, code)
-# Codes: "HW" (Hot Water), "CW" (Cold Water), "MW" (Mixed/Medium Water)
+# Water temperature transitions: (datetime, W## code)
+# Codes are pure numeric: W11, W22, W25, etc. Shower head and spray pattern
+# are tracked separately in SHOWER_HEAD_TRANSITIONS and SPRAY_PATTERN_TRANSITIONS.
 WATER_TEMP_TRANSITIONS = [
-    (datetime(2026, 1, 14, 0, 0, 0), "W48"),  # Mixed waterexperiment start
-    (datetime(2026, 1, 22, 14, 0, 0), "W11"),  # Cold water from Jan 22 2PM
-    (datetime(2026, 2, 2, 17, 0, 0), "W25"),  # Mixed water from Feb 2 5PM
-    (datetime(2026, 2, 5, 10, 0, 0), "W30"),  # Mixed water from Feb 5 10AM
-    (datetime(2026, 2, 9, 10, 0, 0), "W37"),  # Mixed water from Feb 9 10AM
-    (datetime(2026, 2, 11, 8, 0, 0), "W23"),  # Mixed water from Feb 11 8AM
-    (datetime(2026, 2, 13, 11, 0, 0), "W22"),  # Mixed water from Feb 13 11AM
-    (datetime(2026, 2, 16, 11, 0, 0), "W43"),  # Mixed water from Feb 16 11AM
-    (datetime(2026, 2, 18, 10, 23, 0), "W14"),  # Mixed water from Feb 18 10:23AM
-    (datetime(2026, 2, 20, 8, 0, 0), "W53"),  # Hot water from Feb 20 8AM
-    (
-        datetime(2026, 2, 24, 8, 0, 0),
-        "W52pw",
-    ),  # Pepco wide spray from Feb 24 8AM
-    (
-        datetime(2026, 2, 26, 10, 23, 0),
-        "W49pw",
-    ),  # Pepco wide spray from Feb 26 10:23AM
-    (
-        datetime(2026, 3, 2, 9, 23, 0),
-        "W40pn",
-    ),  # Pepco narrow spray from Mar 2 9:23AM
-    (
-        datetime(2026, 3, 4, 10, 23, 0),
-        "W40pw",
-    ),  # Pepco wide spray from Mar 4 10:23AM
-    (
-        datetime(2026, 3, 6, 8, 47, 0),
-        "W40pm",
-    ),  # Pepco Mid-limp spray from Mar 6 8:47AM
-    (
-        datetime(2026, 3, 9, 8, 47, 0),
-        "W40pn2",
-    ),  # Pepco narrow spray from Mar 9 8:47AM
-    (
-        datetime(2026, 3, 11, 9, 47, 0),
-        "W40pn3",
-    ),  # Pepco narrow spray from Mar 11 9:47AM
-    (
-        datetime(2026, 3, 12, 10, 47, 0),
-        "W38pn",
-    ),  # Pepco narrow spray from Mar 12 10:47AM
+    (datetime(2026, 1, 14,  0,  0, 0), "W48"),  # Experiment start
+    (datetime(2026, 1, 22, 14,  0, 0), "W11"),  # Cold water from Jan 22 2PM
+    (datetime(2026, 2,  2, 17,  0, 0), "W25"),  # Warm water from Feb 2 5PM
+    (datetime(2026, 2,  5, 10,  0, 0), "W30"),  # Warm water from Feb 5 10AM
+    (datetime(2026, 2,  9, 10,  0, 0), "W37"),  # Warm water from Feb 9 10AM
+    (datetime(2026, 2, 11,  8,  0, 0), "W23"),  # Feb 11 8AM (data excluded; kept for documentation)
+    (datetime(2026, 2, 13, 11,  0, 0), "W22"),  # Warm water from Feb 13 11AM
+    (datetime(2026, 2, 16, 11,  0, 0), "W43"),  # Hot water from Feb 16 11AM
+    (datetime(2026, 2, 18, 10, 23, 0), "W14"),  # Cold water from Feb 18 10:23AM
+    (datetime(2026, 2, 20,  8,  0, 0), "W53"),  # Hot water from Feb 20 8AM
+    (datetime(2026, 2, 24,  8,  0, 0), "W52"),  # Pepco head installed; 52°C from Feb 24 8AM
+    (datetime(2026, 2, 26, 10, 23, 0), "W49"),  # Pepco 49°C from Feb 26 10:23AM
+    (datetime(2026, 3,  2,  9, 23, 0), "W40"),  # Pepco 40°C from Mar 2 9:23AM
+    (datetime(2026, 3,  4, 10, 23, 0), "W40"),  # Spray pattern change; temp unchanged Mar 4 10:23AM
+    (datetime(2026, 3,  6,  8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 6 8:47AM
+    (datetime(2026, 3,  9,  8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 9 8:47AM
+    (datetime(2026, 3, 11,  9, 47, 0), "W40"),  # Mannequin added; temp unchanged Mar 11 9:47AM
+    (datetime(2026, 3, 12, 10, 47, 0), "W38"),  # 38°C from Mar 12 10:47AM
+    (datetime(2026, 3, 13,  8, 45, 0), "W38"),  # Mannequin re-added; temp unchanged Mar 13 8:45AM
+]
+
+# Shower head transitions: (datetime, head_type)
+# Types: "Standard", "Pepco"
+SHOWER_HEAD_TRANSITIONS = [
+    (datetime(2026, 1, 14,  0,  0, 0), "Standard"),  # Standard head from experiment start
+    (datetime(2026, 2, 24,  8,  0, 0), "Pepco"),     # Pepco shower head installed Feb 24
+]
+
+# Spray pattern transitions: (datetime, pattern)
+# Patterns: None (standard head), "Wide", "Narrow", "Mid"
+SPRAY_PATTERN_TRANSITIONS = [
+    (datetime(2026, 1, 14,  0,  0, 0), None),       # Standard head; no spray pattern variable
+    (datetime(2026, 2, 24,  8,  0, 0), "Wide"),     # Pepco wide spray from Feb 24
+    (datetime(2026, 3,  2,  9, 23, 0), "Narrow"),   # Pepco narrow spray from Mar 2
+    (datetime(2026, 3,  4, 10, 23, 0), "Wide"),     # Pepco wide spray from Mar 4
+    (datetime(2026, 3,  6,  8, 47, 0), "Mid"),      # Pepco mid spray from Mar 6
+    (datetime(2026, 3,  9,  8, 47, 0), "Narrow"),   # Pepco narrow spray from Mar 9
+    (datetime(2026, 3, 11,  9, 47, 0), "Narrow"),   # Narrow spray (with mannequin) Mar 11
+    (datetime(2026, 3, 12, 10, 47, 0), "Narrow"),   # Narrow spray (no mannequin) Mar 12
+    (datetime(2026, 3, 13,  8, 45, 0), "Narrow"),   # Narrow spray (with mannequin) Mar 13
+]
+
+# Mannequin transitions: (datetime, present)
+# Values: True (mannequin present), False (no mannequin)
+MANNEQUIN_TRANSITIONS = [
+    (datetime(2026, 1, 14,  0,  0, 0), False),  # No mannequin from experiment start
+    (datetime(2026, 3, 11,  9, 47, 0), True),   # Mannequin added Mar 11
+    (datetime(2026, 3, 12, 10, 47, 0), False),  # Mannequin removed Mar 12
+    (datetime(2026, 3, 13,  8, 45, 0), True),   # Mannequin re-added Mar 13
 ]
 
 # Door position transitions: (datetime, position)
 # Positions: "Open", "Closed", "Partial"
 DOOR_POSITION_TRANSITIONS = [
-    (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door Open from experiment start
+    (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door open from experiment start
     # Add future transitions here, e.g.:
-    # (datetime(2026, 2, 1, 0, 0, 0), "Closed"),    # Door closed from Feb 1
-    # (datetime(2026, 3, 1, 0, 0, 0), "Partial"),   # Partially open from Mar 1
+    # (datetime(2026, 4, 1, 0, 0, 0), "Partial"),  # Towel under door from Apr 1
 ]
 
 # Bath fan transitions: (datetime, status)
@@ -236,37 +253,51 @@ DOOR_POSITION_TRANSITIONS = [
 FAN_STATUS_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Off"),  # Fan off from experiment start
     # Add future transitions here, e.g.:
-    # (datetime(2026, 2, 15, 0, 0, 0), "On"),  # Fan on from Feb 15
+    # (datetime(2026, 4, 1, 0, 0, 0), "On"),  # Fan on from Apr 1
 ]
 
-# Time of day boundaries (hour of day)
+# Time of day boundaries (hour of day).
+# Retained for penetration factor window calculations in particle_calculations.py.
+# No longer included in test names or replicate counters.
 TIME_OF_DAY_RANGES = {
     "Day": (5, 17),  # 5am - 5pm
     "Night": (17, 5),  # 5pm - 5am (wraps around midnight)
 }
 
-# Predefined exclusions: datetime -> reason
+# Predefined point exclusions: datetime -> reason
+# For single events identified as problematic after the fact.
+# Use a tolerance of ±60 s in is_event_excluded().
 EXCLUDED_EVENTS = {
     datetime(2026, 1, 22, 15, 0, 0): "Tour in house during test",
     datetime(2026, 1, 29, 15, 0, 0): "People in house",
-    datetime(2026, 2, 11, 3, 0, 0): "Confliting log entries",
-    datetime(2026, 2, 11, 15, 0, 0): "Confliting log entries",
-    datetime(2026, 2, 12, 3, 0, 0): "Confliting log entries",
-    datetime(2026, 2, 12, 15, 0, 0): "Confliting log entries",
-    datetime(2026, 2, 13, 3, 0, 0): "Confliting log entries",
-    datetime(
-        2026, 3, 8, 3, 0, 0
-    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
-    datetime(
-        2026, 3, 8, 15, 0, 0
-    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
-    datetime(
-        2026, 3, 9, 3, 0, 0
-    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
-    datetime(
-        2026, 3, 9, 15, 0, 0
-    ): "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
 }
+
+# Date-range exclusions: list of (start_datetime, end_datetime, reason).
+# Any event whose shower_on time falls within [start, end] (inclusive) is
+# excluded. Use this instead of listing every individual event for multi-day
+# or multi-event exclusion windows.
+EXCLUDED_RANGES: List[Tuple[datetime, datetime, str]] = [
+    (
+        datetime(2026, 2, 11, 8, 0, 0),
+        datetime(2026, 2, 13, 11, 0, 0),
+        "Conflicting log entries",
+    ),
+    (
+        datetime(2026, 3, 8, 0, 0, 0),
+        datetime(2026, 3, 10, 0, 0, 0),
+        "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
+    ),
+    (
+        datetime(2026, 3, 15, 0, 0, 0),
+        datetime(2026, 3, 15, 23, 59, 59),
+        "CO2 system failure",
+    ),
+    (
+        datetime(2026, 3, 16, 3, 0, 0),
+        datetime(2026, 3, 16, 3, 59, 59),
+        "CO2 system failure",
+    ),
+]
 
 # Expected CO2 to shower timing offset (minutes)
 EXPECTED_CO2_BEFORE_SHOWER = 20
@@ -375,16 +406,55 @@ def get_water_temperature_code(dt: datetime) -> str:
     """
     Determine water temperature code based on datetime.
 
-    Uses WATER_TEMP_TRANSITIONS to determine the water temperature.
-    Supports: "HW" (Hot Water), "CW" (Cold Water), "MW" (Mixed Water)
+    Returns a pure W## code (e.g., "W48", "W11", "W40"). Shower head type
+    and spray pattern are tracked separately.
 
     Parameters:
         dt: Datetime of the event
 
     Returns:
-        String: Water temperature code (e.g., "HW", "CW", "MW")
+        String: Water temperature code (e.g., "W48", "W11", "W40")
     """
     return _get_config_value_at_time(dt, WATER_TEMP_TRANSITIONS)
+
+
+def get_shower_head(dt: datetime) -> str:
+    """
+    Determine shower head type based on datetime.
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        String: "Standard" or "Pepco"
+    """
+    return _get_config_value_at_time(dt, SHOWER_HEAD_TRANSITIONS)
+
+
+def get_spray_pattern(dt: datetime) -> Optional[str]:
+    """
+    Determine spray pattern setting based on datetime.
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        String: "Wide", "Narrow", "Mid", or None (for standard head)
+    """
+    return _get_config_value_at_time(dt, SPRAY_PATTERN_TRANSITIONS)
+
+
+def get_mannequin(dt: datetime) -> bool:
+    """
+    Determine whether a mannequin was present based on datetime.
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        Bool: True if mannequin present, False otherwise
+    """
+    return _get_config_value_at_time(dt, MANNEQUIN_TRANSITIONS)
 
 
 def get_door_position(dt: datetime) -> str:
@@ -420,7 +490,7 @@ def get_planned_fan_status(dt: datetime) -> str:
     return _get_config_value_at_time(dt, FAN_STATUS_TRANSITIONS)
 
 
-def get_test_configuration(dt: datetime) -> Dict[str, str]:
+def get_test_configuration(dt: datetime) -> Dict:
     """
     Get complete test configuration for a given datetime.
 
@@ -432,22 +502,41 @@ def get_test_configuration(dt: datetime) -> Dict[str, str]:
 
     Returns:
         Dictionary with configuration keys:
-            - water_temp: Temperature code (e.g., "W48", "W11", "W25")
+            - water_temp: Temperature code (e.g., "W48", "W11", "W40")
+            - shower_head: "Standard" or "Pepco"
+            - spray_pattern: "Wide", "Narrow", "Mid", or None
+            - mannequin: True or False
             - door_position: "Open", "Closed", or "Partial"
             - planned_fan: "On" or "Off"
-            - config_key: Combined key for grouping (e.g., "W48_DoorOpen_FanOff")
+            - config_key: Combined key for grouping
+              (e.g., "W48_DoorOpen_FanOff",
+                     "W40_Pepco_Narrow_DoorOpen_FanOff",
+                     "W40_Pepco_Narrow_Mannequin_DoorOpen_FanOff")
     """
     water_temp = get_water_temperature_code(dt)
+    shower_head = get_shower_head(dt)
+    spray_pattern = get_spray_pattern(dt)
+    mannequin = get_mannequin(dt)
     door_pos = get_door_position(dt)
     fan_status = get_planned_fan_status(dt)
 
-    # Create combined configuration key for grouping
-    fan_label = "FanOn" if fan_status == "On" else "FanOff"
-    door_label = f"Door{door_pos}"
-    config_key = f"{water_temp}_{door_label}_{fan_label}"
+    # Build config_key: W##[_ShowerHead[_SprayPattern]][_Mannequin]_DoorXxx_FanXxx
+    key_parts = [water_temp]
+    if shower_head != "Standard":
+        key_parts.append(shower_head)
+        if spray_pattern:
+            key_parts.append(spray_pattern)
+    if mannequin:
+        key_parts.append("Mannequin")
+    key_parts.append(f"Door{door_pos}")
+    key_parts.append("FanOn" if fan_status == "On" else "FanOff")
+    config_key = "_".join(key_parts)
 
     return {
         "water_temp": water_temp,
+        "shower_head": shower_head,
+        "spray_pattern": spray_pattern,
+        "mannequin": mannequin,
         "door_position": door_pos,
         "planned_fan": fan_status,
         "config_key": config_key,
@@ -523,38 +612,51 @@ def check_fan_during_test(
 def generate_test_name(
     shower_time: datetime,
     water_temp: str,
-    time_of_day: str,
     replicate_num: int,
+    shower_head: str = "Standard",
+    spray_pattern: Optional[str] = None,
+    mannequin: bool = False,
     fan_status: bool = False,
     door_position: str = "Open",
 ) -> str:
     """
     Generate a test condition name following the naming convention.
 
-    Format: MMDD_TempCode_DoorPos_TimeOfDay[_Fan]_RNN
+    Format: MMDD_W##[_ShowerHead[_SprayPattern]][_Mannequin]_DoorPos[_Fan]_RNN
 
     Parameters:
         shower_time: Datetime of shower start
-        water_temp: Water temperature code (e.g., "W48", "W11", "W25")
-        time_of_day: "Day" or "Night"
+        water_temp: Water temperature code (e.g., "W48", "W40")
         replicate_num: Replicate number (1-indexed)
+        shower_head: "Standard" or "Pepco" (default "Standard"; omitted from name)
+        spray_pattern: "Wide", "Narrow", "Mid", or None (default None; omitted if None)
+        mannequin: Whether mannequin was present (default False; omitted if False)
         fan_status: Whether bath fan ran during test (default False)
         door_position: "Open", "Closed", or "Partial" (default "Open")
 
     Returns:
-        String: Test name (e.g., "0115_W48_Open_Day_R01")
+        String: Test name (e.g., "0115_W48_Open_R01",
+                               "0309_W40_Pepco_Narrow_Open_R01",
+                               "0311_W40_Pepco_Narrow_Mannequin_Open_R01")
     """
-    # Format date as MMDD
     date_str = shower_time.strftime("%m%d")
 
-    # Build name components
-    components = [date_str, water_temp, door_position, time_of_day]
+    components = [date_str, water_temp]
 
-    # Add fan status if applicable
+    # Shower head: only include if not Standard
+    if shower_head != "Standard":
+        components.append(shower_head)
+        if spray_pattern:
+            components.append(spray_pattern)
+
+    if mannequin:
+        components.append("Mannequin")
+
+    components.append(door_position)
+
     if fan_status:
         components.append("Fan")
 
-    # Add replicate number
     components.append(f"R{replicate_num:02d}")
 
     return "_".join(components)
@@ -606,19 +708,25 @@ def is_event_excluded(event_time: datetime) -> Tuple[bool, Optional[str]]:
     """
     Check if an event should be excluded from analysis.
 
+    Checks both point exclusions (EXCLUDED_EVENTS, with ±60 s tolerance) and
+    date-range exclusions (EXCLUDED_RANGES, inclusive on both ends).
+
     Parameters:
         event_time: Datetime of the event
 
     Returns:
         Tuple of (is_excluded: bool, reason: str or None)
     """
-    # Check exact match first
+    # Check exact point exclusions (±60 s tolerance)
     if event_time in EXCLUDED_EVENTS:
         return True, EXCLUDED_EVENTS[event_time]
-
-    # Check for events within 1 minute (to handle slight timing differences)
     for excluded_time, reason in EXCLUDED_EVENTS.items():
         if abs((event_time - excluded_time).total_seconds()) < 60:
+            return True, reason
+
+    # Check date-range exclusions
+    for range_start, range_end, reason in EXCLUDED_RANGES:
+        if range_start <= event_time <= range_end:
             return True, reason
 
     return False, None
@@ -777,11 +885,15 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
     Returns:
         List of events with added configuration fields:
             - test_name: Full test name string
-            - water_temp: Water temperature code (HW/CW/MW)
+            - water_temp: Water temperature code (e.g., "W48", "W40")
+            - shower_head: "Standard" or "Pepco"
+            - spray_pattern: "Wide", "Narrow", "Mid", or None
+            - mannequin: True if mannequin present, False otherwise
             - door_position: Door position (Open/Closed/Partial)
             - planned_fan: Planned fan status (On/Off)
             - fan_during_test: Actual fan status during test (bool)
-            - time_of_day: Time of day category
+            - time_of_day: Time of day ("Day"/"Night"); retained for
+              penetration window calculations, not used in test name
             - config_key: Combined configuration key for grouping
             - replicate_num: Replicate number for this condition
     """
@@ -800,9 +912,13 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
             event["is_excluded"] = True
             event["exclusion_reason"] = dur_reason
             event["test_name"] = ""
-            event["water_temp"] = get_water_temperature_code(shower_time)
-            event["door_position"] = get_door_position(shower_time)
-            event["planned_fan"] = get_planned_fan_status(shower_time)
+            config = get_test_configuration(shower_time)
+            event["water_temp"] = config["water_temp"]
+            event["shower_head"] = config["shower_head"]
+            event["spray_pattern"] = config["spray_pattern"]
+            event["mannequin"] = config["mannequin"]
+            event["door_position"] = config["door_position"]
+            event["planned_fan"] = config["planned_fan"]
             event["fan_during_test"] = False
             event["time_of_day"] = get_time_of_day(shower_time)
             event["config_key"] = ""
@@ -812,37 +928,55 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
         # Get full test configuration
         config = get_test_configuration(shower_time)
         water_temp = config["water_temp"]
+        shower_head = config["shower_head"]
+        spray_pattern = config["spray_pattern"]
+        mannequin = config["mannequin"]
         door_position = config["door_position"]
         planned_fan = config["planned_fan"]
         config_key = config["config_key"]
 
-        # Get time of day and actual fan status during test
+        # Time of day: retained for penetration window calculations but no
+        # longer included in the test name or replicate counter key
         time_of_day = get_time_of_day(shower_time)
         fan_during_test = check_fan_during_test(shower_time, shower_off, shower_log)
 
-        # Create base condition key (without replicate number)
+        # Condition key for replicate counting: date + all test parameters
+        # (time_of_day deliberately excluded — Day/Night has no analytical impact)
         date_str = shower_time.strftime("%m%d")
-        condition_key = f"{date_str}_{water_temp}_{door_position}_{time_of_day}"
+        condition_parts = [date_str, water_temp]
+        if shower_head != "Standard":
+            condition_parts.append(shower_head)
+            if spray_pattern:
+                condition_parts.append(spray_pattern)
+        if mannequin:
+            condition_parts.append("Mannequin")
+        condition_parts.append(door_position)
         if fan_during_test:
-            condition_key += "_Fan"
+            condition_parts.append("Fan")
+        condition_key_for_replicates = "_".join(condition_parts)
 
         # Get next replicate number for this condition
-        replicate_num = replicate_counters.get(condition_key, 0) + 1
-        replicate_counters[condition_key] = replicate_num
+        replicate_num = replicate_counters.get(condition_key_for_replicates, 0) + 1
+        replicate_counters[condition_key_for_replicates] = replicate_num
 
         # Generate full test name
         test_name = generate_test_name(
             shower_time,
             water_temp,
-            time_of_day,
             replicate_num,
-            fan_during_test,
-            door_position,
+            shower_head=shower_head,
+            spray_pattern=spray_pattern,
+            mannequin=mannequin,
+            fan_status=fan_during_test,
+            door_position=door_position,
         )
 
         # Add all configuration fields to event
         event["test_name"] = test_name
         event["water_temp"] = water_temp
+        event["shower_head"] = shower_head
+        event["spray_pattern"] = spray_pattern
+        event["mannequin"] = mannequin
         event["door_position"] = door_position
         event["planned_fan"] = planned_fan
         event["fan_during_test"] = fan_during_test
