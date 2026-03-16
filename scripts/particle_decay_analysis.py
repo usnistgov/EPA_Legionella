@@ -337,6 +337,7 @@ def analyze_event_all_bins(
         results[f"bin{bin_num}_beta_other_raw_mean"] = beta_result.get("beta_raw_mean", np.nan)
         results[f"bin{bin_num}_beta_other_std"] = beta_result.get("beta_std", np.nan)
         results[f"bin{bin_num}_beta_other_r_squared"] = beta_result.get("beta_r_squared", np.nan)
+        results[f"bin{bin_num}_beta_step"] = beta_result.get("beta_step", np.nan)
         results[f"bin{bin_num}_c_steady_state"] = beta_result.get("c_steady_state", np.nan)
         results[f"bin{bin_num}_peak_time"] = beta_result.get("peak_time", None)
 
@@ -794,7 +795,11 @@ def _save_results(results_df: pd.DataFrame, output_dir: Path) -> None:
         beta_cols = id_cols + [
             col
             for i in PARTICLE_BINS.keys()
-            for col in (f"bin{i}_beta_other (h-1)", f"bin{i}_beta_other_raw_mean (h-1)")
+            for col in (
+                f"bin{i}_beta_other (h-1)",
+                f"bin{i}_beta_other_raw_mean (h-1)",
+                f"bin{i}_beta_step",
+            )
         ]
         beta_r2_cols = id_cols + [f"bin{i}_beta_other_r_squared" for i in PARTICLE_BINS.keys()]
         E_cols = id_cols + [f"bin{i}_E_mean (#/min)" for i in PARTICLE_BINS.keys()]
