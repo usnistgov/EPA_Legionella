@@ -12,7 +12,7 @@ Intended use: provide time-series data to collaborators who want the
 model predictions without regenerating all figures.
 
 Output CSV columns:
-    Timestamp | bin0_Ct (#/cm³) | bin1_Ct | … | bin11_Ct
+    Timestamp | bin0_Ct (#/m³) | bin1_Ct | … | bin11_Ct
 
 Usage
 -----
@@ -80,9 +80,15 @@ def _find_event(events: list, target_event_num: int) -> dict:
     )
 
 
+_CM3_TO_M3 = 1e6  # 1 m³ = 10⁶ cm³
+
+
 def build_ct_dataframe(result: dict) -> pd.DataFrame:
     """
-    Build a time-indexed DataFrame of predicted Ct (#/cm³) for all bins.
+    Build a time-indexed DataFrame of predicted Ct (#/m³) for all bins.
+
+    Raw Ct values from calculate_ct_prediction are in #/cm³; they are
+    multiplied by 1×10⁶ to convert to #/m³ before export.
 
     Uses the continuous ct_datetimes / ct_predicted arrays produced by
     calculate_ct_prediction (emission phase + decay phase concatenated).
@@ -95,7 +101,7 @@ def build_ct_dataframe(result: dict) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Indexed by timestamp; one column per bin (bin0_Ct … binN_Ct).
+        Indexed by timestamp; one column per bin (bin0_Ct … binN_Ct), in #/m³.
     """
     frames = {}
     for bin_num in PARTICLE_BINS.keys():
@@ -114,8 +120,8 @@ def build_ct_dataframe(result: dict) -> pd.DataFrame:
 
         if len(ct_dts) and len(ct_pred):
             ts = pd.to_datetime(ct_dts)
-            vals = np.array(ct_pred, dtype=float)
-            frames[f"bin{bin_num}_Ct (#/cm3)"] = pd.Series(vals, index=ts)
+            vals = np.array(ct_pred, dtype=float) * _CM3_TO_M3  # convert to #/m³
+            frames[f"bin{bin_num}_Ct (#/m3)"] = pd.Series(vals, index=ts)
 
     if not frames:
         return pd.DataFrame()
