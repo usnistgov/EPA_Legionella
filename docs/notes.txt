@@ -1,31 +1,40 @@
-Date	Time	Change/Note
-~1/10/26		All experiments: hot water (48 C), 4 min CO2 injection
-1/15/2026	~3 pm	Switched to two experiments per day, 3pm/3 am.  Start Analysis here.
-~1/17/2026		CO2 and Shower Log files failed, reset
-1/22/2026	~2 pm	Changed to Cold Water (10.5 C)
-1/22/2026	~2 pm	Changed CO2 injection to 6 Minutes
-1/22/2026	3:00 PM	Gave tour of MH.  Ignore 3 pm data
-1/29/2026	11:00 AM	People in house, throw out  3 pm data
-2/2/2026	5:00 PM	switched to warm water (25C)
-2/4/2026	1:00 PM	installed six HOBOs in same location for intercomparison
-2/5/2026	10:00 AM	Changed water temperature 30 C, moved HOBOs to grid.  
-2/9/2026	10:00 AM	Changed water temperature 37 C.
-2/11/2026	8:00 AM	Unclear - Remove Data for 2-11 to 2-13
-2/13/2026	11:00 AM	Changed water temperature 22 C.
-2/16/2026		Changed water temperature 43 C.
-2/18/2026	10:23 AM	Changed water temperature 14 C.
-2/20/2026	8:00 AM	Changed water temperature 53 C
-2/24/2026	8:00 AM	Pepco shower head.  52 C.  Wide Spray Setting.
-2/26/2026	10:23 AM	Pepco shower head.  49 C.  Wide Spray Setting.
-3/2/2026	9:23 AM	Pepco shower head.  40 C.  Narrow Spray Setting.
-3/4/2026	10:23 AM	Pepco shower head.  40 C.  Wide Spray Setting.
-3/6/2026	8:47 AM	Pepco Shower head.  40 C. Mid-limp spray setting
-3/9/2026	8:47 AM	Pepco shower head.  40 C.  Narrow Spray Setting
-3/11/2026	9:47 AM	Pepco shower head.  40 C.  Narrow Spray Setting with mannequin
-3/12/2026	10:47 AM	Pepco shower head.  38 C.  Narrow Spray Setting
-3/13/2026	8:45 AM	Pepco shower head.  38 C.  Narrow Spray Setting with mannequin
-3/15/2026		CO2 failure
-		
-		Plan to put towel under door bedroom to livingroom door?
-		Plan to remove HVAC covers, remove towel
-		Plan to turn on exhaust fan durring shower.
+{
+    "python.analysis.typeCheckingMode": "standard",
+    "python.condaPath": "${env:USERPROFILE}/AppData/Local/miniforge3/Scripts/conda.exe",
+    "python.terminal.activateEnvironment": false,
+    "git.autofetch": true,
+    "git.enableSmartCommit": true,
+    "settingsSync.ignoredExtensions": [
+        "rooveterinaryinc.roo-cline",
+        "github.copilot-chat",
+        "github.copilot",
+        "anthropic.claude-code"
+    ],
+    "gitlens.ai.model": "vscode",
+    "gitlens.ai.vscode.model": "copilot:gpt-4.1",
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "ruff.lint.enable": true,
+    "ruff.lineLength": 100,
+    "jupyter.interactiveWindow.creationMode": "perFile",
+    "roo-cline.debug": false,
+    "roo-cline.allowedCommands": [
+        "git log",
+        "git diff",
+        "git show"
+    ],
+    "roo-cline.deniedCommands": [],
+    "workbench.startupEditor": "none",
+    "dataWrangler.experiments.copilot.enabled": false,
+    "chat.extensionUnification.enabled": false,
+    "chat.useClaudeHooks": true,
+    "chat.hookFilesLocations": {
+        ".github/hooks": false
+    },
+    "claudeCode.preferredLocation": "panel"
+}
