@@ -205,7 +205,6 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 3, 9, 8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 9 8:47AM
     (datetime(2026, 3, 11, 9, 47, 0), "W40"),  # Mannequin added; temp unchanged Mar 11 9:47AM
     (datetime(2026, 3, 12, 10, 47, 0), "W38"),  # 38°C from Mar 12 10:47AM
-    (datetime(2026, 3, 13, 8, 45, 0), "W38"),  # Mannequin re-added; temp unchanged Mar 13 8:45AM
 ]
 
 # Shower head transitions: (datetime, head_type)
@@ -238,14 +237,16 @@ MANNEQUIN_TRANSITIONS = [
     (datetime(2026, 3, 13, 8, 45, 0), True),  # Mannequin re-added Mar 13
     (datetime(2026, 3, 17, 8, 25, 0), False),  # Mannequin removed Mar 14
     (datetime(2026, 3, 18, 9, 45, 0), True),  # Mannequin re-added Mar 18
+    (datetime(2026, 3, 19, 8, 25, 0), False),  # Mannequin removed Mar 19
+    (datetime(2026, 3, 22, 9, 25, 0), True),  # Mannequin re-added Mar 22
+    (datetime(2026, 3, 27, 8, 25, 0), False),  # Mannequin removed Mar 23
 ]
 
 # Door position transitions: (datetime, position)
 # Positions: "Open", "Closed", "Partial"
 DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door open from experiment start
-    # Add future transitions here, e.g.:
-    # (datetime(2026, 4, 1, 0, 0, 0), "Partial"),  # Towel under door from Apr 1
+    (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Door closed from Apr 8
 ]
 
 # Bath fan transitions: (datetime, status)
@@ -254,8 +255,7 @@ DOOR_POSITION_TRANSITIONS = [
 # is still detected from the shower log via check_fan_during_test().
 FAN_STATUS_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Off"),  # Fan off from experiment start
-    # Add future transitions here, e.g.:
-    # (datetime(2026, 4, 1, 0, 0, 0), "On"),  # Fan on from Apr 1
+    (datetime(2026, 3, 31, 12, 45, 0), "On"),  # Fan on from March 31 for 12 min. during shower
 ]
 
 # Time of day boundaries (hour of day).
