@@ -200,10 +200,6 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 24, 8, 0, 0), "W52"),  # Pepco head installed; 52°C from Feb 24 8AM
     (datetime(2026, 2, 26, 10, 23, 0), "W49"),  # Pepco 49°C from Feb 26 10:23AM
     (datetime(2026, 3, 2, 9, 23, 0), "W40"),  # Pepco 40°C from Mar 2 9:23AM
-    (datetime(2026, 3, 4, 10, 23, 0), "W40"),  # Spray pattern change; temp unchanged Mar 4 10:23AM
-    (datetime(2026, 3, 6, 8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 6 8:47AM
-    (datetime(2026, 3, 9, 8, 47, 0), "W40"),  # Spray pattern change; temp unchanged Mar 9 8:47AM
-    (datetime(2026, 3, 11, 9, 47, 0), "W40"),  # Mannequin added; temp unchanged Mar 11 9:47AM
     (datetime(2026, 3, 12, 10, 47, 0), "W38"),  # 38°C from Mar 12 10:47AM
 ]
 
@@ -223,9 +219,6 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 3, 4, 10, 23, 0), "Wide"),  # Pepco wide spray from Mar 4
     (datetime(2026, 3, 6, 8, 47, 0), "Mid"),  # Pepco mid spray from Mar 6
     (datetime(2026, 3, 9, 8, 47, 0), "Narrow"),  # Pepco narrow spray from Mar 9
-    (datetime(2026, 3, 11, 9, 47, 0), "Narrow"),  # Narrow spray (with mannequin) Mar 11
-    (datetime(2026, 3, 12, 10, 47, 0), "Narrow"),  # Narrow spray (no mannequin) Mar 12
-    (datetime(2026, 3, 13, 8, 45, 0), "Narrow"),  # Narrow spray (with mannequin) Mar 13
 ]
 
 # Mannequin transitions: (datetime, present)
