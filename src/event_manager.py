@@ -251,6 +251,15 @@ FAN_STATUS_TRANSITIONS = [
     (datetime(2026, 3, 31, 12, 45, 0), "On"),  # Fan on from March 31 for 12 min. during shower
 ]
 
+# Planned bath fan run duration (minutes). None = no planned fan operation.
+# Tracks how long the fan is intended to run during the test period; if the
+# protocol changes (e.g. 15 min instead of 12) add a new entry here and
+# measure_fan_duration_during_test() will capture the actual runtime regardless.
+FAN_DURATION_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
+    (datetime(2026, 1, 14, 0, 0, 0), None),   # No planned fan
+    (datetime(2026, 3, 31, 12, 45, 0), 12.0),  # Fan planned to run 12 min from shower start
+]
+
 # Time of day boundaries (hour of day).
 # Retained for penetration factor window calculations in particle_calculations.py.
 # No longer included in test names or replicate counters.
@@ -480,6 +489,24 @@ def get_planned_fan_status(dt: datetime) -> str:
     return _get_config_value_at_time(dt, FAN_STATUS_TRANSITIONS)
 
 
+def get_planned_fan_duration(dt: datetime) -> Optional[float]:
+    """
+    Return the planned bath fan run duration (minutes) at a given datetime.
+
+    Uses FAN_DURATION_TRANSITIONS. When the fan protocol changes, add a new
+    entry to FAN_DURATION_TRANSITIONS rather than editing this function.
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        Planned duration in minutes, or None if no fan is planned.
+    """
+    # _get_config_value_at_time is typed -> str but returns whatever value is
+    # stored in the transition list; None and float work fine at runtime.
+    return _get_config_value_at_time(dt, FAN_DURATION_TRANSITIONS)  # type: ignore[return-value]
+
+
 def get_test_configuration(dt: datetime) -> Dict:
     """
     Get complete test configuration for a given datetime.
@@ -542,14 +569,19 @@ def get_unique_configurations() -> List[Dict[str, str]]:
     Returns:
         List of configuration dictionaries, one per unique configuration
     """
-    # Collect all unique transition points
+    # Collect all unique transition points across every parameter
     all_transitions = set()
-    for dt, _ in WATER_TEMP_TRANSITIONS:
-        all_transitions.add(dt)
-    for dt, _ in DOOR_POSITION_TRANSITIONS:
-        all_transitions.add(dt)
-    for dt, _ in FAN_STATUS_TRANSITIONS:
-        all_transitions.add(dt)
+    for transitions in (
+        WATER_TEMP_TRANSITIONS,
+        SHOWER_HEAD_TRANSITIONS,
+        SPRAY_PATTERN_TRANSITIONS,
+        MANNEQUIN_TRANSITIONS,
+        DOOR_POSITION_TRANSITIONS,
+        FAN_STATUS_TRANSITIONS,
+        FAN_DURATION_TRANSITIONS,
+    ):
+        for dt, _ in transitions:
+            all_transitions.add(dt)
 
     # Sort transitions
     sorted_transitions = sorted(all_transitions)
@@ -597,6 +629,52 @@ def check_fan_during_test(
         return bool((test_period_log["bath_fan"] > 0).any())
 
     return False
+
+
+def measure_fan_duration_during_test(
+    shower_on: datetime, shower_off: datetime, shower_log: pd.DataFrame
+) -> Optional[float]:
+    """
+    Measure actual bath fan runtime during the test period from the shower log.
+
+    Integrates the time-series of bath_fan state entries to compute total
+    fan-on minutes from shower_on through 2 hours after shower_off.  Returns
+    None when the fan was never on or when no log data exists for the window.
+
+    Note: shower_log is a state-change log; each row records the value that
+    was active *from* that timestamp until the next row.  The last row in the
+    window is assumed to stay active until ``shower_off + 2 h``.
+
+    Parameters:
+        shower_on: Shower start time
+        shower_off: Shower end time
+        shower_log: DataFrame with columns 'datetime_EDT' and 'bath_fan'
+
+    Returns:
+        Total fan-on duration in minutes, or None if fan never ran.
+    """
+    test_start = shower_on
+    test_end = shower_off + timedelta(hours=2)
+
+    mask = (shower_log["datetime_EDT"] >= test_start) & (shower_log["datetime_EDT"] <= test_end)
+    test_period = shower_log[mask].copy().sort_values("datetime_EDT")
+
+    if test_period.empty:
+        return None
+
+    total_minutes = 0.0
+    times = test_period["datetime_EDT"].tolist()
+    states = test_period["bath_fan"].tolist()
+
+    for i in range(len(times) - 1):
+        if states[i] > 0:
+            total_minutes += (times[i + 1] - times[i]).total_seconds() / 60.0
+
+    # Last entry stays active until test_end
+    if states[-1] > 0:
+        total_minutes += (test_end - times[-1]).total_seconds() / 60.0
+
+    return total_minutes if total_minutes > 0 else None
 
 
 def generate_test_name(
@@ -910,6 +988,7 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
             event["door_position"] = config["door_position"]
             event["planned_fan"] = config["planned_fan"]
             event["fan_during_test"] = False
+            event["fan_duration_min"] = None
             event["time_of_day"] = get_time_of_day(shower_time)
             event["config_key"] = ""
             event["replicate_num"] = 0
@@ -929,6 +1008,11 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
         # longer included in the test name or replicate counter key
         time_of_day = get_time_of_day(shower_time)
         fan_during_test = check_fan_during_test(shower_time, shower_off, shower_log)
+        fan_duration_min = (
+            measure_fan_duration_during_test(shower_time, shower_off, shower_log)
+            if fan_during_test
+            else None
+        )
 
         # Condition key for replicate counting: date + all test parameters
         # (time_of_day deliberately excluded — Day/Night has no analytical impact)
@@ -970,6 +1054,7 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
         event["door_position"] = door_position
         event["planned_fan"] = planned_fan
         event["fan_during_test"] = fan_during_test
+        event["fan_duration_min"] = fan_duration_min
         event["time_of_day"] = time_of_day
         event["config_key"] = config_key
         event["replicate_num"] = replicate_num

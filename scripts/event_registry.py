@@ -102,6 +102,7 @@ from src.event_manager import (
     get_water_temperature_code,
     is_duration_excluded,
     is_event_excluded,
+    measure_fan_duration_during_test,
 )
 
 # =============================================================================
@@ -514,8 +515,14 @@ def build_unified_event_registry(
         # Check fan status (can't check for synthetic events without real log data)
         if event.get("is_synthetic", False):
             fan_status = False
+            fan_duration_min = None
         else:
             fan_status = check_fan_during_test(shower_time, shower_off, shower_log)
+            fan_duration_min = (
+                measure_fan_duration_during_test(shower_time, shower_off, shower_log)
+                if fan_status
+                else None
+            )
 
         # Condition key for replicate counting: date + all test parameters.
         # time_of_day deliberately excluded (no analytical impact).
@@ -558,6 +565,7 @@ def build_unified_event_registry(
         event["door_position"] = door_position
         event["time_of_day"] = time_of_day
         event["fan_during_test"] = fan_status
+        event["fan_duration_min"] = fan_duration_min
         event["replicate_num"] = replicate_num
 
     # Step 7: Re-match and propagate UNIFIED event numbers and test names to CO2 events
@@ -772,6 +780,7 @@ def save_event_registry(
             "planned_fan": _cfg["planned_fan"],
             "time_of_day": shower.get("time_of_day", ""),
             "fan_during_test": shower.get("fan_during_test", False),
+            "fan_duration_min": shower.get("fan_duration_min"),
             "replicate_num": shower.get("replicate_num", 0),
             "shower_on": shower["shower_on"],
             "shower_off": shower["shower_off"],

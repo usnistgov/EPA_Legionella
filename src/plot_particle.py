@@ -1479,10 +1479,12 @@ def plot_emission_etotal_by_showerhead_boxplot(
     Produces one figure for small bins (Bin 0–2) and one for large bins (Bin 3–6).
     Configs are ordered by temperature and grouped into three clusters separated
     by visible gaps on the categorical x-axis:
-      - Cluster 1: W37, W40pn, W40pw, W43  (base + Pepco narrow/wide near 40°C)
-      - Cluster 2: W48, W49pw               (base + Pepco wide near 49°C)
-      - Cluster 3: W53, W52pw               (base + Pepco wide near 52°C)
-    Annotations follow the standard 'W##\\nn=#\\nRH=##%' style.
+      - Cluster 1: W37, W40_Pepco_Narrow, W40_Pepco_Wide, W40_Pepco_Mid, W43
+      - Cluster 2: W48, W49_Pepco_Wide
+      - Cluster 3: W53, W52_Pepco_Wide
+    Keys match compound config_key prefixes (e.g. "W40_Pepco_Narrow" matches
+    "W40_Pepco_Narrow_DoorOpen_FanOff").  Annotations follow the standard
+    'W##\\nn=#\\nRH=##%' style.
 
     Parameters:
         results_df: DataFrame with analysis results; must contain 'config_key'
@@ -1498,29 +1500,40 @@ def plot_emission_etotal_by_showerhead_boxplot(
     if results_df.empty or "config_key" not in results_df.columns:
         return
 
-    # Ordered mapping: config_key → (categorical x position, x-tick label)
-    # Positions leave gaps of 2 units between clusters (clusters spaced 1 unit apart).
+    # Ordered mapping: compound config_key prefix → (categorical x position, tick label)
+    # Keys are the leading portion of the full config_key (everything before _Door…).
+    # Standard-head events match on the W## token alone; Pepco events match on
+    # W##_Pepco_<Pattern>.  Positions leave a gap of 1 unit between clusters.
     SHOWERHEAD_CONFIGS = {
-        # Cluster 1: base W37 + Pepco narrow/wide near 40°C + base W43
+        # Cluster 1: base W37 + Pepco narrow/wide/mid near 40°C + base W43
         "W37": (0, "W37"),
-        "W40pn": (1, "W40pn"),
-        "W40pw": (2, "W40pw"),
-        "W43": (3, "W43"),
-        # gap at 4
+        "W40_Pepco_Narrow": (1, "W40\nP.Narrow"),
+        "W40_Pepco_Wide": (2, "W40\nP.Wide"),
+        "W40_Pepco_Mid": (3, "W40\nP.Mid"),
+        "W43": (4, "W43"),
+        # gap at 5
         # Cluster 2: base W48 + Pepco wide near 49°C
-        "W48": (5, "W48"),
-        "W49pw": (6, "W49pw"),
-        # gap at 7
+        "W48": (6, "W48"),
+        "W49_Pepco_Wide": (7, "W49\nP.Wide"),
+        # gap at 8
         # Cluster 3: base W53 + Pepco wide near 52°C
-        "W53": (8, "W53"),
-        "W52pw": (9, "W52pw"),
+        "W53": (9, "W53"),
+        "W52_Pepco_Wide": (10, "W52\nP.Wide"),
     }
 
-    # config_key is a compound string like "W53_DoorOpen_FanOff"; extract the
-    # water-temp prefix (first "_"-delimited token) for matching.
-    wt_prefix = results_df["config_key"].str.split("_").str[0]
-    sh_df = results_df[wt_prefix.isin(SHOWERHEAD_CONFIGS.keys())].copy()
-    sh_df["_wt_prefix"] = sh_df["config_key"].str.split("_").str[0]
+    # Match each row's config_key to a SHOWERHEAD_CONFIGS group.
+    # A config_key like "W40_Pepco_Narrow_DoorOpen_FanOff" matches the group
+    # key "W40_Pepco_Narrow" because it starts with that prefix followed by "_".
+    # A standard-head key like "W37_DoorOpen_FanOff" matches "W37" the same way.
+    def _sh_group(ck: str) -> "Optional[str]":
+        for sh_key in SHOWERHEAD_CONFIGS:
+            if ck == sh_key or ck.startswith(sh_key + "_"):
+                return sh_key
+        return None
+
+    sh_df = results_df.copy()
+    sh_df["_sh_group"] = sh_df["config_key"].apply(_sh_group)
+    sh_df = sh_df[sh_df["_sh_group"].notna()].copy()
     if sh_df.empty:
         return
 
@@ -1547,8 +1560,8 @@ def plot_emission_etotal_by_showerhead_boxplot(
 
         # Build annotation stats keyed by categorical x position
         annot_stats: dict = {}
-        for config_key, (x_pos, _) in SHOWERHEAD_CONFIGS.items():
-            group_df = sh_df[sh_df["_wt_prefix"] == config_key]
+        for config_key, (x_pos, tick_label) in SHOWERHEAD_CONFIGS.items():
+            group_df = sh_df[sh_df["_sh_group"] == config_key]
             if group_df.empty:
                 continue
             all_vals: list = []
@@ -1557,7 +1570,6 @@ def plot_emission_etotal_by_showerhead_boxplot(
                     all_vals.extend(group_df[col].dropna().values.tolist())
             n = len(group_df)
             max_val = float(np.max(all_vals)) if all_vals else np.nan
-            # Store the full W-code prefix (e.g. "W40pn") as the annotation label
             annot_stats[x_pos] = {
                 "n": n,
                 "max_val": max_val,
@@ -1565,7 +1577,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
                 if "shower_on" in group_df.columns
                 else pd.Series([], dtype="object"),
                 "config_key": config_key,
-                "w_label": config_key.split("_")[0],  # full prefix: W40pn, W52pw, etc.
+                "w_label": tick_label,  # e.g. "W40\nP.Narrow", "W52\nP.Wide"
             }
 
         fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
@@ -1584,7 +1596,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
             data = []
 
             for config_key, (x_pos, _) in SHOWERHEAD_CONFIGS.items():
-                values = sh_df[sh_df["_wt_prefix"] == config_key][col].dropna().values
+                values = sh_df[sh_df["_sh_group"] == config_key][col].dropna().values
                 if len(values) > 0:
                     positions.append(x_pos)
                     data.append(values)
@@ -1616,7 +1628,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
                 med.set_color(BOXPLOT_CONFIG["median_color"])
                 med.set_linewidth(BOXPLOT_CONFIG["median_linewidth"])
 
-        # Inline annotation: use full W-code label (W40pn, W52pw, etc.)
+        # Inline annotation: use tick label from SHOWERHEAD_CONFIGS (e.g. "W40\nP.Narrow")
         if annot_stats:
             y_min, y_max = ax.get_ylim()
             y_range = y_max - y_min
@@ -1649,7 +1661,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
         x_tick_positions = [cfg[0] for cfg in SHOWERHEAD_CONFIGS.values()]
         x_tick_labels = [cfg[1] for cfg in SHOWERHEAD_CONFIGS.values()]
         ax.set_xticks(x_tick_positions)
-        ax.set_xticklabels(x_tick_labels, fontsize=FONT_SIZE_TICK)
+        ax.set_xticklabels(x_tick_labels, fontsize=FONT_SIZE_TICK - 1)
         ax.set_xlim(-0.5, max(x_tick_positions) + 0.5)
 
         ax.set_xlabel("Configuration", fontsize=FONT_SIZE_LABEL)
