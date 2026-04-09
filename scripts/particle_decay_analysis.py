@@ -38,7 +38,7 @@ Key Metrics Calculated:
 Analysis Features:
     - Numerical solution of time-dependent mass balance equation
     - Integration with CO2-derived air change rates
-    - Per-bin analysis for size-dependent behavior (12 bins, 0.35–10.0 µm)
+    - Per-bin analysis for size-dependent behavior (12 bins, 0.35-10.0 µm)
     - Statistical summaries across all shower events
     - Comprehensive visualization of decay curves and emissions
     - OUTDOOR_PM_EVENTS list: events for which outdoor PM concentrations are overlaid
@@ -963,31 +963,31 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
             "bedroom_rh",
             "Bedroom RH (%)",
             "emission_etotal_by_bedroom_rh_boxplot.png",
-            (22, 43, 1),
+            (23, 53, 1),
         ),
         (
             "bedroom_temp",
             "Bedroom Temperature (°C)",
             "emission_etotal_by_bedroom_temp_boxplot.png",
-            (14.5, 18.5, 0.1),
+            (14.9, 18.2, 0.1),
         ),
         (
             "lambda_ach",
             "Air Change Rate λ (h⁻¹)",
             "emission_etotal_by_acr_boxplot.png",
-            (0.8, 1.5, 0.05),
+            (0.7, 1.5, 0.05),
         ),
         (
             "avg_beta",
             "Avg. Other Process Rate β (h⁻¹)",
             "emission_etotal_by_beta_boxplot.png",
-            (-0.4, 0.5, 0.05),
+            (-0.45, 0.35, 0.05),
         ),
         (
             "avg_p",
             "Avg. Penetration Factor p",
             "emission_etotal_by_p_boxplot.png",
-            (0.4, 0.8, 0.02),
+            (0.48, 0.92, 0.02),
         ),
     ]
     for metric_col, metric_label, filename, x_range in _metric_axes:
