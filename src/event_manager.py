@@ -208,6 +208,8 @@ WATER_TEMP_TRANSITIONS = [
 SHOWER_HEAD_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Standard"),  # Standard head from experiment start
     (datetime(2026, 2, 24, 8, 0, 0), "Pepco"),  # Pepco shower head installed Feb 24
+    (datetime(2026, 4, 10, 8, 55, 0), "FilterWand"),  # Filtered Wand head installed Apr 10
+    (datetime(2026, 4, 13, 11, 35, 0), "Used")  # Used head installed Apr 13
 ]
 
 # Spray pattern transitions: (datetime, pattern)
@@ -219,6 +221,11 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 3, 4, 10, 23, 0), "Wide"),  # Pepco wide spray from Mar 4
     (datetime(2026, 3, 6, 8, 47, 0), "Mid"),  # Pepco mid spray from Mar 6
     (datetime(2026, 3, 9, 8, 47, 0), "Narrow"),  # Pepco narrow spray from Mar 9
+    (datetime(2026, 3, 19, 8, 25, 0), "Wide"),  # Filtered Wand wide spray from Apr 10
+    (datetime(2026, 4, 10, 8, 55, 0), None),  # Filtered Wand spray from Apr 10
+    (datetime(2026, 4, 13, 11, 35, 0), "rainfall"),  # Used head rainfall spray from Apr 13
+    (datetime(2026, 4, 15, 8, 25, 0), "12Nozzle"),  # Used head 12-nozzle spray from Apr 15
+    (datetime(2026, 4, 17, 8, 35, 0), "SingleWide")  # Used head SingleWide spray from Apr 17
 ]
 
 # Mannequin transitions: (datetime, present)
@@ -240,7 +247,7 @@ MANNEQUIN_TRANSITIONS = [
 DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door open from experiment start
     (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Door closed from Apr 8
-]
+    (datetime(2026, 4, 10, 8, 55, 0), "Open"),  # Door open from Apr 10
 
 # Bath fan transitions: (datetime, status)
 # Status: "On", "Off"
@@ -249,6 +256,7 @@ DOOR_POSITION_TRANSITIONS = [
 FAN_STATUS_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Off"),  # Fan off from experiment start
     (datetime(2026, 3, 31, 12, 45, 0), "On"),  # Fan on from March 31 for 12 min. during shower
+    (datetime(2026, 4, 10, 8, 55, 0), "Off")   # Fan off from Apr 10
 ]
 
 # Planned bath fan run duration (minutes). None = no planned fan operation.
@@ -258,6 +266,7 @@ FAN_STATUS_TRANSITIONS = [
 FAN_DURATION_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
     (datetime(2026, 1, 14, 0, 0, 0), None),   # No planned fan
     (datetime(2026, 3, 31, 12, 45, 0), 12.0),  # Fan planned to run 12 min from shower start
+    (datetime(2026, 4, 10, 8, 55, 0), None)    # No planned fan from Apr 10
 ]
 
 # Time of day boundaries (hour of day).
