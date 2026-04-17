@@ -200,7 +200,7 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 24, 8, 0, 0), "W52"),  # Pepco head installed; 52°C from Feb 24 8AM
     (datetime(2026, 2, 26, 10, 23, 0), "W49"),  # Pepco 49°C from Feb 26 10:23AM
     (datetime(2026, 3, 2, 9, 23, 0), "W40"),  # Pepco 40°C from Mar 2 9:23AM
-    (datetime(2026, 3, 12, 10, 47, 0), "W38"),  # 38°C from Mar 12 10:47AM
+    (datetime(2026, 3, 12, 10, 47, 0), "W38")  # 38°C from Mar 12 10:47AM
 ]
 
 # Shower head transitions: (datetime, head_type)
@@ -239,7 +239,7 @@ MANNEQUIN_TRANSITIONS = [
     (datetime(2026, 3, 18, 9, 45, 0), True),  # Mannequin re-added Mar 18
     (datetime(2026, 3, 19, 8, 25, 0), False),  # Mannequin removed Mar 19
     (datetime(2026, 3, 22, 9, 25, 0), True),  # Mannequin re-added Mar 22
-    (datetime(2026, 3, 27, 8, 25, 0), False),  # Mannequin removed Mar 23
+    (datetime(2026, 3, 27, 8, 25, 0), False)  # Mannequin removed Mar 23
 ]
 
 # Door position transitions: (datetime, position)
@@ -247,7 +247,7 @@ MANNEQUIN_TRANSITIONS = [
 DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door open from experiment start
     (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Door closed from Apr 8
-    (datetime(2026, 4, 10, 8, 55, 0), "Open"),  # Door open from Apr 10
+    (datetime(2026, 4, 10, 8, 55, 0), "Open")  # Door open from Apr 10
 
 # Bath fan transitions: (datetime, status)
 # Status: "On", "Off"
@@ -274,7 +274,7 @@ FAN_DURATION_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
 # No longer included in test names or replicate counters.
 TIME_OF_DAY_RANGES = {
     "Day": (5, 17),  # 5am - 5pm
-    "Night": (17, 5),  # 5pm - 5am (wraps around midnight)
+    "Night": (17, 5)  # 5pm - 5am (wraps around midnight)
 }
 
 # Predefined point exclusions: datetime -> reason
@@ -282,7 +282,7 @@ TIME_OF_DAY_RANGES = {
 # Use a tolerance of ±60 s in is_event_excluded().
 EXCLUDED_EVENTS = {
     datetime(2026, 1, 22, 15, 0, 0): "Tour in house during test",
-    datetime(2026, 1, 29, 15, 0, 0): "People in house",
+    datetime(2026, 1, 29, 15, 0, 0): "People in house"
 }
 
 # Date-range exclusions: list of (start_datetime, end_datetime, reason).
@@ -304,7 +304,7 @@ EXCLUDED_RANGES: List[Tuple[datetime, datetime, str]] = [
         datetime(2026, 3, 15, 0, 0, 0),
         datetime(2026, 3, 16, 12, 00, 00),
         "CO2 system failure",
-    ),
+    )
 ]
 
 # Expected CO2 to shower timing offset (minutes)
