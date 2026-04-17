@@ -861,13 +861,18 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         from src.plot_particle import (
             plot_deposition_rate_boxplot,
             plot_deposition_summary,
+            plot_door_comparison_boxplots,
             plot_emission_boxplot,
             plot_emission_etotal_by_metric_boxplot,
             plot_emission_etotal_by_showerhead_boxplot,
             plot_emission_rate_boxplot,
             plot_emission_summary,
+            plot_fan_comparison_boxplots,
+            plot_mannequin_comparison_boxplots,
             plot_penetration_factor_boxplot,
             plot_penetration_summary,
+            plot_shower_head_comparison_boxplots,
+            plot_spray_pattern_comparison_boxplots,
         )
     except ImportError:
         print("  Warning: plot_particle module not found. Skipping plots.")
@@ -1017,6 +1022,45 @@ def _generate_summary_plots(results_df: pd.DataFrame, output_dir: Path) -> None:
         print(f"  Generated: {_sh_filename} (bin0-2 and bin3-6)")
     except Exception as e:
         print(f"  Error generating emission_etotal_by_showerhead_boxplot: {e}")
+
+    # ── Condition-comparison boxplots (5 families × 3 metrics × 3 bin groups) ─
+    _comparison_families = [
+        (
+            plot_spray_pattern_comparison_boxplots,
+            "spray_pattern",
+            "spray pattern",
+        ),
+        (
+            plot_shower_head_comparison_boxplots,
+            "head_type",
+            "shower head type",
+        ),
+        (
+            plot_mannequin_comparison_boxplots,
+            "mannequin",
+            "mannequin presence",
+        ),
+        (
+            plot_door_comparison_boxplots,
+            "door_position",
+            "door position",
+        ),
+        (
+            plot_fan_comparison_boxplots,
+            "fan_status",
+            "fan status",
+        ),
+    ]
+    for _cmp_func, _cmp_stem, _cmp_label in _comparison_families:
+        try:
+            _cmp_func(results_df, PARTICLE_BINS, plot_dir, rh_data=rh_data)
+            print(
+                f"  Generated: {_cmp_stem}_{{emission_etotal,penetration_factor,"
+                f"other_process_rate}}_boxplot_{{bin0-2,bin3-6,bin7-11}}.png"
+                f"  ({_cmp_label} comparison)"
+            )
+        except Exception as e:
+            print(f"  Error generating {_cmp_stem} comparison figures: {e}")
 
     print(f"  Plots saved to: {plot_dir}")
 

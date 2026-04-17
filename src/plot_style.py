@@ -59,6 +59,7 @@ Institution: National Institute of Standards and Technology (NIST)
 Date: 2026
 """
 
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple, Union, overload
@@ -464,8 +465,6 @@ def format_test_name_for_filename(test_name: str) -> str:
     Returns:
         Formatted filename string (lowercase, underscores, no replicate)
     """
-    import re
-
     # Remove replicate number (_R01, _R02, _R??, etc.)
     name = re.sub(r"_R[\d?]+$", "", test_name)
     # Remove invalid Windows filename characters: < > : " / \ | ? *
@@ -487,11 +486,7 @@ def format_test_name_for_title(test_name: str) -> str:
     Returns:
         Formatted title string (proper case, spaces, no replicate)
     """
-    # Remove replicate number (_R01, _R02, etc.)
-    import re
-
     name = re.sub(r"_R\d+$", "", test_name)
-    # Replace underscores with spaces
     return name.replace("_", " ")
 
 

@@ -119,7 +119,7 @@ Date: January 2026
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TypeVar
 
 import pandas as pd
 
@@ -128,6 +128,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import existing event matching functions
 from src.event_matching import match_shower_to_co2_event
+
+_T = TypeVar("_T")
 
 # Lazy import for event_registry to avoid circular import
 # These are imported inside functions that use them
@@ -221,7 +223,7 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 3, 4, 10, 23, 0), "Wide"),  # Pepco wide spray from Mar 4
     (datetime(2026, 3, 6, 8, 47, 0), "Mid"),  # Pepco mid spray from Mar 6
     (datetime(2026, 3, 9, 8, 47, 0), "Narrow"),  # Pepco narrow spray from Mar 9
-    (datetime(2026, 3, 19, 8, 25, 0), "Wide"),  # Filtered Wand wide spray from Apr 10
+    (datetime(2026, 3, 19, 8, 25, 0), "Wide"),  # Pepco wide spray from Mar 19
     (datetime(2026, 4, 10, 8, 55, 0), None),  # Filtered Wand spray from Apr 10
     (datetime(2026, 4, 13, 11, 35, 0), "rainfall"),  # Used head rainfall spray from Apr 13
     (datetime(2026, 4, 15, 8, 25, 0), "12Nozzle"),  # Used head 12-nozzle spray from Apr 15
@@ -247,7 +249,8 @@ MANNEQUIN_TRANSITIONS = [
 DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door open from experiment start
     (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Door closed from Apr 8
-    (datetime(2026, 4, 10, 8, 55, 0), "Open")  # Door open from Apr 10
+    (datetime(2026, 4, 10, 8, 55, 0), "Open"),  # Door open from Apr 10
+]
 
 # Bath fan transitions: (datetime, status)
 # Status: "On", "Off"
@@ -389,7 +392,7 @@ def get_time_of_day(dt: datetime) -> str:
         return "Night"
 
 
-def _get_config_value_at_time(dt: datetime, transitions: List[Tuple[datetime, str]]) -> str:
+def _get_config_value_at_time(dt: datetime, transitions: List[Tuple[datetime, _T]]) -> _T:
     """
     Get configuration value at a given time based on transition list.
 
@@ -511,9 +514,7 @@ def get_planned_fan_duration(dt: datetime) -> Optional[float]:
     Returns:
         Planned duration in minutes, or None if no fan is planned.
     """
-    # _get_config_value_at_time is typed -> str but returns whatever value is
-    # stored in the transition list; None and float work fine at runtime.
-    return _get_config_value_at_time(dt, FAN_DURATION_TRANSITIONS)  # type: ignore[return-value]
+    return _get_config_value_at_time(dt, FAN_DURATION_TRANSITIONS)
 
 
 def get_test_configuration(dt: datetime) -> Dict:
