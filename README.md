@@ -548,6 +548,10 @@ Instrument manuals, data sheets, and system documentation are located in the [`d
 
 The experimental data associated with this project are not included in this repository. Data can be made available upon request by contacting the PI.
 
+## License
+
+This software is in the public domain and provided "as is" according to the [LICENSE.md](LICENSE.md) file.
+
 ## Citation
 
 If you use this software, please cite it as:
