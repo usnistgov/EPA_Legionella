@@ -244,7 +244,7 @@ MANNEQUIN_TRANSITIONS = [
     (datetime(2026, 3, 22, 9, 25, 0), True),  # Mannequin re-added Mar 22
     (datetime(2026, 3, 27, 8, 25, 0), False),  # Mannequin removed Mar 23
     (datetime(2026, 4, 23, 14, 15, 0), True),  # Mannequin added Apr 23
-    (datetime(2026, 4, 29, 8, 35, 0), False),  # Mannequin removed Apr 23
+    (datetime(2026, 4, 29, 8, 35, 0), False),  # Mannequin removed Apr 29
 ]
 
 # Door position transitions: (datetime, position)
