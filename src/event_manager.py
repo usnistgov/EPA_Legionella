@@ -229,7 +229,7 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 4, 13, 11, 35, 0), "rainfall"),  # Used head rainfall spray from Apr 13
     (datetime(2026, 4, 15, 8, 25, 0), "12Nozzle"),  # Used head 12-nozzle spray from Apr 15
     (datetime(2026, 4, 17, 8, 35, 0), "SingleWide"),  # Used head SingleWide spray from Apr 17
-    (datetime(2026, 4, 23, 14, 15, 0), "Narrow"),
+    (datetime(2026, 4, 23, 14, 15, 0), "Narrow"),  # Pepco narrow spray from Apr 23
 ]
 
 # Mannequin transitions: (datetime, present)
@@ -254,15 +254,17 @@ DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Bath door open from experiment start
     (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Bath door closed from Apr 8
     (datetime(2026, 4, 10, 8, 55, 0), "Open"),  # Bath door open from Apr 10
-    (datetime(2026, 5, 4, 8, 30, 0), "Ajar"),  # Door ajar from May 4
+    (datetime(2026, 5, 4, 8, 30, 0), "Ajar"),  # Bath door ajar from May 4
 ]
 
 # Bedroom door (bedroom–rest of house) position transitions: (datetime, position)
 # Positions: "Open", "Closed", "Ajar"
 BEDROOM_DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Closed"),  # Bedroom door closed from experiment start
-    (datetime(2026, 5, 1, 17, 10, 0), "Open"),  # Bedroom door opened May 1
-    (datetime(2026, 5, 4, 8, 30, 0), "Ajar"),  # Bedroom door ajar May 4
+    (
+        datetime(2026, 5, 1, 17, 10, 0),
+        "Ajar",
+    ),  # Bedroom door open but shifted to ajar at some point May 1
 ]
 
 # Bath fan transitions: (datetime, status)
@@ -317,8 +319,8 @@ EXCLUDED_RANGES: List[Tuple[datetime, datetime, str]] = [
         "Daylight saving (instrument data misalignment) & elevated RH in the bedroom",
     ),
     (
-        datetime(2026, 3, 15, 0, 0, 0),
-        datetime(2026, 3, 16, 12, 00, 00),
+        datetime(2026, 3, 14, 0, 0, 0),
+        datetime(2026, 3, 15, 12, 00, 00),
         "CO2 system failure",
     ),
 ]
