@@ -1021,6 +1021,16 @@ def _apply_pm_exclusion_checks(
         if rh_data.empty:
             continue
 
+        # When the bath door is closed or ajar, steam cannot propagate
+        # easily to the bedroom QuantAQ sensor, so the RH peak will
+        # naturally be delayed.  Skip the check and note the reason.
+        bath_door = event.get("door_position", "Open")
+        if bath_door in ("Closed", "Ajar"):
+            event["exclusion_reason"] = (
+                f"RH mixing check skipped: bath door {bath_door.lower()}"
+            )
+            continue
+
         rh_window_end = shower_off + timedelta(hours=2)
         mask = (rh_data["datetime"] >= shower_off) & (
             rh_data["datetime"] <= rh_window_end
