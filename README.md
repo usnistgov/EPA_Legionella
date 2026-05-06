@@ -16,6 +16,32 @@ This project analyzes aerosol characteristics from shower-generated aerosols wit
 
 Certain commercial equipment, instruments, software, or materials are identified in this repository in order to specify the experimental and analytical procedures adequately. Such identification is not intended to imply recommendation or endorsement of any product or service by NIST, nor is it intended to imply that the materials or equipment identified are necessarily the best available for the purpose.
 
+## Measurement Uncertainty
+
+The analysis procedures in this repository involve multiple stages of data processing and mathematical modeling, each contributing to the overall uncertainty in the final results. Key sources of uncertainty include:
+
+**CO₂-derived Air Change Rate (λ) Uncertainty:**
+- Statistical uncertainty from linear regression of log-transformed decay data (reported as standard error of the slope)
+- Systematic uncertainty from assuming a well-mixed zone and constant infiltration fractions (α, β)
+- Uncertainty in source concentration characterization evaluated through three methods: weighted average (α·C_outside + β·C_entry), outside-only, and entry-only
+- Data quality filters including minimum concentration difference requirements (50 ppm) and sufficient data point thresholds
+- Temporal alignment uncertainty between CO₂ injection timing and decay window selection
+
+**Particle Analysis Uncertainty:**
+- Penetration factor (p) uncertainty from temporal variability in indoor/outdoor concentration ratios during before/after windows
+- Other process rate (β) uncertainty from numerical differentiation of concentration data, mitigated by 5th–95th percentile trimming and R²-based selection criteria
+- Emission rate (E) uncertainty from propagation of errors in the mass balance equation and concentration time derivatives
+- Forward Euler simulation uncertainty from accumulation of integration errors over the 2-hour prediction window
+- Size-bin dependent uncertainties due to varying signal-to-noise ratios across the 0.35–10.0 µm range
+
+**General Measurement Uncertainties:**
+- Sensor-specific uncertainties: Aranet4 CO₂ sensors (±50 ppm + 3% of reading), QuantAQ MODULAIR-PM particle counters, HOBO UX100 temperature/relative humidity sensors
+- Temporal synchronization uncertainty between different sensor systems sampling at 1-minute intervals
+- Spatial representativeness limitations of point measurements in heterogeneous indoor environments
+- Model structural uncertainty from assuming first-order decay processes and uniform mixing in the mass balance equations
+
+Uncertainty quantification is implemented throughout the analysis pipeline, with standard deviations, standard errors, and confidence intervals reported where applicable. The three-source-method approach for λ calculation provides explicit assessment of structural uncertainty in ventilation rate determination. Where measurements fall below detection thresholds or fail quality criteria, results are appropriately flagged or excluded to prevent overinterpretation.
+
 ## Repository Structure
 
 ```
@@ -521,6 +547,10 @@ Instrument manuals, data sheets, and system documentation are located in the [`d
 ## Data Availability
 
 The experimental data associated with this project are not included in this repository. Data can be made available upon request by contacting the PI.
+
+## License
+
+This software is in the public domain and provided "as is" according to the [LICENSE.md](LICENSE.md) file.
 
 ## Citation
 
