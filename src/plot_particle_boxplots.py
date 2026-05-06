@@ -65,8 +65,8 @@ def _is_base_config(key: str) -> bool:
     """Return True if config_key is the baseline temperature-sweep config.
 
     Requires: Standard head (no Pepco/FilterWand/Used), no Mannequin,
-    Door Open, Fan Off.  Only these events are plotted on the fixed
-    water-temperature axis so that temperature is the sole variable.
+    BathDoor Open, BdrmDoor Closed, Fan Off.  Only these events are plotted
+    on the fixed water-temperature axis so that temperature is the sole variable.
     """
     key_str = str(key)
     return (
@@ -75,8 +75,10 @@ def _is_base_config(key: str) -> bool:
         and "_FilterWand" not in key_str
         and "_Used" not in key_str
         and "_Mannequin" not in key_str
-        and "_DoorClosed" not in key_str
-        and "_DoorPartial" not in key_str
+        and "_BathDoorClosed" not in key_str
+        and "_BathDoorPartial" not in key_str
+        and "_BdrmDoorOpen" not in key_str
+        and "_BdrmDoorAjar" not in key_str
         and "_FanOn" not in key_str
     )
 
@@ -741,14 +743,17 @@ def plot_emission_etotal_by_showerhead_boxplot(
     Create three box-and-whisker figures of E_total grouped by shower head type.
 
     Produces one figure for each bin group (Bin 0–2, 3–6, 7–11).
-    Configs are ordered by temperature and grouped into three clusters separated
+    Configs are ordered by temperature and grouped into four clusters separated
     by visible gaps on the categorical x-axis:
-      - Cluster 1: W37, W40_Pepco_Narrow, W40_Pepco_Wide, W40_Pepco_Mid, W43
-      - Cluster 2: W48, W49_Pepco_Wide
-      - Cluster 3: W53, W52_Pepco_Wide
+      - Cluster 1: W37, W38_Pepco_Narrow, W38_Pepco_Wide, W40_Pepco_Narrow,
+                   W40_Pepco_Wide, W40_Pepco_Mid, W43
+      - Cluster 2: W38_FilterWand, W38_Used_rainfall, W38_Used_12Nozzle,
+                   W38_Used_SingleWide
+      - Cluster 3: W48, W49_Pepco_Wide
+      - Cluster 4: W52_Pepco_Wide, W53
     Keys match compound config_key prefixes (e.g. "W40_Pepco_Narrow" matches
-    "W40_Pepco_Narrow_DoorOpen_FanOff").  Annotations follow the standard
-    'W##\\nn=#\\nRH=##%' style.
+    "W40_Pepco_Narrow_BathDoorOpen_BdrmDoorClosed_FanOff").  Annotations follow
+    the standard 'W##\\nn=#\\nRH=##%' style.
 
     Parameters:
         results_df: DataFrame with analysis results; must contain 'config_key'
@@ -765,24 +770,33 @@ def plot_emission_etotal_by_showerhead_boxplot(
         return
 
     # Ordered mapping: compound config_key prefix → (categorical x position, tick label)
-    # Keys are the leading portion of the full config_key (everything before _Door…).
-    # Standard-head events match on the W## token alone; Pepco events match on
-    # W##_Pepco_<Pattern>.  Positions leave a gap of 1 unit between clusters.
+    # Keys are the leading portion of the full config_key (everything before _BathDoor…).
+    # Standard-head events match on the W## token alone; Pepco/FilterWand/Used events
+    # match on the full head+pattern prefix.  Positions leave a gap of 1 unit between
+    # clusters.
     SHOWERHEAD_CONFIGS = {
-        # Cluster 1: base W37 + Pepco narrow/wide/mid near 40°C + base W43
+        # Cluster 1: standard W37, Pepco near 38–40°C, standard W43
         "W37": (0, "W37"),
-        "W40_Pepco_Narrow": (1, "W40\nP.Narrow"),
-        "W40_Pepco_Wide": (2, "W40\nP.Wide"),
-        "W40_Pepco_Mid": (3, "W40\nP.Mid"),
-        "W43": (4, "W43"),
-        # gap at 5
-        # Cluster 2: base W48 + Pepco wide near 49°C
-        "W48": (6, "W48"),
-        "W49_Pepco_Wide": (7, "W49\nP.Wide"),
-        # gap at 8
-        # Cluster 3: base W53 + Pepco wide near 52°C
-        "W53": (9, "W53"),
-        "W52_Pepco_Wide": (10, "W52\nP.Wide"),
+        "W38_Pepco_Narrow": (1, "W38\nP.Narrow"),
+        "W38_Pepco_Wide": (2, "W38\nP.Wide"),
+        "W40_Pepco_Narrow": (3, "W40\nP.Narrow"),
+        "W40_Pepco_Wide": (4, "W40\nP.Wide"),
+        "W40_Pepco_Mid": (5, "W40\nP.Mid"),
+        "W43": (6, "W43"),
+        # gap at 7
+        # Cluster 2: FilterWand and Used heads near 38°C
+        "W38_FilterWand": (8, "W38\nFilter\nWand"),
+        "W38_Used_rainfall": (9, "W38\nUsed\nRainfall"),
+        "W38_Used_12Nozzle": (10, "W38\nUsed\n12Nozzle"),
+        "W38_Used_SingleWide": (11, "W38\nUsed\nSingleWide"),
+        # gap at 12
+        # Cluster 3: standard W48 + Pepco wide near 49°C
+        "W48": (13, "W48"),
+        "W49_Pepco_Wide": (14, "W49\nP.Wide"),
+        # gap at 15
+        # Cluster 4: Pepco wide near 52°C + standard W53 (low→high temp)
+        "W52_Pepco_Wide": (16, "W52\nP.Wide"),
+        "W53": (17, "W53"),
     }
 
     # Match each row's config_key to a SHOWERHEAD_CONFIGS group.
@@ -844,7 +858,9 @@ def plot_emission_etotal_by_showerhead_boxplot(
                 "w_label": tick_label,  # e.g. "W40\nP.Narrow", "W52\nP.Wide"
             }
 
-        fig, ax = create_figure(figsize=BOXPLOT_CONFIG["figsize"])
+        n_sh_positions = len(SHOWERHEAD_CONFIGS)
+        sh_fig_width = max(BOXPLOT_CONFIG["figsize"][0], 1.4 * n_sh_positions)
+        fig, ax = create_figure(figsize=(sh_fig_width, BOXPLOT_CONFIG["figsize"][1]))
         if isinstance(ax, list):
             ax = ax[0]
 

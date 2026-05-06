@@ -325,7 +325,7 @@ def _run_comparison_family(
 
 
 # ---------------------------------------------------------------------------
-# 1. Spray Pattern comparison  (W36–42 °C, Pepco head, no mannequin, open, fan off)
+# 1. Spray Pattern comparison  (W36–42 °C, Pepco head, no mannequin, bath door open, fan off)
 # ---------------------------------------------------------------------------
 
 def plot_spray_pattern_comparison_boxplots(
@@ -336,7 +336,7 @@ def plot_spray_pattern_comparison_boxplots(
 ) -> None:
     """Boxplots comparing Wide / Narrow / Mid Pepco spray patterns.
 
-    Fixed conditions: Pepco head, W36–42 °C, no mannequin, door open, fan off.
+    Fixed conditions: Pepco head, W36–42 °C, no mannequin, bath door open, fan off.
     Produces nine figures: 3 metrics × 3 bin groups.
 
     Parameters:
@@ -349,17 +349,17 @@ def plot_spray_pattern_comparison_boxplots(
         (
             "Wide",
             "Pepco\nWide",
-            lambda ck: "_Pepco_Wide_DoorOpen_FanOff" in ck and "_Mannequin" not in ck,
+            lambda ck: "_Pepco_Wide_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
         (
             "Narrow",
             "Pepco\nNarrow",
-            lambda ck: "_Pepco_Narrow_DoorOpen_FanOff" in ck and "_Mannequin" not in ck,
+            lambda ck: "_Pepco_Narrow_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
         (
             "Mid",
             "Pepco\nMid",
-            lambda ck: "_Pepco_Mid_DoorOpen_FanOff" in ck and "_Mannequin" not in ck,
+            lambda ck: "_Pepco_Mid_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
     ]
     _run_comparison_family(
@@ -376,7 +376,7 @@ def plot_spray_pattern_comparison_boxplots(
 
 
 # ---------------------------------------------------------------------------
-# 2. Shower Head comparison  (W36–42 °C, door open, fan off)
+# 2. Shower Head comparison  (W36–42 °C, bath door open, fan off)
 # ---------------------------------------------------------------------------
 
 def plot_shower_head_comparison_boxplots(
@@ -387,7 +387,7 @@ def plot_shower_head_comparison_boxplots(
 ) -> None:
     """Boxplots comparing Standard, Pepco (Wide/Narrow/Mid), FilterWand, and Used heads.
 
-    Fixed conditions: W36–42 °C, door open, fan off.  Standard-head events
+    Fixed conditions: W36–42 °C, bath door open, fan off.  Standard-head events
     at W37 satisfy the ±2 °C rule relative to W38/W40.
     Produces nine figures: 3 metrics × 3 bin groups.
 
@@ -406,43 +406,44 @@ def plot_shower_head_comparison_boxplots(
                 and "_FilterWand" not in ck
                 and "_Used" not in ck
                 and "_Mannequin" not in ck
-                and "_DoorOpen_FanOff" in ck
+                and "_BathDoorOpen_" in ck
+                and "_FanOff" in ck
             ),
         ),
         (
             "Pepco_Wide",
             "Pepco\nWide",
-            lambda ck: "_Pepco_Wide_DoorOpen_FanOff" in ck and "_Mannequin" not in ck,
+            lambda ck: "_Pepco_Wide_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
         (
             "Pepco_Narrow",
             "Pepco\nNarrow",
-            lambda ck: "_Pepco_Narrow_DoorOpen_FanOff" in ck and "_Mannequin" not in ck,
+            lambda ck: "_Pepco_Narrow_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
         (
             "Pepco_Mid",
             "Pepco\nMid",
-            lambda ck: "_Pepco_Mid_DoorOpen_FanOff" in ck and "_Mannequin" not in ck,
+            lambda ck: "_Pepco_Mid_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
         (
             "FilterWand",
             "Filter\nWand",
-            lambda ck: "_FilterWand_" in ck and "_DoorOpen_FanOff" in ck,
+            lambda ck: "_FilterWand_" in ck and "_BathDoorOpen_" in ck and "_FanOff" in ck,
         ),
         (
             "Used_rainfall",
             "Used\nRainfall",
-            lambda ck: "_Used_rainfall_DoorOpen_FanOff" in ck,
+            lambda ck: "_Used_rainfall_BathDoorOpen_" in ck and "_FanOff" in ck,
         ),
         (
             "Used_12Nozzle",
             "Used\n12Nozzle",
-            lambda ck: "_Used_12Nozzle_DoorOpen_FanOff" in ck,
+            lambda ck: "_Used_12Nozzle_BathDoorOpen_" in ck and "_FanOff" in ck,
         ),
         (
             "Used_SingleWide",
             "Used\nSingleWide",
-            lambda ck: "_Used_SingleWide_DoorOpen_FanOff" in ck,
+            lambda ck: "_Used_SingleWide_BathDoorOpen_" in ck and "_FanOff" in ck,
         ),
     ]
     _run_comparison_family(
@@ -459,7 +460,7 @@ def plot_shower_head_comparison_boxplots(
 
 
 # ---------------------------------------------------------------------------
-# 3. Mannequin comparison  (W36–42 °C, Pepco head, door open, fan off)
+# 3. Mannequin comparison  (W36–42 °C, Pepco head, bath door open, fan off)
 # ---------------------------------------------------------------------------
 
 def plot_mannequin_comparison_boxplots(
@@ -470,7 +471,7 @@ def plot_mannequin_comparison_boxplots(
 ) -> None:
     """Boxplots comparing with-mannequin vs. without-mannequin conditions.
 
-    Fixed conditions: Pepco head, W36–42 °C, door open, fan off.
+    Fixed conditions: Pepco head, W36–42 °C, bath door open, fan off.
     Produces nine figures: 3 metrics × 3 bin groups.
 
     Parameters:
@@ -486,13 +487,14 @@ def plot_mannequin_comparison_boxplots(
             lambda ck: (
                 "_Pepco_" in ck
                 and "_Mannequin" not in ck
-                and "_DoorOpen_FanOff" in ck
+                and "_BathDoorOpen_" in ck
+                and "_FanOff" in ck
             ),
         ),
         (
             "Mannequin",
             "With\nMannequin",
-            lambda ck: "_Pepco_" in ck and "_Mannequin_DoorOpen_FanOff" in ck,
+            lambda ck: "_Pepco_" in ck and "_Mannequin_BathDoorOpen_" in ck and "_FanOff" in ck,
         ),
     ]
     _run_comparison_family(
@@ -509,7 +511,10 @@ def plot_mannequin_comparison_boxplots(
 
 
 # ---------------------------------------------------------------------------
-# 4. Door Position comparison  (W36–42 °C, Pepco Wide, fan on)
+# 4. Door Position comparisons
+#    4a. Bath door: Open vs. Closed  (W36–42 °C, Pepco Wide, fan on)
+#    4b. Bedroom door: Closed vs. Open vs. Ajar  (W36–42 °C, Used SingleWide,
+#        bath door open, fan off)
 # ---------------------------------------------------------------------------
 
 def plot_door_comparison_boxplots(
@@ -518,11 +523,18 @@ def plot_door_comparison_boxplots(
     plot_dir: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
-    """Boxplots comparing door-open vs. door-closed conditions.
+    """Boxplots comparing bath door and bedroom door position conditions.
 
-    Fixed conditions: Pepco Wide, W36–42 °C, fan on (the door-closed period
-    coincided with fan-on operation, so fan status is held constant here).
-    Produces nine figures: 3 metrics × 3 bin groups.
+    4a — Bath door (bath_door_position): Open vs. Closed.
+         Fixed conditions: Pepco Wide, W36–42 °C, fan on (door-closed period
+         coincided with fan-on operation, so fan status is held constant).
+         Output stem prefix: ``bath_door_position``.
+
+    4b — Bedroom door (bedroom_door_position): Closed vs. Open vs. Ajar.
+         Fixed conditions: Used SingleWide head, W36–42 °C, bath door open, fan off.
+         Output stem prefix: ``bedroom_door_position``.
+
+    Each sub-comparison produces nine figures: 3 metrics × 3 bin groups.
 
     Parameters:
         results_df: Full particle analysis results DataFrame.
@@ -530,33 +542,64 @@ def plot_door_comparison_boxplots(
         plot_dir: Directory for output files.
         rh_data: Optional RH DataFrame for annotations.
     """
-    group_defs: "List[_GroupDef]" = [
+    # 4a: Bath door
+    bath_door_defs: "List[_GroupDef]" = [
         (
-            "DoorOpen_FanOn",
-            "Door Open\n(Fan On)",
-            lambda ck: "_Pepco_Wide_DoorOpen_FanOn" in ck,
+            "BathDoorOpen_FanOn",
+            "Bath Door Open\n(Fan On)",
+            lambda ck: "_Pepco_Wide_BathDoorOpen_" in ck and "_FanOn" in ck,
         ),
         (
-            "DoorClosed_FanOn",
-            "Door Closed\n(Fan On)",
-            lambda ck: "_Pepco_Wide_DoorClosed_FanOn" in ck,
+            "BathDoorClosed_FanOn",
+            "Bath Door Closed\n(Fan On)",
+            lambda ck: "_Pepco_Wide_BathDoorClosed_" in ck and "_FanOn" in ck,
         ),
     ]
     _run_comparison_family(
         results_df,
         particle_bins,
         plot_dir,
-        stem_prefix="door_position",
-        group_defs=group_defs,
-        title_base="Door Position Effect",
-        x_label="Door Position",
+        stem_prefix="bath_door_position",
+        group_defs=bath_door_defs,
+        title_base="Bath Door Position Effect",
+        x_label="Bath Door Position",
+        rh_data=rh_data,
+        temp_filter=(36.0, 42.0),
+    )
+
+    # 4b: Bedroom door
+    bedroom_door_defs: "List[_GroupDef]" = [
+        (
+            "BdrmDoorClosed",
+            "Bedroom Door\nClosed",
+            lambda ck: "_Used_SingleWide_BathDoorOpen_BdrmDoorClosed_FanOff" in ck,
+        ),
+        (
+            "BdrmDoorOpen",
+            "Bedroom Door\nOpen",
+            lambda ck: "_Used_SingleWide_BathDoorOpen_BdrmDoorOpen_FanOff" in ck,
+        ),
+        (
+            "BdrmDoorAjar",
+            "Bedroom Door\nAjar",
+            lambda ck: "_Used_SingleWide_BathDoorOpen_BdrmDoorAjar_FanOff" in ck,
+        ),
+    ]
+    _run_comparison_family(
+        results_df,
+        particle_bins,
+        plot_dir,
+        stem_prefix="bedroom_door_position",
+        group_defs=bedroom_door_defs,
+        title_base="Bedroom Door Position Effect",
+        x_label="Bedroom Door Position",
         rh_data=rh_data,
         temp_filter=(36.0, 42.0),
     )
 
 
 # ---------------------------------------------------------------------------
-# 5. Fan Status comparison  (W36–42 °C, Pepco Wide, door open, no mannequin)
+# 5. Fan Status comparison  (W36–42 °C, Pepco Wide, bath door open, no mannequin)
 # ---------------------------------------------------------------------------
 
 def plot_fan_comparison_boxplots(
@@ -567,7 +610,7 @@ def plot_fan_comparison_boxplots(
 ) -> None:
     """Boxplots comparing fan-off vs. fan-on conditions.
 
-    Fixed conditions: Pepco Wide, W36–42 °C, door open, no mannequin.
+    Fixed conditions: Pepco Wide, W36–42 °C, bath door open, no mannequin.
     Produces nine figures: 3 metrics × 3 bin groups.
 
     Parameters:
@@ -581,13 +624,13 @@ def plot_fan_comparison_boxplots(
             "FanOff",
             "Fan Off",
             lambda ck: (
-                "_Pepco_Wide_DoorOpen_FanOff" in ck and "_Mannequin" not in ck
+                "_Pepco_Wide_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck
             ),
         ),
         (
             "FanOn",
             "Fan On",
-            lambda ck: "_Pepco_Wide_DoorOpen_FanOn" in ck,
+            lambda ck: "_Pepco_Wide_BathDoorOpen_" in ck and "_FanOn" in ck,
         ),
     ]
     _run_comparison_family(

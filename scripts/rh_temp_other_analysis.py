@@ -806,6 +806,8 @@ def generate_time_series_plots(
                     plot_dir
                     / f"event_{event_num:02d}-{formatted_name}_{var_type}_timeseries.png"
                 )
+                if output_path.exists():
+                    continue
                 plot_environmental_time_series(
                     data_dict=data_dict,
                     shower_on=event["shower_on"],

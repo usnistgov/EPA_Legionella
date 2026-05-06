@@ -244,12 +244,20 @@ MANNEQUIN_TRANSITIONS = [
     (datetime(2026, 3, 27, 8, 25, 0), False)  # Mannequin removed Mar 23
 ]
 
-# Door position transitions: (datetime, position)
+# Bath door (bathroom–bedroom) position transitions: (datetime, position)
 # Positions: "Open", "Closed", "Partial"
 DOOR_POSITION_TRANSITIONS = [
-    (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Door open from experiment start
-    (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Door closed from Apr 8
-    (datetime(2026, 4, 10, 8, 55, 0), "Open"),  # Door open from Apr 10
+    (datetime(2026, 1, 14, 0, 0, 0), "Open"),  # Bath door open from experiment start
+    (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Bath door closed from Apr 8
+    (datetime(2026, 4, 10, 8, 55, 0), "Open"),  # Bath door open from Apr 10
+]
+
+# Bedroom door (bedroom–rest of house) position transitions: (datetime, position)
+# Positions: "Open", "Closed", "Ajar"
+BEDROOM_DOOR_POSITION_TRANSITIONS = [
+    (datetime(2026, 1, 14, 0, 0, 0), "Closed"),  # Bedroom door closed from experiment start
+    (datetime(2026, 5, 1, 17, 10, 0), "Open"),    # Bedroom door opened May 1
+    (datetime(2026, 5, 4, 8, 30, 0), "Ajar"),     # Bedroom door ajar May 4
 ]
 
 # Bath fan transitions: (datetime, status)
@@ -470,18 +478,32 @@ def get_mannequin(dt: datetime) -> bool:
 
 def get_door_position(dt: datetime) -> str:
     """
-    Determine door position based on datetime.
+    Determine bath door (bathroom–bedroom) position based on datetime.
 
-    Uses DOOR_POSITION_TRANSITIONS to determine the door status.
-    Supports: "Open", "Closed", "Partial"
+    Uses DOOR_POSITION_TRANSITIONS. Supports: "Open", "Closed", "Partial"
 
     Parameters:
         dt: Datetime of the event
 
     Returns:
-        String: Door position (e.g., "Open", "Closed", "Partial")
+        String: Bath door position (e.g., "Open", "Closed", "Partial")
     """
     return _get_config_value_at_time(dt, DOOR_POSITION_TRANSITIONS)
+
+
+def get_bedroom_door_position(dt: datetime) -> str:
+    """
+    Determine bedroom door (bedroom–rest of house) position based on datetime.
+
+    Uses BEDROOM_DOOR_POSITION_TRANSITIONS. Supports: "Open", "Closed", "Ajar"
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        String: Bedroom door position (e.g., "Open", "Closed", "Ajar")
+    """
+    return _get_config_value_at_time(dt, BEDROOM_DOOR_POSITION_TRANSITIONS)
 
 
 def get_planned_fan_status(dt: datetime) -> str:
@@ -530,24 +552,26 @@ def get_test_configuration(dt: datetime) -> Dict:
     Returns:
         Dictionary with configuration keys:
             - water_temp: Temperature code (e.g., "W48", "W11", "W40")
-            - shower_head: "Standard" or "Pepco"
+            - shower_head: "Standard", "Pepco", "FilterWand", or "Used"
             - spray_pattern: "Wide", "Narrow", "Mid", or None
             - mannequin: True or False
-            - door_position: "Open", "Closed", or "Partial"
+            - door_position: Bath door "Open", "Closed", or "Partial"
+            - bedroom_door_position: Bedroom door "Open", "Closed", or "Ajar"
             - planned_fan: "On" or "Off"
             - config_key: Combined key for grouping
-              (e.g., "W48_DoorOpen_FanOff",
-                     "W40_Pepco_Narrow_DoorOpen_FanOff",
-                     "W40_Pepco_Narrow_Mannequin_DoorOpen_FanOff")
+              (e.g., "W48_BathDoorOpen_BdrmDoorClosed_FanOff",
+                     "W40_Pepco_Narrow_BathDoorOpen_BdrmDoorClosed_FanOff",
+                     "W40_Pepco_Narrow_Mannequin_BathDoorOpen_BdrmDoorClosed_FanOff")
     """
     water_temp = get_water_temperature_code(dt)
     shower_head = get_shower_head(dt)
     spray_pattern = get_spray_pattern(dt)
     mannequin = get_mannequin(dt)
     door_pos = get_door_position(dt)
+    bdm_door_pos = get_bedroom_door_position(dt)
     fan_status = get_planned_fan_status(dt)
 
-    # Build config_key: W##[_ShowerHead[_SprayPattern]][_Mannequin]_DoorXxx_FanXxx
+    # Build config_key: W##[_ShowerHead[_SprayPattern]][_Mannequin]_BathDoorXxx_BdrmDoorXxx_FanXxx
     key_parts = [water_temp]
     if shower_head != "Standard":
         key_parts.append(shower_head)
@@ -555,7 +579,8 @@ def get_test_configuration(dt: datetime) -> Dict:
             key_parts.append(spray_pattern)
     if mannequin:
         key_parts.append("Mannequin")
-    key_parts.append(f"Door{door_pos}")
+    key_parts.append(f"BathDoor{door_pos}")
+    key_parts.append(f"BdrmDoor{bdm_door_pos}")
     key_parts.append("FanOn" if fan_status == "On" else "FanOff")
     config_key = "_".join(key_parts)
 
@@ -565,6 +590,7 @@ def get_test_configuration(dt: datetime) -> Dict:
         "spray_pattern": spray_pattern,
         "mannequin": mannequin,
         "door_position": door_pos,
+        "bedroom_door_position": bdm_door_pos,
         "planned_fan": fan_status,
         "config_key": config_key,
     }
