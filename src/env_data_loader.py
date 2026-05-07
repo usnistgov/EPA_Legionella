@@ -415,7 +415,12 @@ def load_aranet_data(location: str, start_date, end_date) -> pd.DataFrame:
     all_data = []
     for filepath in files:
         try:
-            df = pd.read_excel(filepath)
+            # Handle both Excel and CSV files
+            if filepath.suffix.lower() == '.csv':
+                df = pd.read_csv(filepath)
+            else:
+                df = pd.read_excel(filepath)
+
             datetime_col = "Time(DD/MM/YYYY h:mm:ss A)"
             if datetime_col in df.columns:
                 df = df.rename(columns={datetime_col: "datetime"})

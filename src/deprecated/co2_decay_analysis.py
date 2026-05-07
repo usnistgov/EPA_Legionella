@@ -90,20 +90,24 @@ ROLLING_WINDOW_MIN = 6  # Rolling average window (minutes)
 
 def load_aranet_file(filepath: Path) -> pd.DataFrame:
     """
-    Load an Aranet4 Excel file and parse the datetime column.
+    Load an Aranet4 file (Excel or CSV) and parse the datetime column.
 
     Args:
-        filepath: Path to the Aranet4 Excel file
+        filepath: Path to the Aranet4 file
 
     Returns:
         DataFrame with parsed datetime index
     """
-    df = pd.read_excel(filepath)
+    # Handle both Excel and CSV files
+    if filepath.suffix.lower() == '.csv':
+        df = pd.read_csv(filepath)
+    else:
+        df = pd.read_excel(filepath)
 
     # Rename the datetime column
     datetime_col = "Time(DD/MM/YYYY h:mm:ss A)"
     if datetime_col in df.columns:
-        df = df.rename(columns={datetime_col: "datetime"})
+        df = df.rename(columns={datetime_col: "datetime"])
         df["datetime"] = pd.to_datetime(df["datetime"], format="%d/%m/%Y %I:%M:%S %p")
     else:
         # Try alternative formats

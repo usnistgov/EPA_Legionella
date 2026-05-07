@@ -163,15 +163,19 @@ MIN_CONCENTRATION_DIFF = 50  # C_bedroom - C_source must exceed this
 
 def load_aranet_file(filepath: Path) -> pd.DataFrame:
     """
-    Load an Aranet4 Excel file and parse the datetime column.
+    Load an Aranet4 file (Excel or CSV) and parse the datetime column.
 
     Parameters:
-        filepath (Path): Path to the Aranet4 Excel file
+        filepath (Path): Path to the Aranet4 file
 
     Returns:
         pd.DataFrame: DataFrame with parsed datetime index
     """
-    df = pd.read_excel(filepath)
+    # Handle both Excel and CSV files
+    if filepath.suffix.lower() == '.csv':
+        df = pd.read_csv(filepath)
+    else:
+        df = pd.read_excel(filepath)
 
     # Rename the datetime column
     datetime_col = "Time(DD/MM/YYYY h:mm:ss A)"

@@ -13,15 +13,20 @@ from bokeh.models import (
 from bokeh.plotting import figure, show
 
 
-# Read the Excel file
+# Read the Aranet4 file (Excel or CSV)
 def read_excel_file(file_path):
     try:
-        data = pd.read_excel(file_path)
+        # Handle both Excel and CSV files
+        if str(file_path).lower().endswith('.csv'):
+            data = pd.read_csv(file_path)
+        else:
+            data = pd.read_excel(file_path)
+
         data = data.rename(columns={"Time(DD/MM/YYYY h:mm:ss A)": "Time"})
         data["Time"] = pd.to_datetime(data["Time"], format="%d/%m/%Y %I:%M:%S %p")
         return data
     except Exception as e:
-        print(f"Failed to read Excel file: {e}")
+        print(f"Failed to read file: {e}")
         return None
 
 
