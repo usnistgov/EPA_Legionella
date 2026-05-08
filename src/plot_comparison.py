@@ -40,6 +40,7 @@ from src.plot_particle_boxplots import (
     _TEMP_BOXPLOT_CONFIG,
     _extract_config_temp,
     _get_rh_at_shower_on,
+    _write_boxplot_companion_md,
 )
 from src.plot_style import (
     BOXPLOT_CONFIG,
@@ -143,6 +144,21 @@ def _draw_categorical_comparison_boxplot(
         ([b for b in all_bin_nums if 3 <= b <= 6], "bin3-6"),
         ([b for b in all_bin_nums if b >= 7], "bin7-11"),
     ]
+
+    # Build companion .md once (event membership is identical across bin groups)
+    md_groups = []
+    for gk, tick_lbl, _ in group_defs:
+        gdf = work_df[work_df["_cmp_group"] == gk]
+        header = f"{tick_lbl.replace(chr(10), ' ')} | n={len(gdf)}"
+        events_list = []
+        for _, row in gdf.sort_values("event_number").iterrows():
+            events_list.append((
+                row.get("event_number"),
+                row.get("test_name", ""),
+                row.get("config_key", gk),
+            ))
+        md_groups.append({"header": header, "events": events_list})
+    _write_boxplot_companion_md(output_path, title_base, md_groups)
 
     for group_bins, group_label in bin_groups:
         if not group_bins:
