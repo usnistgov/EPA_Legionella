@@ -255,6 +255,7 @@ DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 4, 8, 9, 15, 0), "Closed"),  # Bath door closed from Apr 8
     (datetime(2026, 4, 10, 8, 55, 0), "Open"),  # Bath door open from Apr 10
     (datetime(2026, 5, 4, 8, 30, 0), "Ajar"),  # Bath door ajar from May 4
+    (datetime(2026, 5, 7, 8, 0, 0), "Open"),  # Bath door open from May 7
 ]
 
 # Bedroom door (bedroom–rest of house) position transitions: (datetime, position)
@@ -265,6 +266,7 @@ BEDROOM_DOOR_POSITION_TRANSITIONS = [
         datetime(2026, 5, 1, 17, 10, 0),
         "Ajar",
     ),  # Bedroom door open but shifted to ajar at some point May 1
+    (datetime(2026, 5, 4, 8, 30, 0), "Closed"),  # Bedroom door closed from May 4
 ]
 
 # Bath fan transitions: (datetime, status)
