@@ -1231,6 +1231,8 @@ def run_co2_decay_analysis(
         config_key = config["config_key"]
         water_temp = config["water_temp"]
         door_position = config["door_position"]
+        bedroom_door_position = config["bedroom_door_position"]
+        planned_fan = config["planned_fan"]
 
         # Check if corresponding shower event is excluded
         # CO2 injection happens ~20 minutes before shower
@@ -1254,6 +1256,8 @@ def run_co2_decay_analysis(
                 "config_key": config_key,
                 "water_temp": water_temp,
                 "door_position": door_position,
+                "bedroom_door_position": bedroom_door_position,
+                "planned_fan": planned_fan,
                 "injection_start": injection_time,
                 "decay_start": event["decay_start"],
                 "decay_end": event["decay_end"],
@@ -1321,6 +1325,8 @@ def run_co2_decay_analysis(
         result["config_key"] = config_key  # Add configuration key for grouping
         result["water_temp"] = water_temp
         result["door_position"] = door_position
+        result["bedroom_door_position"] = bedroom_door_position
+        result["planned_fan"] = planned_fan
         results.append(result)
 
         # Print summary for this event
@@ -1431,29 +1437,27 @@ def run_co2_decay_analysis(
         else:
             config_df = results_df[results_df["config_key"] == config_key]
 
-        # Extract configuration components from config_key
-        if config_key != "All" and "_" in config_key:
-            parts = config_key.split("_")
-            water_temp = parts[0] if len(parts) > 0 else ""
-            door_pos = parts[1].replace("Door", "") if len(parts) > 1 else ""
-            fan_status = parts[2].replace("Fan", "") if len(parts) > 2 else ""
-        else:
-            water_temp = (
-                config_df["water_temp"].iloc[0]
-                if "water_temp" in config_df.columns and len(config_df) > 0
+        # Extract configuration components from results DataFrame columns so the
+        # values are accurate even when config_key has more than 3 parts
+        # (e.g., W40_Pepco_Wide_BathDoorOpen_BdrmDoorClosed_FanOff).
+        def _first_val(col: str) -> str:
+            return (
+                str(config_df[col].iloc[0])
+                if col in config_df.columns and len(config_df) > 0
                 else ""
             )
-            door_pos = (
-                config_df["door_position"].iloc[0]
-                if "door_position" in config_df.columns and len(config_df) > 0
-                else ""
-            )
-            fan_status = ""
+
+        water_temp = _first_val("water_temp")
+        door_pos = _first_val("door_position")
+        bedroom_door_pos = _first_val("bedroom_door_position")
+        fan_status = _first_val("planned_fan")
 
         summary = {
             "config_key": config_key,
             "water_temp": water_temp,
-            "door_position": door_pos,
+            "bath_door_position": door_pos,
+            "bedroom_door_position": bedroom_door_pos,
+            "fan_status": fan_status,
             "analysis_date": datetime.now().isoformat(),
             "method": "analytical_linear_regression",
             "alpha": alpha,
@@ -1491,7 +1495,9 @@ def run_co2_decay_analysis(
         summary_all = {
             "config_key": "All",
             "water_temp": "",
-            "door_position": "",
+            "bath_door_position": "",
+            "bedroom_door_position": "",
+            "fan_status": "",
             "analysis_date": datetime.now().isoformat(),
             "method": "analytical_linear_regression",
             "alpha": alpha,

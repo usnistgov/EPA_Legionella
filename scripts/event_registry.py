@@ -741,6 +741,7 @@ def save_event_registry(
         lambda_mean = np.nan
         lambda_std = np.nan
         lambda_r_squared = np.nan
+        co2_skip_reason = ""
 
         if co2_event is not None and not co2_results_df.empty:
             # Match by injection_start time
@@ -764,6 +765,11 @@ def save_event_registry(
                         lambda_std = result_row["lambda_average_std (h-1)"]
                     if "lambda_average_r_squared" in result_row:
                         lambda_r_squared = result_row["lambda_average_r_squared"]
+                    # Read CO2 analysis skip reason (data-quality failures not already
+                    # captured as formal exclusions)
+                    raw_skip = result_row.get("skip_reason", "")
+                    if raw_skip and not pd.isna(raw_skip):
+                        co2_skip_reason = str(raw_skip)
 
         # Compute config_key and planned_fan from datetime transitions
         shower_time = shower["shower_on"]
@@ -804,6 +810,7 @@ def save_event_registry(
             "lambda_r_squared": lambda_r_squared,
             "is_excluded": is_excluded,
             "exclusion_reason": exclusion_reason or "",
+            "co2_skip_reason": co2_skip_reason,
             "penetration_start": shower.get("penetration_start"),
             "penetration_end": shower.get("penetration_end"),
             "deposition_start": shower.get("deposition_start"),

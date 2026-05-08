@@ -266,6 +266,54 @@ _TEMP_BOXPLOT_CONFIG = {
 }
 
 
+def _write_boxplot_companion_md(
+    output_path: Path,
+    title: str,
+    groups: list,
+) -> None:
+    """Write a Markdown file listing the events that make up each box.
+
+    Parameters:
+        output_path: Base figure path; the .md file is written alongside it
+            with the same stem and no bin-group suffix.
+        title: Figure title used as the document heading.
+        groups: Ordered list of dicts, each with:
+            - 'header': str — the label shown above the box (e.g. "W11 | 11°C | n=3")
+            - 'events': list of (event_number, test_name, config_key) tuples
+    """
+    from datetime import date as _date
+
+    md_path = output_path.parent / f"{output_path.stem}.md"
+    lines = [
+        f"# {title} — Event Membership",
+        "",
+        f"Generated: {_date.today().isoformat()}",
+        "",
+        "Each entry below corresponds to one box in the figure.",
+        "Events are sorted by event number within each group.",
+        "",
+        "---",
+        "",
+    ]
+    for group in groups:
+        lines.append(f"## {group['header']}")
+        lines.append("")
+        events = group["events"]
+        if events:
+            lines.append("| Event | Test Name | Config Key |")
+            lines.append("|------:|-----------|------------|")
+            for ev_num, test_name, config_key in events:
+                try:
+                ev_str = str(int(ev_num)) if not pd.isna(ev_num) else "—"
+            except (TypeError, ValueError):
+                ev_str = "—"
+                lines.append(f"| {ev_str} | {test_name} | {config_key} |")
+        else:
+            lines.append("*(no events)*")
+        lines.append("")
+    md_path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _draw_temp_axis_boxplot(
     results_df: pd.DataFrame,
     particle_bins: Dict,
@@ -319,6 +367,32 @@ def _draw_temp_axis_boxplot(
         ([b for b in all_bin_nums if 3 <= b <= 6], "bin3-6"),
         ([b for b in all_bin_nums if b >= 7], "bin7-11"),
     ]
+
+    # Build companion .md once (event membership is identical across bin groups)
+    md_groups = []
+    for ck in config_keys:
+        temp = temp_map.get(ck)
+        group_df = base_df[base_df["config_key"] == ck]
+        n = len(group_df)
+        rh_str = ""
+        if rh_data is not None and "shower_on" in group_df.columns:
+            avg_rh = _get_rh_at_shower_on(group_df["shower_on"], rh_data)
+            if not np.isnan(avg_rh):
+                rh_str = f" | RH={avg_rh:.0f}%"
+        w_label = ck.split("_")[0]
+        temp_label = f"{temp:.0f}°C" if temp is not None else ""
+        header = f"{w_label} | {temp_label} | n={n}{rh_str}"
+        events_list = []
+        sort_col = "event_number" if "event_number" in group_df.columns else None
+        iter_df = group_df.sort_values(sort_col) if sort_col else group_df
+        for _, row in iter_df.iterrows():
+            events_list.append((
+                row.get("event_number", ""),
+                row.get("test_name", ""),
+                ck,
+            ))
+        md_groups.append({"header": header, "events": events_list})
+    _write_boxplot_companion_md(output_path, cfg["title_metric"], md_groups)
 
     for group_bins, group_label in bin_groups:
         if not group_bins:
@@ -587,6 +661,33 @@ def plot_emission_etotal_by_metric_boxplot(
         ([b for b in all_bin_nums if b >= 7], "bin7-11"),
     ]
 
+    # Build companion .md once (event membership is identical across bin groups)
+    md_groups = []
+    for ck in config_keys:
+        group_df = base_df[base_df["config_key"] == ck]
+        n = len(group_df)
+        rh_str = ""
+        if rh_data is not None and "shower_on" in group_df.columns:
+            avg_rh = _get_rh_at_shower_on(group_df["shower_on"], rh_data)
+            if not np.isnan(avg_rh):
+                rh_str = f" | RH={avg_rh:.0f}%"
+        metric_vals = group_df[metric_col].dropna().values
+        metric_str = f" | {metric_label}={np.mean(metric_vals):.1f}" if len(metric_vals) > 0 else ""
+        w_label = ck.split("_")[0]
+        header = f"{w_label} | n={n}{metric_str}{rh_str}"
+        events_list = []
+        sort_col = "event_number" if "event_number" in group_df.columns else None
+        iter_df = group_df.sort_values(sort_col) if sort_col else group_df
+        for _, row in iter_df.iterrows():
+            events_list.append((
+                row.get("event_number", ""),
+                row.get("test_name", ""),
+                ck,
+            ))
+        md_groups.append({"header": header, "events": events_list})
+    fig_title = f"E_total by {metric_label}"
+    _write_boxplot_companion_md(output_path, fig_title, md_groups)
+
     for group_bins, group_label in bin_groups:
         if not group_bins:
             continue
@@ -829,6 +930,32 @@ def plot_emission_etotal_by_showerhead_boxplot(
         ([b for b in all_bin_nums if 3 <= b <= 6], "bin3-6"),
         ([b for b in all_bin_nums if b >= 7], "bin7-11"),
     ]
+
+    # Build companion .md once (event membership is identical across bin groups)
+    md_groups = []
+    for sh_key, (_, tick_label) in SHOWERHEAD_CONFIGS.items():
+        group_df = sh_df[sh_df["_sh_group"] == sh_key]
+        if group_df.empty:
+            continue
+        n = len(group_df)
+        rh_str = ""
+        if rh_data is not None and "shower_on" in group_df.columns:
+            avg_rh = _get_rh_at_shower_on(group_df["shower_on"], rh_data)
+            if not np.isnan(avg_rh):
+                rh_str = f" | RH={avg_rh:.0f}%"
+        label = tick_label.replace("\n", " ")
+        header = f"{label} | n={n}{rh_str}"
+        events_list = []
+        sort_col = "event_number" if "event_number" in group_df.columns else None
+        iter_df = group_df.sort_values(sort_col) if sort_col else group_df
+        for _, row in iter_df.iterrows():
+            events_list.append((
+                row.get("event_number", ""),
+                row.get("test_name", ""),
+                row.get("config_key", sh_key),
+            ))
+        md_groups.append({"header": header, "events": events_list})
+    _write_boxplot_companion_md(output_path, "E_total by Shower Head Type", md_groups)
 
     for group_bins, group_label in bin_groups:
         if not group_bins:
