@@ -304,9 +304,9 @@ def _write_boxplot_companion_md(
             lines.append("|------:|-----------|------------|")
             for ev_num, test_name, config_key in events:
                 try:
-                ev_str = str(int(ev_num)) if not pd.isna(ev_num) else "—"
-            except (TypeError, ValueError):
-                ev_str = "—"
+                    ev_str = str(int(ev_num)) if not pd.isna(ev_num) else "—"
+                except (TypeError, ValueError):
+                    ev_str = "—"
                 lines.append(f"| {ev_str} | {test_name} | {config_key} |")
         else:
             lines.append("*(no events)*")
