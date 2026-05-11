@@ -263,9 +263,12 @@ DOOR_POSITION_TRANSITIONS = [
 # Positions: "Open", "Closed", "Ajar"
 BEDROOM_DOOR_POSITION_TRANSITIONS = [
     (datetime(2026, 1, 14, 0, 0, 0), "Closed"),  # Bedroom door closed from experiment start
-    (datetime(2026, 5, 1, 17, 10, 0), "Open"),   # Bedroom door opened May 1
-    (datetime(2026, 5, 4, 8, 30, 0), "Ajar"),    # Bedroom door set ajar May 4 (door blown ajar between May 1–4, intentionally kept ajar May 4–7)
-    (datetime(2026, 5, 7, 8, 0, 0), "Closed"),   # Bedroom door closed May 7
+    (datetime(2026, 5, 1, 17, 10, 0), "Open"),  # Bedroom door opened May 1
+    (
+        datetime(2026, 5, 4, 8, 30, 0),
+        "Ajar",
+    ),  # Bedroom door set ajar May 4 (door blown ajar between May 1–4, intentionally kept ajar May 4–7)
+    (datetime(2026, 5, 7, 8, 0, 0), "Closed"),  # Bedroom door closed May 7
 ]
 
 # Bath fan transitions: (datetime, status)
@@ -290,34 +293,33 @@ FAN_DURATION_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
 
 # Shower head flow rate transitions: (datetime, flow_rate_lpm)
 # Measured at the start of each testing session; applies until the next entry.
-# All measurements taken at session start (8:00 AM unless noted).
 FLOW_RATE_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
-    (datetime(2025, 12, 8, 8, 0, 0), 4.6),   # Dec 8 2025 — pre-experiment baseline
-    (datetime(2026, 1, 22, 8, 0, 0), 4.9),   # Jan 22
-    (datetime(2026, 2, 2, 8, 0, 0), 5.0),    # Feb 2
-    (datetime(2026, 2, 9, 8, 0, 0), 4.9),    # Feb 9
-    (datetime(2026, 2, 11, 8, 0, 0), 5.1),   # Feb 11
-    (datetime(2026, 2, 16, 8, 0, 0), 4.8),   # Feb 16
-    (datetime(2026, 2, 18, 8, 0, 0), 5.0),   # Feb 18
-    (datetime(2026, 2, 20, 8, 0, 0), 4.6),   # Feb 20
-    (datetime(2026, 2, 24, 8, 0, 0), 4.4),   # Feb 24
-    (datetime(2026, 2, 26, 8, 0, 0), 4.5),   # Feb 26
-    (datetime(2026, 3, 2, 8, 0, 0), 4.3),    # Mar 2
-    (datetime(2026, 3, 4, 8, 0, 0), 4.5),    # Mar 4
-    (datetime(2026, 3, 6, 8, 0, 0), 4.8),    # Mar 6
-    (datetime(2026, 3, 9, 8, 0, 0), 4.2),    # Mar 9
-    (datetime(2026, 3, 11, 8, 0, 0), 4.3),   # Mar 11
-    (datetime(2026, 3, 12, 8, 0, 0), 4.2),   # Mar 12
-    (datetime(2026, 3, 18, 8, 0, 0), 4.6),   # Mar 18
-    (datetime(2026, 4, 8, 8, 0, 0), 4.7),    # Apr 8
-    (datetime(2026, 4, 10, 8, 0, 0), 5.0),   # Apr 10
-    (datetime(2026, 4, 13, 8, 0, 0), 5.6),   # Apr 13
-    (datetime(2026, 4, 17, 8, 0, 0), 5.5),   # Apr 17
-    (datetime(2026, 4, 20, 8, 0, 0), 5.4),   # Apr 20
-    (datetime(2026, 4, 23, 8, 0, 0), 4.3),   # Apr 23
-    (datetime(2026, 4, 29, 8, 0, 0), 4.2),   # Apr 29
-    (datetime(2026, 5, 1, 8, 0, 0), 4.3),    # May 1
-    (datetime(2026, 5, 7, 8, 0, 0), 1.4),    # May 7
+    (datetime(2025, 12, 8, 8, 0, 0), 4.6),  # Dec 8 2025 — pre-experiment baseline
+    (datetime(2026, 1, 22, 14, 0, 0), 4.9),  # Jan 22
+    (datetime(2026, 2, 2, 17, 0, 0), 5.0),  # Feb 2
+    (datetime(2026, 2, 9, 10, 0, 0), 4.9),  # Feb 9
+    (datetime(2026, 2, 11, 8, 0, 0), 5.1),  # Feb 11
+    (datetime(2026, 2, 16, 8, 0, 0), 4.8),  # Feb 16
+    (datetime(2026, 2, 18, 10, 23, 0), 5.0),  # Feb 18
+    (datetime(2026, 2, 20, 8, 0, 0), 4.6),  # Feb 20
+    (datetime(2026, 2, 24, 8, 0, 0), 4.4),  # Feb 24
+    (datetime(2026, 2, 26, 10, 23, 0), 4.5),  # Feb 26
+    (datetime(2026, 3, 2, 9, 23, 0), 4.3),  # Mar 2
+    (datetime(2026, 3, 4, 10, 23, 0), 4.5),  # Mar 4
+    (datetime(2026, 3, 6, 8, 47, 0), 4.8),  # Mar 6
+    (datetime(2026, 3, 9, 8, 47, 0), 4.2),  # Mar 9
+    (datetime(2026, 3, 11, 9, 47, 0), 4.3),  # Mar 11
+    (datetime(2026, 3, 12, 10, 47, 0), 4.2),  # Mar 12
+    (datetime(2026, 3, 18, 9, 45, 0), 4.6),  # Mar 18
+    (datetime(2026, 4, 8, 9, 15, 0), 4.7),  # Apr 8
+    (datetime(2026, 4, 10, 8, 55, 0), 5.0),  # Apr 10
+    (datetime(2026, 4, 13, 11, 35, 0), 5.6),  # Apr 13
+    (datetime(2026, 4, 17, 8, 35, 0), 5.5),  # Apr 17
+    (datetime(2026, 4, 20, 8, 35, 0), 5.4),  # Apr 20
+    (datetime(2026, 4, 23, 14, 15, 0), 4.3),  # Apr 23
+    (datetime(2026, 4, 29, 8, 35, 0), 4.2),  # Apr 29
+    (datetime(2026, 5, 1, 17, 10, 0), 4.3),  # May 1
+    (datetime(2026, 5, 7, 8, 0, 0), 1.4),  # May 7
     (datetime(2026, 5, 11, 8, 35, 0), 2.2),  # May 11
 ]
 
