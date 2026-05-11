@@ -823,7 +823,7 @@ def save_event_registry(
     registry_df = pd.DataFrame(registry_rows)
 
     # Save to CSV
-    registry_df.to_csv(output_path, index=False)
+    registry_df.to_csv(output_path, index=False, encoding='utf-8-sig')
     print(f"\nEvent log saved to: {output_path}")
     print(f"  Total events: {len(registry_df)}")
     print(f"  With CO2 data: {registry_df['has_matching_co2'].sum()}")

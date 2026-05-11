@@ -1416,7 +1416,7 @@ def run_co2_decay_analysis(
         column_rename[f"lambda_{mode}_std"] = f"lambda_{mode}_std (h-1)"
     results_df_export = results_df.rename(columns=column_rename)
     results_df_export = sf.apply_sig_figs_to_df(results_df_export)
-    results_df_export.to_csv(output_file, index=False)
+    results_df_export.to_csv(output_file, index=False, encoding='utf-8-sig')
     print(f"\nResults saved to: {output_file}")
 
     # Save detailed summary - one row per configuration
