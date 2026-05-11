@@ -110,6 +110,7 @@ Test Parameters:
     - Mannequin: Whether a mannequin was present during the test
     - Door Position: Open, Closed, or Partial
     - Bath Fan Status: Fan running during or within 2 hours after shower
+    - Flow Rate: Measured shower head flow rate (LPM) at session start
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -287,6 +288,39 @@ FAN_DURATION_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
     (datetime(2026, 1, 14, 0, 0, 0), None),  # No planned fan
     (datetime(2026, 3, 31, 12, 45, 0), 12.0),  # Fan planned to run 12 min from shower start
     (datetime(2026, 4, 10, 8, 55, 0), None),  # No planned fan from Apr 10
+]
+
+# Shower head flow rate transitions: (datetime, flow_rate_lpm)
+# Measured at the start of each testing session; applies until the next entry.
+# All measurements taken at session start (8:00 AM unless noted).
+FLOW_RATE_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
+    (datetime(2025, 12, 8, 8, 0, 0), 4.6),   # Dec 8 2025 — pre-experiment baseline
+    (datetime(2026, 1, 22, 8, 0, 0), 4.9),   # Jan 22
+    (datetime(2026, 2, 2, 8, 0, 0), 5.0),    # Feb 2
+    (datetime(2026, 2, 9, 8, 0, 0), 4.9),    # Feb 9
+    (datetime(2026, 2, 11, 8, 0, 0), 5.1),   # Feb 11
+    (datetime(2026, 2, 16, 8, 0, 0), 4.8),   # Feb 16
+    (datetime(2026, 2, 18, 8, 0, 0), 5.0),   # Feb 18
+    (datetime(2026, 2, 20, 8, 0, 0), 4.6),   # Feb 20
+    (datetime(2026, 2, 24, 8, 0, 0), 4.4),   # Feb 24
+    (datetime(2026, 2, 26, 8, 0, 0), 4.5),   # Feb 26
+    (datetime(2026, 3, 2, 8, 0, 0), 4.3),    # Mar 2
+    (datetime(2026, 3, 4, 8, 0, 0), 4.5),    # Mar 4
+    (datetime(2026, 3, 6, 8, 0, 0), 4.8),    # Mar 6
+    (datetime(2026, 3, 9, 8, 0, 0), 4.2),    # Mar 9
+    (datetime(2026, 3, 11, 8, 0, 0), 4.3),   # Mar 11
+    (datetime(2026, 3, 12, 8, 0, 0), 4.2),   # Mar 12
+    (datetime(2026, 3, 18, 8, 0, 0), 4.6),   # Mar 18
+    (datetime(2026, 4, 8, 8, 0, 0), 4.7),    # Apr 8
+    (datetime(2026, 4, 10, 8, 0, 0), 5.0),   # Apr 10
+    (datetime(2026, 4, 13, 8, 0, 0), 5.6),   # Apr 13
+    (datetime(2026, 4, 17, 8, 0, 0), 5.5),   # Apr 17
+    (datetime(2026, 4, 20, 8, 0, 0), 5.4),   # Apr 20
+    (datetime(2026, 4, 23, 8, 0, 0), 4.3),   # Apr 23
+    (datetime(2026, 4, 29, 8, 0, 0), 4.2),   # Apr 29
+    (datetime(2026, 5, 1, 8, 0, 0), 4.3),    # May 1
+    (datetime(2026, 5, 7, 8, 0, 0), 1.4),    # May 7
+    (datetime(2026, 5, 11, 8, 35, 0), 2.2),  # May 11
 ]
 
 # Time of day boundaries (hour of day).
@@ -548,6 +582,22 @@ def get_planned_fan_duration(dt: datetime) -> Optional[float]:
     return _get_config_value_at_time(dt, FAN_DURATION_TRANSITIONS)
 
 
+def get_flow_rate(dt: datetime) -> Optional[float]:
+    """
+    Return the measured shower head flow rate (LPM) at a given datetime.
+
+    Uses FLOW_RATE_TRANSITIONS. Flow rate is measured at the start of each
+    testing session and applies until the next measurement entry.
+
+    Parameters:
+        dt: Datetime of the event
+
+    Returns:
+        Flow rate in liters per minute (LPM), or None if not yet measured.
+    """
+    return _get_config_value_at_time(dt, FLOW_RATE_TRANSITIONS)
+
+
 def get_test_configuration(dt: datetime) -> Dict:
     """
     Get complete test configuration for a given datetime.
@@ -567,10 +617,10 @@ def get_test_configuration(dt: datetime) -> Dict:
             - door_position: Bath door "Open", "Closed", or "Partial"
             - bedroom_door_position: Bedroom door "Open", "Closed", or "Ajar"
             - planned_fan: "On" or "Off"
+            - flow_rate: Measured shower head flow rate in LPM, or None
             - config_key: Combined key for grouping
-              (e.g., "W48_BathDoorOpen_BdrmDoorClosed_FanOff",
-                     "W40_Pepco_Narrow_BathDoorOpen_BdrmDoorClosed_FanOff",
-                     "W40_Pepco_Narrow_Mannequin_BathDoorOpen_BdrmDoorClosed_FanOff")
+              (e.g., "W48_BathDoorOpen_BdrmDoorClosed_FanOff_FlowRate4.6LPM",
+                     "W40_Pepco_Narrow_BathDoorOpen_BdrmDoorClosed_FanOff_FlowRate4.3LPM")
     """
     water_temp = get_water_temperature_code(dt)
     shower_head = get_shower_head(dt)
@@ -579,8 +629,9 @@ def get_test_configuration(dt: datetime) -> Dict:
     door_pos = get_door_position(dt)
     bdm_door_pos = get_bedroom_door_position(dt)
     fan_status = get_planned_fan_status(dt)
+    flow_rate = get_flow_rate(dt)
 
-    # Build config_key: W##[_ShowerHead[_SprayPattern]][_Mannequin]_BathDoorXxx_BdrmDoorXxx_FanXxx
+    # Build config_key: W##[_ShowerHead[_SprayPattern]][_Mannequin]_BathDoorXxx_BdrmDoorXxx_FanXxx[_FlowRateXLPM]
     key_parts = [water_temp]
     if shower_head != "Standard":
         key_parts.append(shower_head)
@@ -591,6 +642,8 @@ def get_test_configuration(dt: datetime) -> Dict:
     key_parts.append(f"BathDoor{door_pos}")
     key_parts.append(f"BdrmDoor{bdm_door_pos}")
     key_parts.append("FanOn" if fan_status == "On" else "FanOff")
+    if flow_rate is not None:
+        key_parts.append(f"FlowRate{flow_rate:.1f}LPM")
     config_key = "_".join(key_parts)
 
     return {
@@ -601,6 +654,7 @@ def get_test_configuration(dt: datetime) -> Dict:
         "door_position": door_pos,
         "bedroom_door_position": bdm_door_pos,
         "planned_fan": fan_status,
+        "flow_rate": flow_rate,
         "config_key": config_key,
     }
 
@@ -624,6 +678,7 @@ def get_unique_configurations() -> List[Dict[str, str]]:
         DOOR_POSITION_TRANSITIONS,
         FAN_STATUS_TRANSITIONS,
         FAN_DURATION_TRANSITIONS,
+        FLOW_RATE_TRANSITIONS,
     ):
         for dt, _ in transitions:
             all_transitions.add(dt)
@@ -1032,6 +1087,7 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
             event["mannequin"] = config["mannequin"]
             event["door_position"] = config["door_position"]
             event["planned_fan"] = config["planned_fan"]
+            event["flow_rate"] = config["flow_rate"]
             event["fan_during_test"] = False
             event["fan_duration_min"] = None
             event["time_of_day"] = get_time_of_day(shower_time)
@@ -1047,6 +1103,7 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
         mannequin = config["mannequin"]
         door_position = config["door_position"]
         planned_fan = config["planned_fan"]
+        flow_rate = config["flow_rate"]
         config_key = config["config_key"]
 
         # Time of day: retained for penetration window calculations but no
@@ -1098,6 +1155,7 @@ def assign_test_names(shower_events: List[Dict], shower_log: pd.DataFrame) -> Li
         event["mannequin"] = mannequin
         event["door_position"] = door_position
         event["planned_fan"] = planned_fan
+        event["flow_rate"] = flow_rate
         event["fan_during_test"] = fan_during_test
         event["fan_duration_min"] = fan_duration_min
         event["time_of_day"] = time_of_day

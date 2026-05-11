@@ -32,8 +32,8 @@ Processing Features:
       duration inferred from neighboring events or historical defaults
     - Duration-based exclusion of water-temperature-testing showers (outside
       10 min ± 5 sec); these events retain metadata but receive no event number
-    - Programmatic PM exclusion checks: lambda R² < 0.80 (unreliable CO2 fit)
-      and QuantAQ bedroom RH peak outside the first 30 min of the deposition
+    - Programmatic PM exclusion checks: lambda R² < 0.75 (unreliable CO2 fit)
+      and QuantAQ bedroom RH peak outside the first 45 min of the deposition
       window (poor room mixing)
     - Consistent test name generation (W## water-temp codes, time-of-day,
       replicate suffix) matching the convention used in event_manager.py
@@ -968,11 +968,11 @@ def _apply_pm_exclusion_checks(
 
     Two-stage check (only applied to non-excluded, numbered events):
 
-    Stage 1 — Lambda R² < 0.8:
+    Stage 1 — Lambda R² < 0.75:
         The CO2 decay fit is too poor for reliable air-change-rate estimation,
         so PM analysis cannot be trusted.
 
-    Stage 2 — QuantAQ bedroom RH peak outside first 30 min of deposition window:
+    Stage 2 — QuantAQ bedroom RH peak outside first 45 min of deposition window:
         The bedroom is not well-mixed; particle concentrations may not represent
         the whole-room average.
 
@@ -1012,15 +1012,15 @@ def _apply_pm_exclusion_checks(
                 result_row = co2_results_df.loc[time_diffs.idxmin()]
                 lambda_r2 = result_row.get("lambda_average_r_squared", np.nan)
 
-        if not np.isnan(lambda_r2) and lambda_r2 < 0.8:
+        if not np.isnan(lambda_r2) and lambda_r2 < 0.75:
             event["is_excluded"] = True
             event["exclusion_reason"] = (
-                f"Lambda R\u00b2 less than 0.8 (R\u00b2={lambda_r2:.3f})"
+                f"Lambda R\u00b2 less than 0.75 (R\u00b2={lambda_r2:.3f})"
             )
             n_lambda_excluded += 1
             print(
                 f"  Event {event.get('event_number')}: Excluded — "
-                f"lambda R²={lambda_r2:.3f} < 0.8"
+                f"lambda R²={lambda_r2:.3f} < 0.75"
             )
             continue
 
@@ -1051,12 +1051,12 @@ def _apply_pm_exclusion_checks(
         peak_time = rh_window.loc[peak_idx, "datetime"]
         minutes_after = (peak_time - shower_off).total_seconds() / 60
 
-        if peak_time > shower_off + timedelta(minutes=30):
+        if peak_time > shower_off + timedelta(minutes=45):
             event["is_excluded"] = True
             event["exclusion_reason"] = (
                 f"Bedroom is deemed to be not well mixed by RH analysis "
                 f"(RH peak at {minutes_after:.0f} min after shower off, "
-                f"expected within 30 min)"
+                f"expected within 45 min)"
             )
             n_rh_excluded += 1
             print(
