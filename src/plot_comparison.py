@@ -547,7 +547,9 @@ def plot_door_comparison_boxplots(
          Output stem prefix: ``bath_door_position``.
 
     4b — Bedroom door (bedroom_door_position): Closed vs. Open vs. Ajar.
-         Fixed conditions: Used SingleWide head, W36–42 °C, bath door open, fan off.
+         Fixed conditions: Pepco Narrow head, W36–42 °C, fan off, no mannequin.
+         Note: the Ajar group (May 4–7) had bath door Ajar; Closed and Open groups
+         had bath door Open — bath door position is not held constant across groups.
          Output stem prefix: ``bedroom_door_position``.
 
     Each sub-comparison produces nine figures: 3 metrics × 3 bin groups.
@@ -583,22 +585,27 @@ def plot_door_comparison_boxplots(
         temp_filter=(36.0, 42.0),
     )
 
-    # 4b: Bedroom door
+    # 4b: Bedroom door — Pepco Narrow head, W36–42 °C, fan off, no mannequin.
+    # Note: the Ajar group (May 4–7) coincided with the bath door also being Ajar,
+    # so bath door position is not perfectly constant across the three groups.
     bedroom_door_defs: "List[_GroupDef]" = [
         (
             "BdrmDoorClosed",
             "Bedroom Door\nClosed",
-            lambda ck: "_Used_SingleWide_BathDoorOpen_BdrmDoorClosed_FanOff" in ck,
+            lambda ck: (
+                "_Pepco_Narrow_BathDoorOpen_BdrmDoorClosed_FanOff" in ck
+                and "_Mannequin" not in ck
+            ),
         ),
         (
             "BdrmDoorOpen",
             "Bedroom Door\nOpen",
-            lambda ck: "_Used_SingleWide_BathDoorOpen_BdrmDoorOpen_FanOff" in ck,
+            lambda ck: "_Pepco_Narrow_BathDoorOpen_BdrmDoorOpen_FanOff" in ck,
         ),
         (
             "BdrmDoorAjar",
             "Bedroom Door\nAjar",
-            lambda ck: "_Used_SingleWide_BathDoorOpen_BdrmDoorAjar_FanOff" in ck,
+            lambda ck: "_Pepco_Narrow_BathDoorAjar_BdrmDoorAjar_FanOff" in ck,
         ),
     ]
     _run_comparison_family(
