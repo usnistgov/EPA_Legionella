@@ -214,8 +214,8 @@ __marimo__/
 data_config.json
 
 # DAQ instrument information
-docs\*.pdf
-docs\*.xlsx
+docs/*.pdf
+docs/*.xlsx
 
 # OS Specific
 Thumbs.db
