@@ -106,23 +106,7 @@ NIST_EPA_Legionella/
 │
 └── docs/                             # Documentation & instrument references
     ├── Data Analysis.docx            # Data analysis planning notes
-    ├── MH cDAQ channels MAP and wiring notes 123115.xlsx
-    ├── MH_weather_sta_to_DAQ_connections sketch.pdf
-    ├── decay_fit_step_change_note.txt        # Explanation of beta=NaN step-change fix
-    ├── python_script_style.txt               # Code style conventions for this project
-    ├── instrument_informed_sig_figs_prompt.txt  # Prompt for instrument-accuracy sig figs
-    ├── notes.txt                             # Project notes
-    │
-    │ # Instrument Manuals & Data Sheets
-    ├── AIO-2-9800-Manual-Rev-G.pdf   # Met One AIO 2 weather sensor manual
-    ├── AIO2-1.pdf                    # Met One AIO 2 data sheet
-    ├── Aranet_Datasheet_TDSPC003_Aranet4_PRO_1.pdf
-    ├── aranet4_user_manual_v25_web.pdf
-    ├── NI cDAQ-9171_9174_9178 User Manual - National Instruments.pdf
-    ├── ni-9201_getting_started_2-1-2024.pdf
-    ├── Setra_Model_264_Data_Sheet.pdf
-    ├── Vaisala HMP155_User_Guide_in_English.pdf
-    └── Vaisala HMP45AD-User-Guide-U274EN.pdf
+    └── pdf_links.md                  # Public download links for instrument manuals and data sheets (not included due to copyright)
 ```
 
 ## Installation
@@ -540,35 +524,31 @@ Key packages (see `epa_mh.yml` for complete list):
 
 ## References
 
-Instrument manuals, data sheets, and system documentation are located in the [`docs/`](docs/) directory.
-
-- PDF links overview: [docs/pdf_links.md](docs/pdf_links.md)
+Instrument manuals and data sheets are not included in this repository due to copyright. Public download links are listed in [docs/pdf_links.md](docs/pdf_links.md).
 
 ### Aranet4 PRO (CO2 Sensor)
 
-- [Aranet4 PRO Data Sheet](docs/Aranet_Datasheet_TDSPC003_Aranet4_PRO_1.pdf)
-- [Aranet4 User Manual](docs/aranet4_user_manual_v25_web.pdf)
+- [Aranet4 PRO Data Sheet](https://aranet.com/downloads/aranet-datasheet-aranet-4-pro)
+- [Aranet4 User Manual](https://aranet.com/downloads/aranet4-user-manual)
 
 ### Met One AIO 2 (Weather Sensor)
 
-- [AIO 2 Manual (Rev G)](docs/AIO-2-9800-Manual-Rev-G.pdf)
-- [AIO 2 Data Sheet](docs/AIO2-1.pdf)
+- [AIO 2 Manual (Rev G)](https://metone.com/wp-content/uploads/2023/03/AIO-2-9800-Manual-Rev-G.pdf)
+- [AIO 2 Data Sheet](https://metone.com/wp-content/uploads/2019/10/AIO2-1.pdf)
 
 ### DAQ System (NI cDAQ-9178)
 
-- [NI cDAQ-9171/9174/9178 User Manual](docs/NI%20cDAQ-9171_9174_9178%20User%20Manual%20-%20National%20Instruments.pdf)
-- [NI 9201 Getting Started Guide](docs/ni-9201_getting_started_2-1-2024.pdf)
-- [cDAQ Channel Map & Wiring Notes](docs/MH%20cDAQ%20channels%20MAP%20and%20wiring%20notes%20123115.xlsx)
-- [Weather Station to DAQ Connections Sketch](docs/MH_weather_sta_to_DAQ_connections%20sketch.pdf)
+- [NI cDAQ-9171/9174/9178 User Manual](https://www.ni.com/docs/en-US/bundle/cdaq-9171-9174-9178-features/resource/372838e.pdf)
+- [NI 9201 Getting Started Guide](https://download.ni.com/support/manuals/373783h.pdf)
 
 ### Setra Model 264 (Differential Pressure)
 
-- [Setra Model 264 Data Sheet](docs/Setra_Model_264_Data_Sheet.pdf)
+- [Setra Model 264 Data Sheet](https://www.setra.com/hubfs/Product_Data_Sheets/Setra_Model_264_Data_Sheet.pdf)
 
 ### Vaisala Humidity & Temperature Probes
 
-- [HMP155 User Guide](docs/Vaisala%20HMP155_User_Guide_in_English.pdf)
-- [HMP45A/D User Guide](docs/Vaisala%20HMP45AD-User-Guide-U274EN.pdf)
+- [HMP155 User Guide](https://docs.vaisala.com/r/M210912EN-J/en-US)
+- [HMP45A/D User Guide](https://www.vaisala.com/sites/default/files/documents/HMP45AD-User-Guide-U274EN.pdf)
 
 ## Contact
 

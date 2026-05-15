@@ -1,6 +1,6 @@
 # PDF Links
 
-List of PDF documents with placeholder links.
+Public download links for instrument manuals and data sheets removed from this repository due to copyright.
 
 - Aranet4 PRO Data Sheet – https://aranet.com/downloads/aranet-datasheet-aranet-4-pro
 - Aranet4 User Manual – https://aranet.com/downloads/aranet4-user-manual
