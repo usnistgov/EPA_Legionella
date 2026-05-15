@@ -542,6 +542,8 @@ Key packages (see `epa_mh.yml` for complete list):
 
 Instrument manuals, data sheets, and system documentation are located in the [`docs/`](docs/) directory.
 
+- PDF links overview: [docs/pdf_links.md](docs/pdf_links.md)
+
 ### Aranet4 PRO (CO2 Sensor)
 
 - [Aranet4 PRO Data Sheet](docs/Aranet_Datasheet_TDSPC003_Aranet4_PRO_1.pdf)

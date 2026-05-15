@@ -213,6 +213,19 @@ __marimo__/
 # Data configuration (contains local paths - DO NOT COMMIT)
 data_config.json
 
+# DAQ instrument information
+AIO-2-9800-Manual-Rev-G.pdf
+AIO2-1.pdf
+Aranet_Datasheet_TDSPC003_Aranet4_PRO_1.pdf
+aranet4_user_manual_v25_web.pdf
+MH cDAQ channels MAP and wiring notes 123125.xlsx
+MH_weather_sta_to_DAQ_connections sketch.pdf
+NI cDAQ-9171_9174_9178 User Manual - National Instruments.pdf
+ni-9201_getting_started_2-1-2024.pdf
+Setra_Model_264_Data_Sheet.pdf
+Vaisala HMP45AD-User-Guide-U274EN.pdf
+Vaisala HMP155_User_Guide_in_English.pdf
+
 # OS Specific
 Thumbs.db
 Desktop.ini
