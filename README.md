@@ -607,7 +607,8 @@ If you use this software, please cite it as:
   title        = {NIST-EPA Legionella Study Analysis Tools},
   year         = {2026},
   publisher    = {National Institute of Standards and Technology},
-  url          = {https://github.com/usnistgov/NIST_EPA_Legionella}
+  url          = {https://github.com/usnistgov/NIST_EPA_Legionella},
+  doi          = {https://doi.org/10.18434/mds2-4153}
 }
 ```
 
