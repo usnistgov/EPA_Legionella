@@ -229,7 +229,8 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 4, 10, 8, 55, 0), None),  # Filtered Wand spray from Apr 10
     (datetime(2026, 4, 13, 11, 35, 0), "rainfall"),  # Used head rainfall spray from Apr 13
     (datetime(2026, 4, 15, 8, 25, 0), "12Nozzle"),  # Used head 12-nozzle spray from Apr 15
-    (datetime(2026, 4, 17, 8, 35, 0), "SingleWide"),  # Used head SingleWide spray from Apr 17
+    (datetime(2026, 4, 17, 8, 35, 0), "SingleWide1"),  # Used head SingleWide spray from Apr 17
+    (datetime(2026, 4, 20, 8, 35, 0), "SingleWide2"),  # Used head SingleWide spray from Apr 20
     (datetime(2026, 4, 23, 14, 15, 0), "Narrow"),  # Pepco narrow spray from Apr 23
 ]
 
