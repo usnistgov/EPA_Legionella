@@ -100,7 +100,8 @@ NIST_EPA_Legionella/
 │   ├── co2_decay_analysis.py         # CO2 decay & air change rate (λ) analysis
 │   ├── particle_decay_analysis.py    # Particle penetration, deposition & emission analysis
 │   ├── rh_temp_other_analysis.py     # RH, temperature & wind condition analysis
-│   └── export_event_timeseries.py    # Export per-event predicted Ct for all size bins to CSV (--event N)
+│   ├── export_event_timeseries.py    # Export per-event predicted Ct for all size bins to CSV (--event N)
+│   └── export_config_timeseries.py   # Export 1-min avg env/particle time series per config group to Excel
 │
 └── docs/                             # Documentation & instrument references
     ├── Data Analysis.docx            # Data analysis planning notes
@@ -284,6 +285,16 @@ Each step's output is logged to `output/logs/<script_name>.log`. Or run steps in
    | `--output PATH` | Output CSV file path (default: `output/event_N_timeseries.csv`) |
    | `--output-dir DIR` | Analysis output directory (default: `data_root/output`) |
    | `--no-sig-figs` | Disable significant figure rounding |
+
+9. **Export Config Time Series** *(optional utility)*: Export 1-minute averaged environmental and particle time series per unique test configuration to Excel:
+   ```bash
+   python scripts/export_config_timeseries.py [--no-sig-figs]
+   ```
+   | Flag | Description |
+   |------|-------------|
+   | `--no-sig-figs` | Disable significant figure rounding |
+
+   Produces `output/event_config_timeseries.xlsx` with one sheet per configuration group. Each sheet contains the mean, standard deviation, maximum, and minimum (across replicate events) of bathroom RH/Temp, bath/bed hallway RH/Temp, bedroom RH/Temp, and all 12 OPC-N3 particle bins (0.35–10.0 µm) at 1-minute resolution from shower-on through the 2-hour deposition window. Flow rates in the 4.1–5.6 LPM range (standard and tagged variants) are grouped together; 1.4 LPM and 2.2 LPM events remain separate. A hyperlinked index sheet lists every configuration group with event counts and event numbers.
 
 Each analysis module produces CSV/Excel summaries and optional visualizations in the `output/` directory.
 
