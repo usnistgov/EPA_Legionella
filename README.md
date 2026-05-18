@@ -101,9 +101,6 @@ NIST_EPA_Legionella/
 │   ├── rh_temp_other_analysis.py     # RH, temperature & wind condition analysis
 │   └── export_event_timeseries.py    # Export per-event predicted Ct for all size bins to CSV (--event N)
 │
-├── testing/                          # Testing and exploratory scripts
-│   └── co2 plot.py                   # Aranet4 CO2 plotting script
-│
 └── docs/                             # Documentation & instrument references
     ├── Data Analysis.docx            # Data analysis planning notes
     └── pdf_links.md                  # Public download links for instrument manuals and data sheets (not included due to copyright)
