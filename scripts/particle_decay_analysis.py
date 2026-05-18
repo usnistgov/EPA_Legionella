@@ -226,6 +226,12 @@ from src.particle_data_loader import (  # noqa: E402
 # Set to an empty list [] to disable for all events.
 OUTDOOR_PM_EVENTS: list = [75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85]
 
+# Flow-rate filter for summary plots.  Events whose measured shower head flow
+# rate falls outside this range are excluded from all boxplot and comparison
+# figures.  The Excel results file retains all events regardless of flow rate.
+FLOW_RATE_MIN: float = 4.1  # LPM (inclusive)
+FLOW_RATE_MAX: float = 5.6  # LPM (inclusive)
+
 # =============================================================================
 # Event Analysis Orchestration
 # =============================================================================
@@ -282,6 +288,7 @@ def analyze_event_all_bins(
         "shower_duration_min": event.get("shower_duration_min", event.get("duration_min", 0)),
         "lambda_ach": lambda_ach,
         "co2_event_idx": event.get("co2_event_idx", None),
+        "flow_rate": event.get("flow_rate"),
     }
 
     time_of_day = event.get("time_of_day", "")
@@ -707,11 +714,19 @@ def run_particle_analysis(
     # Save results
     _save_results(results_df, output_dir)
 
+    # Apply flow rate filter for plots; Excel retains all events
+    if "flow_rate" in results_df.columns:
+        plot_df = results_df[
+            results_df["flow_rate"].between(FLOW_RATE_MIN, FLOW_RATE_MAX)
+        ].copy()
+    else:
+        plot_df = results_df.copy()
+
     # Generate summary plots
-    if generate_plots and not results_df.empty:
-        _generate_summary_plots(results_df, output_dir)
-    elif generate_plots and results_df.empty:
-        print("\nSkipping plot generation - no results to plot.")
+    if generate_plots and not plot_df.empty:
+        _generate_summary_plots(plot_df, output_dir)
+    elif generate_plots and plot_df.empty:
+        print("\nSkipping plot generation - no results within flow rate range.")
 
     return results_df
 

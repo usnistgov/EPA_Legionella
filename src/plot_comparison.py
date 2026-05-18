@@ -350,7 +350,7 @@ def plot_spray_pattern_comparison_boxplots(
     plot_dir: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
-    """Boxplots comparing Wide / Narrow / Mid Pepco spray patterns.
+    """Boxplots comparing Wide / Narrow Pepco spray patterns.
 
     Fixed conditions: Pepco head, W36–42 °C, no mannequin, bath door open, fan off.
     Produces nine figures: 3 metrics × 3 bin groups.
@@ -371,11 +371,6 @@ def plot_spray_pattern_comparison_boxplots(
             "Narrow",
             "Pepco\nNarrow",
             lambda ck: "_Pepco_Narrow_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
-        ),
-        (
-            "Mid",
-            "Pepco\nMid",
-            lambda ck: "_Pepco_Mid_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
     ]
     _run_comparison_family(
@@ -401,7 +396,7 @@ def plot_shower_head_comparison_boxplots(
     plot_dir: Path,
     rh_data: "Optional[pd.DataFrame]" = None,
 ) -> None:
-    """Boxplots comparing Standard, Pepco (Wide/Narrow/Mid), FilterWand, and Used heads.
+    """Boxplots comparing Standard, Pepco (Wide/Narrow), FilterWand, and Used heads.
 
     Fixed conditions: W36–42 °C, bath door open, fan off.  Standard-head events
     at W37 satisfy the ±2 °C rule relative to W38/W40.
@@ -435,11 +430,6 @@ def plot_shower_head_comparison_boxplots(
             "Pepco_Narrow",
             "Pepco\nNarrow",
             lambda ck: "_Pepco_Narrow_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
-        ),
-        (
-            "Pepco_Mid",
-            "Pepco\nMid",
-            lambda ck: "_Pepco_Mid_BathDoorOpen_" in ck and "_FanOff" in ck and "_Mannequin" not in ck,
         ),
         (
             "FilterWand",
@@ -498,19 +488,42 @@ def plot_mannequin_comparison_boxplots(
     """
     group_defs: "List[_GroupDef]" = [
         (
-            "No_Mannequin",
-            "No\nMannequin",
+            "No_Mannequin_Narrow",
+            "No Mannequin\nNarrow",
             lambda ck: (
-                "_Pepco_" in ck
+                "_Pepco_Narrow_" in ck
                 and "_Mannequin" not in ck
                 and "_BathDoorOpen_" in ck
                 and "_FanOff" in ck
             ),
         ),
         (
-            "Mannequin",
-            "With\nMannequin",
-            lambda ck: "_Pepco_" in ck and "_Mannequin_BathDoorOpen_" in ck and "_FanOff" in ck,
+            "No_Mannequin_Wide",
+            "No Mannequin\nWide",
+            lambda ck: (
+                "_Pepco_Wide_" in ck
+                and "_Mannequin" not in ck
+                and "_BathDoorOpen_" in ck
+                and "_FanOff" in ck
+            ),
+        ),
+        (
+            "Mannequin_Narrow",
+            "With Mannequin\nNarrow",
+            lambda ck: (
+                "_Pepco_Narrow_" in ck
+                and "_Mannequin_BathDoorOpen_" in ck
+                and "_FanOff" in ck
+            ),
+        ),
+        (
+            "Mannequin_Wide",
+            "With Mannequin\nWide",
+            lambda ck: (
+                "_Pepco_Wide_" in ck
+                and "_Mannequin_BathDoorOpen_" in ck
+                and "_FanOff" in ck
+            ),
         ),
     ]
     _run_comparison_family(
@@ -519,8 +532,8 @@ def plot_mannequin_comparison_boxplots(
         plot_dir,
         stem_prefix="mannequin",
         group_defs=group_defs,
-        title_base="Mannequin Presence Effect",
-        x_label="Mannequin",
+        title_base="Mannequin Presence Effect by Head Geometry",
+        x_label="Mannequin / Head Geometry",
         rh_data=rh_data,
         temp_filter=(36.0, 42.0),
     )

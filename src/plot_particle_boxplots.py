@@ -137,7 +137,7 @@ def _annotate_temp_groups(
     if not temp_stats:
         return
 
-    # Extend y-axis headroom so annotations aren't clipped (3 lines: W##, n=, RH=)
+    # Extend y-axis headroom so annotations aren't clipped
     y_min, y_max = ax.get_ylim()
     y_range = y_max - y_min
     ax.set_ylim(y_min, y_max + 0.25 * y_range)
@@ -159,7 +159,13 @@ def _annotate_temp_groups(
             digits = "".join(c for c in w_part[1:] if c.isdigit())
             if digits:
                 text_lines.append(f"W{digits}")
-        text_lines.append(f"n={n}")
+        bin_counts = stats.get("bin_counts", {})
+        if bin_counts:
+            for col in sorted(bin_counts, key=lambda c: int(c.split("_")[0][3:])):
+                bin_label = col.split("_")[0].capitalize()
+                text_lines.append(f"{bin_label} n={bin_counts[col]}")
+        else:
+            text_lines.append(f"n={n}")
         if rh_data is not None and "shower_on" in stats:
             avg_rh = _get_rh_at_shower_on(stats["shower_on"], rh_data)
             if not np.isnan(avg_rh):
@@ -210,9 +216,17 @@ def _build_temp_stats(
 
         n = len(group_df)
         max_val = float(np.max(all_vals)) if all_vals else np.nan
+        bin_counts = {
+            col: int(group_df[col].notna().sum()) if col in group_df.columns else 0
+            for col in value_cols
+        }
 
         if temp in temp_stats:
             temp_stats[temp]["n"] += n
+            for col, cnt in bin_counts.items():
+                temp_stats[temp]["bin_counts"][col] = (
+                    temp_stats[temp]["bin_counts"].get(col, 0) + cnt
+                )
             if not np.isnan(max_val):
                 cur = temp_stats[temp].get("max_val", np.nan)
                 temp_stats[temp]["max_val"] = max(cur, max_val) if not np.isnan(cur) else max_val
@@ -223,6 +237,7 @@ def _build_temp_stats(
         else:
             temp_stats[temp] = {
                 "n": n,
+                "bin_counts": bin_counts,
                 "max_val": max_val,
                 "shower_on": group_df["shower_on"].copy()
                 if "shower_on" in group_df.columns
@@ -847,7 +862,7 @@ def plot_emission_etotal_by_showerhead_boxplot(
     Configs are ordered by temperature and grouped into four clusters separated
     by visible gaps on the categorical x-axis:
       - Cluster 1: W37, W38_Pepco_Narrow, W38_Pepco_Wide, W40_Pepco_Narrow,
-                   W40_Pepco_Wide, W40_Pepco_Mid, W43
+                   W40_Pepco_Wide, W43
       - Cluster 2: W38_FilterWand, W38_Used_rainfall, W38_Used_12Nozzle,
                    W38_Used_SingleWide
       - Cluster 3: W48, W49_Pepco_Wide
@@ -882,22 +897,21 @@ def plot_emission_etotal_by_showerhead_boxplot(
         "W38_Pepco_Wide": (2, "W38\nP.Wide"),
         "W40_Pepco_Narrow": (3, "W40\nP.Narrow"),
         "W40_Pepco_Wide": (4, "W40\nP.Wide"),
-        "W40_Pepco_Mid": (5, "W40\nP.Mid"),
-        "W43": (6, "W43"),
-        # gap at 7
+        "W43": (5, "W43"),
+        # gap at 6
         # Cluster 2: FilterWand and Used heads near 38°C
-        "W38_FilterWand": (8, "W38\nFilter\nWand"),
-        "W38_Used_rainfall": (9, "W38\nUsed\nRainfall"),
-        "W38_Used_12Nozzle": (10, "W38\nUsed\n12Nozzle"),
-        "W38_Used_SingleWide": (11, "W38\nUsed\nSingleWide"),
-        # gap at 12
+        "W38_FilterWand": (7, "W38\nFilter\nWand"),
+        "W38_Used_rainfall": (8, "W38\nUsed\nRainfall"),
+        "W38_Used_12Nozzle": (9, "W38\nUsed\n12Nozzle"),
+        "W38_Used_SingleWide": (10, "W38\nUsed\nSingleWide"),
+        # gap at 11
         # Cluster 3: standard W48 + Pepco wide near 49°C
-        "W48": (13, "W48"),
-        "W49_Pepco_Wide": (14, "W49\nP.Wide"),
-        # gap at 15
+        "W48": (12, "W48"),
+        "W49_Pepco_Wide": (13, "W49\nP.Wide"),
+        # gap at 14
         # Cluster 4: Pepco wide near 52°C + standard W53 (low→high temp)
-        "W52_Pepco_Wide": (16, "W52\nP.Wide"),
-        "W53": (17, "W53"),
+        "W52_Pepco_Wide": (15, "W52\nP.Wide"),
+        "W53": (16, "W53"),
     }
 
     # Match each row's config_key to a SHOWERHEAD_CONFIGS group.
@@ -975,8 +989,13 @@ def plot_emission_etotal_by_showerhead_boxplot(
                     all_vals.extend(group_df[col].dropna().values.tolist())
             n = len(group_df)
             max_val = float(np.max(all_vals)) if all_vals else np.nan
+            bin_counts = {
+                col: int(group_df[col].notna().sum()) if col in group_df.columns else 0
+                for col in value_cols
+            }
             annot_stats[x_pos] = {
                 "n": n,
+                "bin_counts": bin_counts,
                 "max_val": max_val,
                 "shower_on": group_df["shower_on"].copy()
                 if "shower_on" in group_df.columns
@@ -1049,7 +1068,13 @@ def plot_emission_etotal_by_showerhead_boxplot(
                 if np.isnan(max_val):
                     continue
                 text_lines = [stats.get("w_label", "")]
-                text_lines.append(f"n={n}")
+                bin_counts = stats.get("bin_counts", {})
+                if bin_counts:
+                    for col in sorted(bin_counts, key=lambda c: int(c.split("_")[0][3:])):
+                        bin_label = col.split("_")[0].capitalize()
+                        text_lines.append(f"{bin_label} n={bin_counts[col]}")
+                else:
+                    text_lines.append(f"n={n}")
                 if rh_data is not None and "shower_on" in stats:
                     avg_rh = _get_rh_at_shower_on(stats["shower_on"], rh_data)
                     if not np.isnan(avg_rh):
