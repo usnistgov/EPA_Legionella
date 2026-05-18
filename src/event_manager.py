@@ -324,6 +324,7 @@ FLOW_RATE_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
     (datetime(2026, 5, 1, 17, 10, 0), 4.3),  # May 1
     (datetime(2026, 5, 7, 8, 0, 0), 1.4),  # May 7
     (datetime(2026, 5, 11, 8, 35, 0), 2.2),  # May 11
+    (datetime(2026, 5, 17, 9, 0, 0), 2.9),  # May 17
 ]
 
 # Time of day boundaries (hour of day).
@@ -340,6 +341,7 @@ TIME_OF_DAY_RANGES = {
 EXCLUDED_EVENTS = {
     datetime(2026, 1, 22, 15, 0, 0): "Tour in house during test",
     datetime(2026, 1, 29, 15, 0, 0): "People in house",
+    datetime(2026, 5, 13, 15, 0, 0): "LVP flooring installation",
 }
 
 # Date-range exclusions: list of (start_datetime, end_datetime, reason).
@@ -360,6 +362,11 @@ EXCLUDED_RANGES: List[Tuple[datetime, datetime, str]] = [
     (
         datetime(2026, 3, 14, 0, 0, 0),
         datetime(2026, 3, 15, 12, 00, 00),
+        "CO2 system failure",
+    ),
+    (
+        datetime(2026, 5, 11, 0, 0, 0),
+        datetime(2026, 5, 15, 10, 00, 00),
         "CO2 system failure",
     ),
 ]
