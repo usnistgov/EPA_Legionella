@@ -585,13 +585,14 @@ Instrument manuals and data sheets are not included in this repository due to co
 - [HMP155 User Guide](https://docs.vaisala.com/r/M210912EN-J/en-US)
 - [HMP45A/D User Guide](https://www.vaisala.com/sites/default/files/documents/HMP45AD-User-Guide-U274EN.pdf)
 
+---
 ## Contact
 
-- **PI:** Dustin G. Poppendieck
-- **NIST Organizational Unit:** Engineering Laboratory
-- **Division:** Building Energy & Environment Division
-- **Group:** Indoor Air Quality and Ventilation Group
-- **Email:** dustin.poppendieck@nist.gov
+- **PI:** [Dustin G. Poppendieck](https://www.nist.gov/people/dustin-poppendieck) — dustin.poppendieck@nist.gov
+- **Maintainer:** [Nathan Lima](https://www.nist.gov/people/dr-nathan-lima) — nathan.lima@nist.gov
+- **NIST Organizational Unit:** [Engineering Laboratory](https://www.nist.gov/el)
+- **Division:** [Building Energy and Environment Division](https://www.nist.gov/el/beed)
+- **Group:** [Indoor Air Quality and Ventilation Group](https://www.nist.gov/el/beed/indoor-air-quality-ventilation)
 
 ## Data Availability
 
@@ -607,10 +608,14 @@ If you use this software, please cite it as:
   title        = {NIST-EPA Legionella Study Analysis Tools},
   year         = {2026},
   publisher    = {National Institute of Standards and Technology},
-  url          = {https://github.com/usnistgov/NIST_EPA_Legionella},
-  doi          = {10.18434/mds2-4153}
+  doi          = {10.18434/mds2-4153},
+  url          = {https://github.com/usnistgov/NIST_EPA_Legionella}
 }
 ```
+
+### Related Publication
+
+A peer-reviewed publication and/or NIST Technical Note associated with this study is in preparation. This section will be updated with a citable BibTeX entry and DOI when available.
 
 ## License
 

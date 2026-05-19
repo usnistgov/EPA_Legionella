@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+title: NIST-EPA Legionella Study Analysis Tools
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+authors:
+  - family-names: Lima
+    given-names: Nathan M.
+    orcid: https://orcid.org/0009-0004-6252-4368
+  - family-names: Poppendieck
+    given-names: Dustin G.
+    orcid: https://orcid.org/0000-0002-1100-511X
+repository-code: "https://github.com/usnistgov/NIST_EPA_Legionella"
+doi: 10.18434/mds2-4153
+license: NIST-PD
