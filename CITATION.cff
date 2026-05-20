@@ -1,14 +1,28 @@
 cff-version: 1.2.0
-title: NIST-EPA Legionella Study Analysis Tools
 message: "If you use this software, please cite it using the metadata from this file."
 type: software
+title: NIST-EPA Legionella Study Analysis Tools
+version: "1.0.0"
+date-released: "2026-05-20"
 authors:
   - family-names: Lima
     given-names: Nathan M.
-    orcid: https://orcid.org/0009-0004-6252-4368
+    orcid: "https://orcid.org/0009-0004-6252-4368"
+    affiliation: "National Institute of Standards and Technology"
   - family-names: Poppendieck
     given-names: Dustin G.
-    orcid: https://orcid.org/0000-0002-1100-511X
-repository-code: "https://github.com/usnistgov/NIST_EPA_Legionella"
-doi: 10.18434/mds2-4153
+    orcid: "https://orcid.org/0000-0002-1100-511X"
+    affiliation: "National Institute of Standards and Technology"
+repository-code: "https://github.com/usnistgov/EPA_Legionella"
+doi: "10.18434/mds2-4153"
 license: NIST-PD
+abstract: "Repository for NIST-EPA Legionella study Python tools. Includes scripts for aerosol particle size distribution analysis, emission-rate calculations, data cleaning, visualization, and statistical modeling of shower-generated aerosols under varying temperature, humidity, and exhaust-fan conditions."
+keywords:
+  - Legionella
+  - aerosol
+  - particle size distribution
+  - emission rate
+  - shower aerosols
+  - indoor air quality
+  - building water systems
+  - NIST
