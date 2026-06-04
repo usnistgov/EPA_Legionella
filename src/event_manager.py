@@ -214,6 +214,8 @@ SHOWER_HEAD_TRANSITIONS = [
     (datetime(2026, 4, 10, 8, 55, 0), "FilterWand"),  # Filtered Wand head installed Apr 10
     (datetime(2026, 4, 13, 11, 35, 0), "Used"),  # Used head installed Apr 13
     (datetime(2026, 4, 23, 14, 15, 0), "Pepco"),  # Pepco head installed Apr 23
+    (datetime(2026, 5, 22, 9, 30, 0), "FilterWand"),  # Filtered Wand head installed May 22
+    (datetime(2026, 5, 26, 10, 30, 0), "Used"),  # Used head installed May 26
 ]
 
 # Spray pattern transitions: (datetime, pattern)
@@ -232,6 +234,10 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 4, 17, 8, 35, 0), "SingleWide1"),  # Used head SingleWide spray from Apr 17
     (datetime(2026, 4, 20, 8, 35, 0), "SingleWide2"),  # Used head SingleWide spray from Apr 20
     (datetime(2026, 4, 23, 14, 15, 0), "Narrow"),  # Pepco narrow spray from Apr 23
+    (datetime(2026, 5, 22, 10, 30, 0), None),  # Filtered Wand head installed May 22
+    (datetime(2026, 5, 26, 10, 30, 0), "rainfall"),  # Used head installed May 26
+    (datetime(2026, 6, 1, 8, 0, 0), "12Nozzle"),  # Filtered Wand head installed Jun 1
+    (datetime(2026, 6, 3, 8, 30, 0), "SingleWide1"),  # Filtered Wand head installed Jun 3
 ]
 
 # Mannequin transitions: (datetime, present)
@@ -323,8 +329,13 @@ FLOW_RATE_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
     (datetime(2026, 4, 29, 8, 35, 0), 4.2),  # Apr 29
     (datetime(2026, 5, 1, 17, 10, 0), 4.3),  # May 1
     (datetime(2026, 5, 7, 8, 0, 0), 1.4),  # May 7
-    (datetime(2026, 5, 11, 8, 35, 0), 2.2),  # May 11
+    (datetime(2026, 5, 11, 8, 35, 0), 2.1),  # May 11
     (datetime(2026, 5, 17, 9, 0, 0), 2.9),  # May 17
+    (datetime(2026, 5, 20, 9, 45, 0), 4.2),  # May 20
+    (datetime(2026, 5, 22, 9, 30, 0), 4.7),  # May 22
+    (datetime(2026, 5, 26, 10, 30, 0), 5.6),  # May 26
+    (datetime(2026, 6, 1, 8, 0, 0), 5.7),  # Jun 1
+    (datetime(2026, 6, 3, 8, 30, 0), 5.6),  # Jun 3
 ]
 
 # Time of day boundaries (hour of day).
@@ -342,6 +353,7 @@ EXCLUDED_EVENTS = {
     datetime(2026, 1, 22, 15, 0, 0): "Tour in house during test",
     datetime(2026, 1, 29, 15, 0, 0): "People in house",
     datetime(2026, 5, 13, 15, 0, 0): "LVP flooring installation",
+    datetime(2026, 5, 21, 15, 0, 0): "Bathroom flooring removal",
 }
 
 # Date-range exclusions: list of (start_datetime, end_datetime, reason).

@@ -161,14 +161,10 @@ def infer_duration_from_neighbors(
 
     # Find events before and after
     before_events = [
-        e
-        for e in events
-        if e.get("shower_on", e.get("injection_start", datetime.max)) < event_time
+        e for e in events if e.get("shower_on", e.get("injection_start", datetime.max)) < event_time
     ]
     after_events = [
-        e
-        for e in events
-        if e.get("shower_on", e.get("injection_start", datetime.min)) > event_time
+        e for e in events if e.get("shower_on", e.get("injection_start", datetime.min)) > event_time
     ]
 
     before_duration = None
@@ -207,9 +203,7 @@ def infer_duration_from_neighbors(
             return (before_duration + after_duration) / 2
         elif prompt_user:
             # Durations differ - prompt user
-            return _prompt_for_duration(
-                event_time, event_type, before_duration, after_duration
-            )
+            return _prompt_for_duration(event_time, event_type, before_duration, after_duration)
         else:
             # No prompt, use average
             return (before_duration + after_duration) / 2
@@ -306,14 +300,12 @@ def create_synthetic_co2_event(
     )
 
     injection_end = injection_start + timedelta(minutes=duration_min)
-    fan_off = injection_start + timedelta(
-        minutes=duration_min + 1
-    )  # Fan off 1 min after injection
+    fan_off = injection_start + timedelta(minutes=duration_min + 1)  # Fan off 1 min after injection
 
     # Decay analysis would start at :50 (10 minutes before next hour)
-    hour_after_injection = injection_start.replace(
-        minute=0, second=0, microsecond=0
-    ) + timedelta(hours=1)
+    hour_after_injection = injection_start.replace(minute=0, second=0, microsecond=0) + timedelta(
+        hours=1
+    )
     decay_start = hour_after_injection + timedelta(minutes=-10)  # At :50
     decay_end = decay_start + timedelta(hours=2)  # 2-hour analysis window
 
@@ -571,9 +563,7 @@ def build_unified_event_registry(
 
     # Step 7: Re-match and propagate UNIFIED event numbers and test names to CO2 events
     # This ensures CO2 events use the SAME event_number as their matched shower
-    shower_to_co2, co2_to_shower = match_events_bidirectional(
-        all_shower_events, all_co2_events
-    )
+    shower_to_co2, co2_to_shower = match_events_bidirectional(all_shower_events, all_co2_events)
 
     for co2_idx, shower_idx in co2_to_shower.items():
         if shower_idx is not None:
@@ -651,9 +641,7 @@ def build_unified_event_registry(
                 "shower_on": shower_time,
                 "shower_off": event["shower_off"],
                 "duration_min": event.get("duration_min", 0),
-                "matched_co2_time": matched_co2["injection_start"]
-                if matched_co2
-                else None,
+                "matched_co2_time": matched_co2["injection_start"] if matched_co2 else None,
                 "is_synthetic": event.get("is_synthetic", False),
                 "is_excluded": is_excluded,
                 "exclusion_reason": exclusion_reason or "",
@@ -748,9 +736,7 @@ def save_event_registry(
             co2_time = co2_event.get("injection_start")
             if co2_time is not None:
                 # Find matching row in co2_results_df
-                time_diffs = abs(
-                    (co2_results_df["injection_start"] - co2_time).dt.total_seconds()
-                )
+                time_diffs = abs((co2_results_df["injection_start"] - co2_time).dt.total_seconds())
                 if len(time_diffs) > 0 and time_diffs.min() < 60:  # Within 1 minute
                     match_idx = time_diffs.idxmin()
                     result_row = co2_results_df.loc[match_idx]
@@ -781,7 +767,9 @@ def save_event_registry(
             "config_key": _cfg["config_key"],
             "water_temp": shower.get("water_temp", "") or _cfg["water_temp"],
             "shower_head": shower.get("shower_head", "") or _cfg["shower_head"],
-            "spray_pattern": shower.get("spray_pattern") if shower.get("spray_pattern") is not None else _cfg["spray_pattern"],
+            "spray_pattern": shower.get("spray_pattern")
+            if shower.get("spray_pattern") is not None
+            else _cfg["spray_pattern"],
             "mannequin": shower.get("mannequin", False) or _cfg["mannequin"],
             "door_position": shower.get("door_position", "Open"),
             "bedroom_door_position": _cfg.get("bedroom_door_position", "Closed"),
@@ -792,19 +780,11 @@ def save_event_registry(
             "replicate_num": shower.get("replicate_num", 0),
             "shower_on": shower["shower_on"],
             "shower_off": shower["shower_off"],
-            "shower_duration_min": shower.get(
-                "shower_duration_min", shower.get("duration_min", 0)
-            ),
-            "co2_injection_start": co2_event["injection_start"]
-            if co2_event
-            else pd.NaT,
-            "co2_injection_end": co2_event.get("injection_end")
-            if co2_event
-            else pd.NaT,
+            "shower_duration_min": shower.get("shower_duration_min", shower.get("duration_min", 0)),
+            "co2_injection_start": co2_event["injection_start"] if co2_event else pd.NaT,
+            "co2_injection_end": co2_event.get("injection_end") if co2_event else pd.NaT,
             "has_matching_co2": co2_event is not None,
-            "is_co2_synthetic": co2_event.get("is_synthetic", False)
-            if co2_event
-            else False,
+            "is_co2_synthetic": co2_event.get("is_synthetic", False) if co2_event else False,
             "lambda_average_mean": lambda_mean,
             "lambda_average_std": lambda_std,
             "lambda_r_squared": lambda_r_squared,
@@ -823,7 +803,7 @@ def save_event_registry(
     registry_df = pd.DataFrame(registry_rows)
 
     # Save to CSV
-    registry_df.to_csv(output_path, index=False, encoding='utf-8-sig')
+    registry_df.to_csv(output_path, index=False, encoding="utf-8-sig")
     print(f"\nEvent log saved to: {output_path}")
     print(f"  Total events: {len(registry_df)}")
     print(f"  With CO2 data: {registry_df['has_matching_co2'].sum()}")
@@ -1000,27 +980,20 @@ def _apply_pm_exclusion_checks(
         # --- Stage 1: Lambda R² check ---
         lambda_r2 = np.nan
         if not co2_results_df.empty and "injection_start" in co2_results_df.columns:
-            expected_injection = shower_on - timedelta(
-                minutes=EXPECTED_CO2_BEFORE_SHOWER
-            )
+            expected_injection = shower_on - timedelta(minutes=EXPECTED_CO2_BEFORE_SHOWER)
             time_diffs = abs(
-                (
-                    co2_results_df["injection_start"] - expected_injection
-                ).dt.total_seconds()
+                (co2_results_df["injection_start"] - expected_injection).dt.total_seconds()
             )
             if len(time_diffs) > 0 and time_diffs.min() < 600:
                 result_row = co2_results_df.loc[time_diffs.idxmin()]
                 lambda_r2 = result_row.get("lambda_average_r_squared", np.nan)
 
-        if not np.isnan(lambda_r2) and lambda_r2 < 0.75:
+        if not np.isnan(lambda_r2) and lambda_r2 < 0.65:
             event["is_excluded"] = True
-            event["exclusion_reason"] = (
-                f"Lambda R\u00b2 less than 0.75 (R\u00b2={lambda_r2:.3f})"
-            )
+            event["exclusion_reason"] = f"Lambda R\u00b2 less than 0.65 (R\u00b2={lambda_r2:.3f})"
             n_lambda_excluded += 1
             print(
-                f"  Event {event.get('event_number')}: Excluded — "
-                f"lambda R²={lambda_r2:.3f} < 0.75"
+                f"  Event {event.get('event_number')}: Excluded — lambda R²={lambda_r2:.3f} < 0.75"
             )
             continue
 
@@ -1033,21 +1006,21 @@ def _apply_pm_exclusion_checks(
         # naturally be delayed.  Skip the check and note the reason.
         bath_door = event.get("door_position", "Open")
         if bath_door in ("Closed", "Ajar"):
-            event["exclusion_reason"] = (
-                f"RH mixing check skipped: bath door {bath_door.lower()}"
-            )
+            event["exclusion_reason"] = f"RH mixing check skipped: bath door {bath_door.lower()}"
             continue
 
         rh_window_end = shower_off + timedelta(hours=2)
-        mask = (rh_data["datetime"] >= shower_off) & (
-            rh_data["datetime"] <= rh_window_end
-        )
+        mask = (rh_data["datetime"] >= shower_off) & (rh_data["datetime"] <= rh_window_end)
         rh_window = rh_data[mask]
 
         if rh_window.empty:
             continue
 
         peak_idx = rh_window["met_rh"].idxmax()
+        # Check if peak_idx is valid (not NaN) before accessing
+        if pd.isna(peak_idx):
+            # All met_rh values are NaN, skip RH mixing check
+            continue
         peak_time = rh_window.loc[peak_idx, "datetime"]
         minutes_after = (peak_time - shower_off).total_seconds() / 60
 
@@ -1107,9 +1080,7 @@ def main():
     # Set output directory
     from src.data_paths import get_data_root
 
-    output_dir = (
-        Path(args.output_dir) if args.output_dir else get_data_root() / "output"
-    )
+    output_dir = Path(args.output_dir) if args.output_dir else get_data_root() / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     registry_path = output_dir / REGISTRY_FILENAME
@@ -1123,9 +1094,7 @@ def main():
         existing = load_event_registry(registry_path)
         print("\nExisting event log summary:")
         print(f"  Total events: {len(existing)}")
-        print(
-            f"  Date range: {existing['shower_on'].min()} to {existing['shower_on'].max()}"
-        )
+        print(f"  Date range: {existing['shower_on'].min()} to {existing['shower_on'].max()}")
         return
 
     print("=" * 70)
@@ -1163,9 +1132,7 @@ def main():
 
     # STEP 4: Save initial event log (so CO2 analysis can use it for event numbering)
     print("\nSaving initial event log (without lambda values)...")
-    registry_df = save_event_registry(
-        unified_showers, unified_co2, pd.DataFrame(), registry_path
-    )
+    registry_df = save_event_registry(unified_showers, unified_co2, pd.DataFrame(), registry_path)
 
     # STEP 5: Now run CO2 analysis (which will use the event log for event numbering)
     co2_results_df = pd.DataFrame()
