@@ -376,6 +376,7 @@ def get_events_from_registry(output_dir: Path) -> tuple:
                     "door_position": row.get("door_position", "Open"),
                     "bedroom_door_position": row.get("bedroom_door_position", "Closed"),
                     "planned_fan": row.get("planned_fan", ""),
+                    "flow_rate": row.get("flow_rate"),
                     "time_of_day": row.get("time_of_day", ""),
                     "fan_during_test": row.get("fan_during_test", False),
                     "replicate_num": row.get("replicate_num", 0),

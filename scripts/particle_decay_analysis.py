@@ -714,8 +714,10 @@ def run_particle_analysis(
     # Save results
     _save_results(results_df, output_dir)
 
-    # Apply flow rate filter for plots; Excel retains all events
-    if "flow_rate" in results_df.columns:
+    # Apply flow rate filter for plots; Excel retains all events.
+    # Guard against old registry CSVs that lack a flow_rate column (all-None):
+    # if no valid flow rate exists, skip the filter so figures are still made.
+    if "flow_rate" in results_df.columns and results_df["flow_rate"].notna().any():
         plot_df = results_df[
             results_df["flow_rate"].between(FLOW_RATE_MIN, FLOW_RATE_MAX)
         ].copy()

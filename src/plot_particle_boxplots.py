@@ -922,6 +922,9 @@ def plot_emission_etotal_by_showerhead_boxplot(
         for sh_key in SHOWERHEAD_CONFIGS:
             if ck == sh_key or ck.startswith(sh_key + "_"):
                 return sh_key
+        # SingleWide was split into SingleWide1/SingleWide2 — keep them as one group.
+        if "_Used_SingleWide1_" in ck or "_Used_SingleWide2_" in ck:
+            return "W38_Used_SingleWide"
         return None
 
     sh_df = results_df.copy()

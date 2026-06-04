@@ -449,7 +449,11 @@ def plot_shower_head_comparison_boxplots(
         (
             "Used_SingleWide",
             "Used\nSingleWide",
-            lambda ck: "_Used_SingleWide_BathDoorOpen_" in ck and "_FanOff" in ck,
+            lambda ck: (
+                "_Used_SingleWide_BathDoorOpen_" in ck
+                or "_Used_SingleWide1_BathDoorOpen_" in ck
+                or "_Used_SingleWide2_BathDoorOpen_" in ck
+            ) and "_FanOff" in ck,
         ),
     ]
     _run_comparison_family(

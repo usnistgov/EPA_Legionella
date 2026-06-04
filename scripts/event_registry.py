@@ -774,6 +774,7 @@ def save_event_registry(
             "door_position": shower.get("door_position", "Open"),
             "bedroom_door_position": _cfg.get("bedroom_door_position", "Closed"),
             "planned_fan": _cfg["planned_fan"],
+            "flow_rate": _cfg.get("flow_rate"),
             "time_of_day": shower.get("time_of_day", ""),
             "fan_during_test": shower.get("fan_during_test", False),
             "fan_duration_min": shower.get("fan_duration_min"),
