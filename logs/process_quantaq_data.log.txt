@@ -1,0 +1,214 @@
+============================================================
+QuantAQ Data Processor
+============================================================
+
+Data path: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\QuantAQ
+
+============================================================
+STEP 1: Combine chunk files
+============================================================
+  Removed old file: 20260604-quantaq-outside-raw.csv
+  Removed old file: 20260604-quantaq-outside-final.csv
+  Removed old file: 20260604-quantaq-outside-processed.csv
+  Cleaned up 3 old file(s) for quantaq-outside
+  Removed old file: 20260604-quantaq-inside-raw.csv
+  Removed old file: 20260604-quantaq-inside-final.csv
+  Removed old file: 20260604-quantaq-inside-processed.csv
+  Cleaned up 3 old file(s) for quantaq-inside
+
+  Combining quantaq-outside raw:
+    Combining 32 chunk files...
+      quantaq-outside-raw-20260105-20260111.csv: 8639 records
+      quantaq-outside-raw-20260112-20260118.csv: 8640 records
+      quantaq-outside-raw-20260119-20260125.csv: 8640 records
+      quantaq-outside-raw-20260126-20260201.csv: 8640 records
+      quantaq-outside-raw-20260202-20260208.csv: 8640 records
+      quantaq-outside-raw-20260209-20260213.csv: 5759 records
+      quantaq-outside-raw-20260209-20260215.csv: 8639 records
+      quantaq-outside-raw-20260216-20260219.csv: 4320 records
+      quantaq-outside-raw-20260216-20260222.csv: 8640 records
+      quantaq-outside-raw-20260223-20260227.csv: 5760 records
+      quantaq-outside-raw-20260223-20260301.csv: 8640 records
+      quantaq-outside-raw-20260302-20260306.csv: 5759 records
+      quantaq-outside-raw-20260302-20260308.csv: 8639 records
+      quantaq-outside-raw-20260309-20260313.csv: 5755 records
+      quantaq-outside-raw-20260309-20260315.csv: 8635 records
+      quantaq-outside-raw-20260316-20260319.csv: 4320 records
+      quantaq-outside-raw-20260316-20260322.csv: 8640 records
+      quantaq-outside-raw-20260323-20260329.csv: 8640 records
+      quantaq-outside-raw-20260330-20260405.csv: 8640 records
+      quantaq-outside-raw-20260406-20260409.csv: 4320 records
+      quantaq-outside-raw-20260406-20260412.csv: 8640 records
+      quantaq-outside-raw-20260413-20260418.csv: 7166 records
+      quantaq-outside-raw-20260413-20260419.csv: 8606 records
+      quantaq-outside-raw-20260420-20260426.csv: 8521 records
+      quantaq-outside-raw-20260427-20260430.csv: 4302 records
+      quantaq-outside-raw-20260427-20260503.csv: 8622 records
+      quantaq-outside-raw-20260504-20260508.csv: 5760 records
+      quantaq-outside-raw-20260504-20260510.csv: 8640 records
+      quantaq-outside-raw-20260511-20260517.csv: 8639 records
+      quantaq-outside-raw-20260518-20260524.csv: 8543 records
+      quantaq-outside-raw-20260525-20260531.csv: 8640 records
+      quantaq-outside-raw-20260601-20260605.csv: 5745 records
+    Total records before dedup: 240129
+    Total records after dedup: 186908
+    Saved combined file: 20260605-quantaq-outside-raw.csv
+
+  Combining quantaq-outside final:
+    Combining 32 chunk files...
+      quantaq-outside-final-20260105-20260111.csv: 8639 records
+      quantaq-outside-final-20260112-20260118.csv: 8640 records
+      quantaq-outside-final-20260119-20260125.csv: 8640 records
+      quantaq-outside-final-20260126-20260201.csv: 8640 records
+      quantaq-outside-final-20260202-20260208.csv: 8640 records
+      quantaq-outside-final-20260209-20260213.csv: 5759 records
+      quantaq-outside-final-20260209-20260215.csv: 8639 records
+      quantaq-outside-final-20260216-20260219.csv: 4320 records
+      quantaq-outside-final-20260216-20260222.csv: 8640 records
+      quantaq-outside-final-20260223-20260227.csv: 5760 records
+      quantaq-outside-final-20260223-20260301.csv: 8640 records
+      quantaq-outside-final-20260302-20260306.csv: 5759 records
+      quantaq-outside-final-20260302-20260308.csv: 8639 records
+      quantaq-outside-final-20260309-20260313.csv: 5755 records
+      quantaq-outside-final-20260309-20260315.csv: 8635 records
+      quantaq-outside-final-20260316-20260319.csv: 4320 records
+      quantaq-outside-final-20260316-20260322.csv: 8640 records
+      quantaq-outside-final-20260323-20260329.csv: 8640 records
+      quantaq-outside-final-20260330-20260405.csv: 8640 records
+      quantaq-outside-final-20260406-20260409.csv: 4320 records
+      quantaq-outside-final-20260406-20260412.csv: 8640 records
+      quantaq-outside-final-20260413-20260418.csv: 7166 records
+      quantaq-outside-final-20260413-20260419.csv: 8606 records
+      quantaq-outside-final-20260420-20260426.csv: 8521 records
+      quantaq-outside-final-20260427-20260430.csv: 4302 records
+      quantaq-outside-final-20260427-20260503.csv: 8622 records
+      quantaq-outside-final-20260504-20260508.csv: 5760 records
+      quantaq-outside-final-20260504-20260510.csv: 8640 records
+      quantaq-outside-final-20260511-20260517.csv: 8639 records
+      quantaq-outside-final-20260518-20260524.csv: 8543 records
+      quantaq-outside-final-20260525-20260531.csv: 8640 records
+      quantaq-outside-final-20260601-20260605.csv: 5745 records
+    Total records before dedup: 240129
+    Total records after dedup: 186908
+    Saved combined file: 20260605-quantaq-outside-final.csv
+
+  Combining quantaq-inside raw:
+    Combining 31 chunk files...
+      quantaq-inside-raw-20260105-20260111.csv: 8633 records
+      quantaq-inside-raw-20260112-20260118.csv: 8633 records
+      quantaq-inside-raw-20260119-20260125.csv: 8631 records
+      quantaq-inside-raw-20260126-20260201.csv: 8625 records
+      quantaq-inside-raw-20260202-20260208.csv: 8640 records
+      quantaq-inside-raw-20260209-20260213.csv: 5762 records
+      quantaq-inside-raw-20260209-20260215.csv: 8633 records
+      quantaq-inside-raw-20260216-20260219.csv: 4307 records
+      quantaq-inside-raw-20260216-20260222.csv: 8616 records
+      quantaq-inside-raw-20260223-20260227.csv: 5760 records
+      quantaq-inside-raw-20260223-20260301.csv: 8640 records
+      quantaq-inside-raw-20260302-20260306.csv: 5760 records
+      quantaq-inside-raw-20260302-20260308.csv: 8640 records
+      quantaq-inside-raw-20260309-20260313.csv: 5760 records
+      quantaq-inside-raw-20260309-20260315.csv: 8639 records
+      quantaq-inside-raw-20260316-20260319.csv: 4320 records
+      quantaq-inside-raw-20260316-20260322.csv: 8639 records
+      quantaq-inside-raw-20260323-20260329.csv: 8627 records
+      quantaq-inside-raw-20260330-20260405.csv: 8626 records
+      quantaq-inside-raw-20260406-20260409.csv: 4313 records
+      quantaq-inside-raw-20260406-20260412.csv: 8621 records
+      quantaq-inside-raw-20260413-20260418.csv: 7158 records
+      quantaq-inside-raw-20260413-20260419.csv: 8598 records
+      quantaq-inside-raw-20260420-20260426.csv: 8578 records
+      quantaq-inside-raw-20260427-20260430.csv: 4309 records
+      quantaq-inside-raw-20260427-20260503.csv: 8629 records
+      quantaq-inside-raw-20260504-20260508.csv: 5760 records
+      quantaq-inside-raw-20260504-20260510.csv: 8640 records
+      quantaq-inside-raw-20260511-20260517.csv: 8640 records
+      quantaq-inside-raw-20260525-20260531.csv: 8633 records
+      quantaq-inside-raw-20260601-20260605.csv: 5742 records
+    Total records before dedup: 231512
+    Total records after dedup: 178303
+    Saved combined file: 20260605-quantaq-inside-raw.csv
+
+  Combining quantaq-inside final:
+    Combining 32 chunk files...
+      quantaq-inside-final-20260105-20260111.csv: 8633 records
+      quantaq-inside-final-20260112-20260118.csv: 8633 records
+      quantaq-inside-final-20260119-20260125.csv: 8631 records
+      quantaq-inside-final-20260126-20260201.csv: 8625 records
+      quantaq-inside-final-20260202-20260208.csv: 8640 records
+      quantaq-inside-final-20260209-20260213.csv: 5762 records
+      quantaq-inside-final-20260209-20260215.csv: 8633 records
+      quantaq-inside-final-20260216-20260219.csv: 4307 records
+      quantaq-inside-final-20260216-20260222.csv: 8616 records
+      quantaq-inside-final-20260223-20260227.csv: 5760 records
+      quantaq-inside-final-20260223-20260301.csv: 8640 records
+      quantaq-inside-final-20260302-20260306.csv: 5760 records
+      quantaq-inside-final-20260302-20260308.csv: 8640 records
+      quantaq-inside-final-20260309-20260313.csv: 5760 records
+      quantaq-inside-final-20260309-20260315.csv: 8639 records
+      quantaq-inside-final-20260316-20260319.csv: 4320 records
+      quantaq-inside-final-20260316-20260322.csv: 8639 records
+      quantaq-inside-final-20260323-20260329.csv: 8627 records
+      quantaq-inside-final-20260330-20260405.csv: 8626 records
+      quantaq-inside-final-20260406-20260409.csv: 4313 records
+      quantaq-inside-final-20260406-20260412.csv: 8621 records
+      quantaq-inside-final-20260413-20260418.csv: 7158 records
+      quantaq-inside-final-20260413-20260419.csv: 8598 records
+      quantaq-inside-final-20260420-20260426.csv: 8578 records
+      quantaq-inside-final-20260427-20260430.csv: 4309 records
+      quantaq-inside-final-20260427-20260503.csv: 8629 records
+      quantaq-inside-final-20260504-20260508.csv: 5760 records
+      quantaq-inside-final-20260504-20260510.csv: 8640 records
+      quantaq-inside-final-20260511-20260517.csv: 8640 records
+      quantaq-inside-final-20260518-20260524.csv: 8516 records
+      quantaq-inside-final-20260525-20260531.csv: 8633 records
+      quantaq-inside-final-20260601-20260605.csv: 5742 records
+    Total records before dedup: 240028
+    Total records after dedup: 186819
+    Saved combined file: 20260605-quantaq-inside-final.csv
+
+Combined 2 device pair(s) from chunks.
+
+============================================================
+STEP 2: Process raw/final file pairs
+============================================================
+Using 2 pair(s) from chunk combination.
+Found 2 file pair(s) to process.
+------------------------------------------------------------
+Processing: 20260605-quantaq-outside
+------------------------------------------------------------
+
+  Reading raw file: 20260605-quantaq-outside-raw.csv
+    Raw records: 186908
+  Reading final file: 20260605-quantaq-outside-final.csv
+    Final records: 186908
+  Processing raw data...
+  Processing final data...
+  Merging raw and final data (outer join)...
+    Merged records: 186908
+  Applying 10min rolling average to 45 numeric columns...
+  Saving to: 20260605-quantaq-outside-processed.csv
+------------------------------------------------------------
+Processing: 20260605-quantaq-inside
+------------------------------------------------------------
+
+  Reading raw file: 20260605-quantaq-inside-raw.csv
+    Raw records: 178303
+  Reading final file: 20260605-quantaq-inside-final.csv
+    Final records: 186819
+  Processing raw data...
+  Processing final data...
+  Merging raw and final data (outer join)...
+    Merged records: 186819
+  Applying 10min rolling average to 45 numeric columns...
+  Saving to: 20260605-quantaq-inside-processed.csv
+
+============================================================
+PROCESSING SUMMARY
+============================================================
+  20260605-quantaq-outside: SUCCESS -> 20260605-quantaq-outside-processed.csv
+  20260605-quantaq-inside: SUCCESS -> 20260605-quantaq-inside-processed.csv
+
+Processed 2/2 file pairs successfully.
+
+Done!

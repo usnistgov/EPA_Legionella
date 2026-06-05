@@ -1,0 +1,1326 @@
+================================================================================
+Particle Decay & Emission Analysis
+Numerical Approach - Seven Particle Size Bins
+================================================================================
+Bedroom volume: 36.1 m^3
+Time step: 1.0 minute(s)
+Penetration factor: averaged before/after windows (p capped at 1)
+Deposition window: 2.0 hour(s) after shower
+Beta selection: R²-based 3-step (unclamped → clamped ≥ 0 → 0; threshold 0.80)
+
+Validation thresholds:
+  Max other process rate (beta_other): 5.0 h^-1
+  Min data points: p=10, beta_other=10, E=3
+
+Loading QuantAQ particle data...
+  Found 1 file(s) for QuantAQ inside
+    Loaded: 20260605-quantaq-inside-processed.csv (186819 rows)
+  Found 1 file(s) for QuantAQ outside
+    Loaded: 20260605-quantaq-outside-processed.csv (186908 rows)
+
+Merged data: 217440 rows
+Date range: 2026-01-05 00:00:00 to 2026-06-04 23:59:00
+
+Loading events from registry: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\event_log.csv
+  Loaded 274 events from registry
+  Events with lambda values: 225
+  Using unified event registry for consistent event numbering
+
+Event Matching Summary:
+  0117_W48_Open_R02 (01/17 09:00): No lambda value available
+  0118_W48_Open_R02 (01/18 09:00): No lambda value available
+  0119_W48_Open_R02 (01/19 09:00): No lambda value available
+  0120_W48_Open_R02 (01/20 09:00): No lambda value available
+  0121_W48_Open_R02 (01/21 09:00): No lambda value available
+  Event 21 (2026-01-22 15:00): EXCLUDED - Tour in house during test
+  0123_W11_Open_R01 (01/23 03:00): No lambda value available
+  0123_W11_Open_R02 (01/23 15:00): No lambda value available
+  0124_W11_Open_R01 (01/24 03:00): No lambda value available
+  0124_W11_Open_R02 (01/24 15:00): No lambda value available
+  0125_W11_Open_R01 (01/25 03:00): No lambda value available
+  0125_W11_Open_R02 (01/25 15:00): No lambda value available
+  0126_W11_Open_R01 (01/26 03:00): No lambda value available
+  0126_W11_Open_R02 (01/26 15:00): No lambda value available
+  Event 35 (2026-01-29 15:00): EXCLUDED - People in house
+  Event 61 (2026-02-11 15:00): EXCLUDED - Conflicting log entries
+  Event 62 (2026-02-12 03:00): EXCLUDED - Conflicting log entries
+  Event 63 (2026-02-12 15:00): EXCLUDED - Conflicting log entries
+  Event 64 (2026-02-13 03:00): EXCLUDED - Conflicting log entries
+  Event 78 (2026-02-20 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.594)
+  Event 80 (2026-02-21 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 53 min after shower off, expected within 45 min)
+  Event 88 (2026-02-25 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 56 min after shower off, expected within 45 min)
+  Event 92 (2026-02-27 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 66 min after shower off, expected within 45 min)
+  Event 94 (2026-02-28 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.442)
+  Event 104 (2026-03-05 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.153)
+  Event 108 (2026-03-07 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 65 min after shower off, expected within 45 min)
+  Event 109 (2026-03-08 03:00): EXCLUDED - Daylight saving (instrument data misalignment) & elevated RH in the bedroom
+  Event 110 (2026-03-08 15:00): EXCLUDED - Daylight saving (instrument data misalignment) & elevated RH in the bedroom
+  Event 111 (2026-03-09 03:00): EXCLUDED - Daylight saving (instrument data misalignment) & elevated RH in the bedroom
+  Event 112 (2026-03-09 15:00): EXCLUDED - Daylight saving (instrument data misalignment) & elevated RH in the bedroom
+  Event 115 (2026-03-11 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.528)
+  Event 116 (2026-03-11 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.560)
+  Event 117 (2026-03-12 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.628)
+  Event 120 (2026-03-13 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 73 min after shower off, expected within 45 min)
+  Event 121 (2026-03-14 03:00): EXCLUDED - CO2 system failure
+  Event 122 (2026-03-14 15:00): EXCLUDED - CO2 system failure
+  Event 123 (2026-03-15 03:00): EXCLUDED - CO2 system failure
+  0315_W38_Pepco_Narrow_Mannequin_Open_R02 (03/15 15:00): No lambda value available
+  Event 125 (2026-03-16 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min)
+  Event 126 (2026-03-16 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.875)
+  Event 132 (2026-03-19 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 73 min after shower off, expected within 45 min)
+  Event 134 (2026-03-20 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.457)
+  Event 136 (2026-03-21 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 90 min after shower off, expected within 45 min)
+  Event 142 (2026-03-24 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 120 min after shower off, expected within 45 min)
+  Event 144 (2026-03-25 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 71 min after shower off, expected within 45 min)
+  Event 146 (2026-03-26 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 119 min after shower off, expected within 45 min)
+  Event 147 (2026-03-27 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 77 min after shower off, expected within 45 min)
+  0327_W38_Pepco_Wide_Open_R01 (03/27 15:00): No lambda value available
+  0328_W38_Pepco_Wide_Open_R01 (03/28 03:00): No lambda value available
+  0328_W38_Pepco_Wide_Open_R02 (03/28 15:00): No lambda value available
+  0329_W38_Pepco_Wide_Open_R01 (03/29 03:00): No lambda value available
+  0329_W38_Pepco_Wide_Open_R02 (03/29 15:00): No lambda value available
+  0330_W38_Pepco_Wide_Open_R01 (03/30 03:00): No lambda value available
+  Event 154 (2026-03-30 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 119 min after shower off, expected within 45 min)
+  Event 155 (2026-03-31 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 46 min after shower off, expected within 45 min)
+  0331_W38_Pepco_Wide_Open_Fan_R01 (03/31 15:00): No lambda value available
+  Event 157 (2026-04-01 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 87 min after shower off, expected within 45 min)
+  Event 158 (2026-04-01 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.130)
+  Event 159 (2026-04-02 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.259)
+  Event 160 (2026-04-02 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.357)
+  Event 162 (2026-04-03 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.046)
+  Event 163 (2026-04-04 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.466)
+  Event 164 (2026-04-04 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.097)
+  Event 165 (2026-04-05 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.629)
+  Event 168 (2026-04-06 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 66 min after shower off, expected within 45 min)
+  Event 176 (2026-04-10 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.330)
+  Event 177 (2026-04-11 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 58 min after shower off, expected within 45 min)
+  Event 178 (2026-04-11 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 111 min after shower off, expected within 45 min)
+  Event 181 (2026-04-13 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.504)
+  Event 184 (2026-04-14 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.977)
+  Event 185 (2026-04-15 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min)
+  Event 187 (2026-04-16 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 71 min after shower off, expected within 45 min)
+  Event 189 (2026-04-17 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 110 min after shower off, expected within 45 min)
+  Event 193 (2026-04-19 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.611)
+  0420_W38_Used_SingleWide2_Open_R01 (04/20 15:00): No lambda value available
+  0421_W38_Used_SingleWide2_Open_R01 (04/21 03:00): No lambda value available
+  0421_W38_Used_SingleWide2_Open_R02 (04/21 15:00): No lambda value available
+  0422_W38_Used_SingleWide2_Open_R01 (04/22 03:00): No lambda value available
+  Event 201 (2026-04-24 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.482)
+  Event 203 (2026-04-25 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.119)
+  Event 209 (2026-04-28 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.632)
+  Event 210 (2026-04-29 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=-0.762)
+  Event 211 (2026-04-29 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min)
+  0430_W38_Pepco_Narrow_Open_R01 (04/30 03:00): No lambda value available
+  Event 213 (2026-04-30 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 62 min after shower off, expected within 45 min)
+  Event 215 (2026-05-01 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 116 min after shower off, expected within 45 min)
+  Event 216 (2026-05-02 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.642)
+  Event 220 (2026-05-04 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.358)
+  Event 221 (2026-05-04 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-1.720)
+  Event 223 (2026-05-05 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=-1.460)
+  Event 227 (2026-05-07 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.548)
+  Event 229 (2026-05-08 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 63 min after shower off, expected within 45 min)
+  Event 231 (2026-05-09 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 54 min after shower off, expected within 45 min)
+  Event 233 (2026-05-10 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.473)
+  Event 234 (2026-05-11 03:00): EXCLUDED - CO2 system failure
+  Event 235 (2026-05-15 03:00): EXCLUDED - CO2 system failure
+  Event 236 (2026-05-15 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 85 min after shower off, expected within 45 min)
+  Event 239 (2026-05-17 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.540)
+  Event 248 (2026-05-21 15:00): EXCLUDED - Bathroom flooring removal
+  Event 259 (2026-05-27 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=-2.590)
+  Event 260 (2026-05-28 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.453)
+  Event 262 (2026-05-29 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 46 min after shower off, expected within 45 min)
+  Event 263 (2026-05-29 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.165)
+  Event 265 (2026-05-30 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min)
+  Event 267 (2026-05-31 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.513)
+  Event 268 (2026-06-01 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 50 min after shower off, expected within 45 min)
+  Event 270 (2026-06-02 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 63 min after shower off, expected within 45 min)
+  Event 271 (2026-06-02 15:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.636)
+  Event 272 (2026-06-03 03:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 50 min after shower off, expected within 45 min)
+  Event 273 (2026-06-03 15:00): EXCLUDED - Bedroom is deemed to be not well mixed by RH analysis (RH peak at 53 min after shower off, expected within 45 min)
+  Event 274 (2026-06-04 03:00): EXCLUDED - Lambda R² less than 0.65 (R²=0.105)
+
+Total: 274 events | Matched: 163 | Excluded: 85 | Missing lambda: 26
+
+Analyzing shower events...
+  0115_W48_Open_R01 (01/15 15:00): lambda=1.7900 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0115_W48_Open_R02 (01/15 21:00): lambda=1.3800 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0116_W48_Open_R01 (01/16 03:00): lambda=1.4300 h^-1
+    Successfully analyzed 8/12 bins
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      Bin 10 (6.5-8.0 um): Insufficient valid beta estimates: 0 (minimum 10 required)
+      ... and 1 more bins skipped
+  0116_W48_Open_R02 (01/16 09:00): lambda=1.0900 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0116_W48_Open_R03 (01/16 15:00): lambda=1.3100 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Insufficient valid beta estimates: 8 (minimum 10 required)
+      ... and 2 more bins skipped
+  0117_W48_Open_R01 (01/17 03:00): lambda=0.8940 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0117_W48_Open_R02: Skipped (no lambda from CO2 analysis)
+  0117_W48_Open_R03 (01/17 15:00): lambda=0.6740 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0118_W48_Open_R01 (01/18 03:00): lambda=0.8980 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0118_W48_Open_R02: Skipped (no lambda from CO2 analysis)
+  0118_W48_Open_R03 (01/18 15:00): lambda=1.3500 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0119_W48_Open_R01 (01/19 03:00): lambda=1.4400 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 2 more bins skipped
+  0119_W48_Open_R02: Skipped (no lambda from CO2 analysis)
+  0119_W48_Open_R03 (01/19 15:00): lambda=0.7930 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0120_W48_Open_R01 (01/20 03:00): lambda=2.2500 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0120_W48_Open_R02: Skipped (no lambda from CO2 analysis)
+  0120_W48_Open_R03 (01/20 15:00): lambda=1.7700 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0121_W48_Open_R01 (01/21 03:00): lambda=1.9600 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0121_W48_Open_R02: Skipped (no lambda from CO2 analysis)
+  0121_W48_Open_R03 (01/21 15:00): lambda=0.9680 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0122_W11_Open_R01: Skipped (excluded: Tour in house during test)
+  0123_W11_Open_R01: Skipped (no lambda from CO2 analysis)
+  0123_W11_Open_R02: Skipped (no lambda from CO2 analysis)
+  0124_W11_Open_R01: Skipped (no lambda from CO2 analysis)
+  0124_W11_Open_R02: Skipped (no lambda from CO2 analysis)
+  0125_W11_Open_R01: Skipped (no lambda from CO2 analysis)
+  0125_W11_Open_R02: Skipped (no lambda from CO2 analysis)
+  0126_W11_Open_R01: Skipped (no lambda from CO2 analysis)
+  0126_W11_Open_R02: Skipped (no lambda from CO2 analysis)
+  0127_W11_Open_R01 (01/27 03:00): lambda=1.3000 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0127_W11_Open_R02 (01/27 15:00): lambda=0.9860 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      ... and 6 more bins skipped
+  0128_W11_Open_R01 (01/28 03:00): lambda=1.6200 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0128_W11_Open_R02 (01/28 15:00): lambda=1.0100 h^-1
+    Successfully analyzed 2/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 4 (1.3-1.7 um): Unknown
+      ... and 7 more bins skipped
+  0129_W11_Open_R01 (01/29 03:00): lambda=1.3500 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0129_W11_Open_R02: Skipped (excluded: People in house)
+  0130_W11_Open_R01 (01/30 03:00): lambda=1.2900 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0130_W11_Open_R02 (01/30 15:00): lambda=1.5500 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0131_W11_Open_R01 (01/31 03:00): lambda=1.3300 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0131_W11_Open_R02 (01/31 15:00): lambda=1.7300 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0201_W11_Open_R01 (02/01 03:00): lambda=1.7500 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0201_W11_Open_R02 (02/01 15:00): lambda=1.9900 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0202_W11_Open_R01 (02/02 03:00): lambda=2.1400 h^-1
+    Successfully analyzed 8/12 bins
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 10 (6.5-8.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 1 more bins skipped
+  0202_W11_Open_R02 (02/02 15:00): lambda=1.0500 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0203_W25_Open_R01 (02/03 03:00): lambda=1.1300 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0203_W25_Open_R02 (02/03 15:00): lambda=0.7770 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0204_W25_Open_R01 (02/04 03:00): lambda=1.0700 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0204_W25_Open_R02 (02/04 15:00): lambda=0.9870 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0205_W25_Open_R01 (02/05 03:00): lambda=1.2500 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0205_W30_Open_R01 (02/05 15:00): lambda=0.9720 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0206_W30_Open_R01 (02/06 03:00): lambda=1.3300 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Insufficient valid beta estimates: 6 (minimum 10 required)
+      ... and 2 more bins skipped
+  0206_W30_Open_R02 (02/06 15:00): lambda=0.8410 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0207_W30_Open_R01 (02/07 03:00): lambda=2.0300 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0207_W30_Open_R02 (02/07 15:00): lambda=2.5400 h^-1
+    Successfully analyzed 8/12 bins
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      Bin 10 (6.5-8.0 um): before: Insufficient valid points: 3 (minimum 10 required); after: Insufficie...
+      ... and 1 more bins skipped
+  0208_W30_Open_R01 (02/08 03:00): lambda=1.9800 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0208_W30_Open_R02 (02/08 15:00): lambda=1.8600 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0209_W30_Open_R01 (02/09 03:00): lambda=1.4600 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0209_W37_Open_R01 (02/09 15:00): lambda=0.9230 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0210_W37_Open_R01 (02/10 03:00): lambda=1.0300 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0210_W37_Open_R02 (02/10 15:00): lambda=0.6500 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0211_W37_Open_R01 (02/11 03:00): lambda=0.8330 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 0 (0.35-0.46 um): Insufficient data after peak: 2 points (minimum 10 required)
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0211_W23_Open_R01: Skipped (excluded: Conflicting log entries)
+  0212_W23_Open_R01: Skipped (excluded: Conflicting log entries)
+  0212_W23_Open_R02: Skipped (excluded: Conflicting log entries)
+  0213_W23_Open_R01: Skipped (excluded: Conflicting log entries)
+  0214_W22_Open_R01 (02/14 03:00): lambda=1.0800 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): before: Insufficient valid points: 2 (minimum 10 required); after: Insufficie...
+      ... and 2 more bins skipped
+  0214_W22_Open_R02 (02/14 15:00): lambda=0.6000 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0215_W22_Open_R01 (02/15 03:00): lambda=0.9620 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0215_W22_Open_R02 (02/15 15:00): lambda=0.7090 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0216_W22_Open_R01 (02/16 03:00): lambda=1.2200 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 0 (0.35-0.46 um): Insufficient data after peak: 3 points (minimum 10 required)
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0216_W43_Open_R01 (02/16 15:00): lambda=0.7630 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0217_W43_Open_R01 (02/17 03:00): lambda=1.0100 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0217_W43_Open_R02 (02/17 15:00): lambda=0.4890 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0218_W43_Open_R01 (02/18 03:00): lambda=0.8490 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0218_W14_Open_R01 (02/18 15:00): lambda=0.5540 h^-1
+    Successfully analyzed 1/12 bins
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      Bin 3 (1.0-1.3 um): Unknown
+      ... and 8 more bins skipped
+  0219_W14_Open_R01 (02/19 03:00): lambda=0.8360 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      ... and 6 more bins skipped
+  0219_W14_Open_R02 (02/19 15:00): lambda=0.9950 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0220_W14_Open_R01 (02/20 03:00): lambda=1.0400 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0220_W53_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.594))
+  0221_W53_Open_R01 (02/21 03:00): lambda=0.8560 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0221_W53_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 53 min after shower off, expected within 45 min))
+  0222_W53_Open_R01 (02/22 03:00): lambda=0.7350 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0222_W53_Open_R02 (02/22 15:00): lambda=0.9080 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0223_W53_Open_R01 (02/23 03:00): lambda=1.5300 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): before: Insufficient valid points: 2 (minimum 10 required); after: Insufficie...
+      Bin 9 (5.2-6.5 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 2 more bins skipped
+  0223_W53_Open_R02 (02/23 15:00): lambda=1.4800 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0224_W53_Open_R01 (02/24 03:00): lambda=1.5200 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Insufficient valid beta estimates: 9 (minimum 10 required)
+      ... and 2 more bins skipped
+  0224_W52_Pepco_Wide_Open_R01 (02/24 15:00): lambda=0.8140 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0225_W52_Pepco_Wide_Open_R01 (02/25 03:00): lambda=0.8680 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0225_W52_Pepco_Wide_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 56 min after shower off, expected within 45 min))
+  0226_W52_Pepco_Wide_Open_R01 (02/26 03:00): lambda=0.7650 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0226_W49_Pepco_Wide_Open_R01 (02/26 15:00): lambda=0.6370 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0227_W49_Pepco_Wide_Open_R01 (02/27 03:00): lambda=0.9010 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 9 more bins skipped
+  0227_W49_Pepco_Wide_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 66 min after shower off, expected within 45 min))
+  0228_W49_Pepco_Wide_Open_R01 (02/28 03:00): lambda=0.6790 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0228_W49_Pepco_Wide_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.442))
+  0301_W49_Pepco_Wide_Open_R01 (03/01 03:00): lambda=0.6600 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0301_W49_Pepco_Wide_Open_R02 (03/01 15:00): lambda=0.6530 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0302_W49_Pepco_Wide_Open_R01 (03/02 03:00): lambda=0.9040 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0302_W40_Pepco_Narrow_Open_R01 (03/02 15:00): lambda=0.8030 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0303_W40_Pepco_Narrow_Open_R01 (03/03 03:00): lambda=0.8400 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 2 more bins skipped
+  0303_W40_Pepco_Narrow_Open_R02 (03/03 15:00): lambda=0.7720 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 2 more bins skipped
+  0304_W40_Pepco_Narrow_Open_R01 (03/04 03:00): lambda=0.6660 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0304_W40_Pepco_Wide_Open_R01 (03/04 15:00): lambda=0.5800 h^-1
+    Successfully analyzed 1/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 8 more bins skipped
+  0305_W40_Pepco_Wide_Open_R01 (03/05 03:00): lambda=0.6350 h^-1
+    Successfully analyzed 1/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      Bin 3 (1.0-1.3 um): Unknown
+      ... and 8 more bins skipped
+  0305_W40_Pepco_Wide_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.153))
+  0306_W40_Pepco_Wide_Open_R01 (03/06 03:00): lambda=0.5300 h^-1
+    Successfully analyzed 2/12 bins
+      Bin 2 (0.66-1.0 um): Unknown
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 4 (1.3-1.7 um): Unknown
+      ... and 7 more bins skipped
+  0306_W40_Pepco_Mid_Open_R01 (03/06 15:00): lambda=0.5170 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0307_W40_Pepco_Mid_Open_R01 (03/07 03:00): lambda=0.6490 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0307_W40_Pepco_Mid_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 65 min after shower off, expected within 45 min))
+  0308_W40_Pepco_Mid_Open_R01: Skipped (excluded: Daylight saving (instrument data misalignment) & elevated RH in the bedroom)
+  0308_W40_Pepco_Mid_Open_R02: Skipped (excluded: Daylight saving (instrument data misalignment) & elevated RH in the bedroom)
+  0309_W40_Pepco_Mid_Open_R01: Skipped (excluded: Daylight saving (instrument data misalignment) & elevated RH in the bedroom)
+  0309_W40_Pepco_Narrow_Open_R01: Skipped (excluded: Daylight saving (instrument data misalignment) & elevated RH in the bedroom)
+  0310_W40_Pepco_Narrow_Open_R01 (03/10 03:00): lambda=0.3830 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0310_W40_Pepco_Narrow_Open_R02 (03/10 15:00): lambda=0.6710 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 9 more bins skipped
+  0311_W40_Pepco_Narrow_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.528))
+  0311_W40_Pepco_Narrow_Mannequin_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.560))
+  0312_W40_Pepco_Narrow_Mannequin_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.628))
+  0312_W38_Pepco_Narrow_Open_R01 (03/12 15:00): lambda=0.7510 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0313_W38_Pepco_Narrow_Open_R01 (03/13 03:00): lambda=0.8740 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0313_W38_Pepco_Narrow_Mannequin_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 73 min after shower off, expected within 45 min))
+  0314_W38_Pepco_Narrow_Mannequin_Open_R01: Skipped (excluded: CO2 system failure)
+  0314_W38_Pepco_Narrow_Mannequin_Open_R02: Skipped (excluded: CO2 system failure)
+  0315_W38_Pepco_Narrow_Mannequin_Open_R01: Skipped (excluded: CO2 system failure)
+  0315_W38_Pepco_Narrow_Mannequin_Open_R02: Skipped (no lambda from CO2 analysis)
+  0316_W38_Pepco_Narrow_Mannequin_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min))
+  0316_W38_Pepco_Narrow_Mannequin_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.875))
+  0317_W38_Pepco_Narrow_Mannequin_Open_R01 (03/17 03:00): lambda=0.8950 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0317_W38_Pepco_Narrow_Open_R01 (03/17 15:00): lambda=0.8800 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0318_W38_Pepco_Narrow_Open_R01 (03/18 03:00): lambda=0.9420 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0318_W38_Pepco_Narrow_Mannequin_Open_R01 (03/18 15:00): lambda=0.6040 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): before: Insufficient valid points: 6 (minimum 10 required); after: Insufficie...
+      ... and 2 more bins skipped
+  0319_W38_Pepco_Narrow_Mannequin_Open_R01 (03/19 03:00): lambda=0.7030 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0319_W38_Pepco_Wide_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 73 min after shower off, expected within 45 min))
+  0320_W38_Pepco_Wide_Open_R01 (03/20 03:00): lambda=0.5860 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0320_W38_Pepco_Wide_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.457))
+  0321_W38_Pepco_Wide_Open_R01 (03/21 03:00): lambda=0.4230 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      ... and 6 more bins skipped
+  0321_W38_Pepco_Wide_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 90 min after shower off, expected within 45 min))
+  0322_W38_Pepco_Wide_Open_R01 (03/22 03:00): lambda=0.4080 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0322_W38_Pepco_Wide_Mannequin_Open_R01 (03/22 15:00): lambda=0.1670 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0323_W38_Pepco_Wide_Mannequin_Open_R01 (03/23 03:00): lambda=0.6360 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0323_W38_Pepco_Wide_Mannequin_Open_R02 (03/23 15:00): lambda=0.7270 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0324_W38_Pepco_Wide_Mannequin_Open_R01 (03/24 03:00): lambda=0.8190 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0324_W38_Pepco_Wide_Mannequin_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 120 min after shower off, expected within 45 min))
+  0325_W38_Pepco_Wide_Mannequin_Open_R01 (03/25 03:00): lambda=0.6100 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0325_W38_Pepco_Wide_Mannequin_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 71 min after shower off, expected within 45 min))
+  0326_W38_Pepco_Wide_Mannequin_Open_R01 (03/26 03:00): lambda=0.2590 h^-1
+    Successfully analyzed 2/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 7 more bins skipped
+  0326_W38_Pepco_Wide_Mannequin_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 119 min after shower off, expected within 45 min))
+  0327_W38_Pepco_Wide_Mannequin_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 77 min after shower off, expected within 45 min))
+  0327_W38_Pepco_Wide_Open_R01: Skipped (no lambda from CO2 analysis)
+  0328_W38_Pepco_Wide_Open_R01: Skipped (no lambda from CO2 analysis)
+  0328_W38_Pepco_Wide_Open_R02: Skipped (no lambda from CO2 analysis)
+  0329_W38_Pepco_Wide_Open_R01: Skipped (no lambda from CO2 analysis)
+  0329_W38_Pepco_Wide_Open_R02: Skipped (no lambda from CO2 analysis)
+  0330_W38_Pepco_Wide_Open_R01: Skipped (no lambda from CO2 analysis)
+  0330_W38_Pepco_Wide_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 119 min after shower off, expected within 45 min))
+  0331_W38_Pepco_Wide_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 46 min after shower off, expected within 45 min))
+  0331_W38_Pepco_Wide_Open_Fan_R01: Skipped (no lambda from CO2 analysis)
+  0401_W38_Pepco_Wide_Open_Fan_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 87 min after shower off, expected within 45 min))
+  0401_W38_Pepco_Wide_Open_Fan_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.130))
+  0402_W38_Pepco_Wide_Open_Fan_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.259))
+  0402_W38_Pepco_Wide_Open_Fan_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.357))
+  0403_W38_Pepco_Wide_Open_Fan_R01 (04/03 03:00): lambda=0.5100 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0403_W38_Pepco_Wide_Open_Fan_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.046))
+  0404_W38_Pepco_Wide_Open_Fan_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.466))
+  0404_W38_Pepco_Wide_Open_Fan_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.097))
+  0405_W38_Pepco_Wide_Open_Fan_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.629))
+  0405_W38_Pepco_Wide_Open_Fan_R02 (04/05 15:00): lambda=0.1640 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0406_W38_Pepco_Wide_Open_Fan_R01 (04/06 03:00): lambda=0.7790 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0406_W38_Pepco_Wide_Open_Fan_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 66 min after shower off, expected within 45 min))
+  0407_W38_Pepco_Wide_Open_Fan_R01 (04/07 03:00): lambda=0.5320 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0407_W38_Pepco_Wide_Open_Fan_R02 (04/07 15:00): lambda=0.7770 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0408_W38_Pepco_Wide_Open_R01 (04/08 03:00): lambda=0.8410 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0408_W38_Pepco_Wide_Closed_R01 (04/08 15:00): lambda=0.5070 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 9 more bins skipped
+  0409_W38_Pepco_Wide_Closed_R01 (04/09 03:00): lambda=0.7560 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 9 more bins skipped
+  0409_W38_Pepco_Wide_Closed_R02 (04/09 15:00): lambda=4.5400 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 0 (0.35-0.46 um): Insufficient data after peak: 1 points (minimum 10 required)
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      ... and 6 more bins skipped
+  0410_W38_Pepco_Wide_Closed_R01 (04/10 03:00): lambda=0.5190 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Insufficient data after peak: 6 points (minimum 10 required)
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 9 more bins skipped
+  0410_W38_FilterWand_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.330))
+  0411_W38_FilterWand_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 58 min after shower off, expected within 45 min))
+  0411_W38_FilterWand_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 111 min after shower off, expected within 45 min))
+  0412_W38_FilterWand_Open_R01 (04/12 03:00): lambda=0.5670 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0412_W38_FilterWand_Open_R02 (04/12 15:00): lambda=0.3780 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0413_W38_FilterWand_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.504))
+  0413_W38_Used_rainfall_Open_R01 (04/13 15:00): lambda=0.4200 h^-1
+    Successfully analyzed 1/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 8 more bins skipped
+  0414_W38_Used_rainfall_Open_R01 (04/14 03:00): lambda=0.3100 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0414_W38_Used_rainfall_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.977))
+  0415_W38_Used_rainfall_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min))
+  0415_W38_Used_12Nozzle_Open_R01 (04/15 15:00): lambda=0.3620 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0416_W38_Used_12Nozzle_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 71 min after shower off, expected within 45 min))
+  0416_W38_Used_12Nozzle_Open_R02 (04/16 15:00): lambda=0.3950 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0417_W38_Used_12Nozzle_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 110 min after shower off, expected within 45 min))
+  0417_W38_Used_SingleWide1_Open_R01 (04/17 15:00): lambda=0.3410 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0418_W38_Used_SingleWide1_Open_R01 (04/18 03:00): lambda=0.3480 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0418_W38_Used_SingleWide1_Open_R02 (04/18 15:00): lambda=0.3680 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 6 more bins skipped
+  0419_W38_Used_SingleWide1_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.611))
+  0419_W38_Used_SingleWide1_Open_R02 (04/19 15:00): lambda=0.5150 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0420_W38_Used_SingleWide1_Open_R01 (04/20 03:00): lambda=0.4750 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0420_W38_Used_SingleWide2_Open_R01: Skipped (no lambda from CO2 analysis)
+  0421_W38_Used_SingleWide2_Open_R01: Skipped (no lambda from CO2 analysis)
+  0421_W38_Used_SingleWide2_Open_R02: Skipped (no lambda from CO2 analysis)
+  0422_W38_Used_SingleWide2_Open_R01: Skipped (no lambda from CO2 analysis)
+  0424_W38_Pepco_Narrow_Mannequin_Open_R01 (04/24 03:00): lambda=0.2460 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0424_W38_Pepco_Narrow_Mannequin_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.482))
+  0425_W38_Pepco_Narrow_Mannequin_Open_R01 (04/25 03:00): lambda=0.2780 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0425_W38_Pepco_Narrow_Mannequin_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.119))
+  0426_W38_Pepco_Narrow_Mannequin_Open_R01 (04/26 03:00): lambda=0.5510 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0426_W38_Pepco_Narrow_Mannequin_Open_R02 (04/26 15:00): lambda=0.4090 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0427_W38_Pepco_Narrow_Mannequin_Open_R01 (04/27 03:00): lambda=0.4740 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0427_W38_Pepco_Narrow_Mannequin_Open_R02 (04/27 15:00): lambda=0.4640 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      ... and 6 more bins skipped
+  0428_W38_Pepco_Narrow_Mannequin_Open_R01 (04/28 03:00): lambda=0.3010 h^-1
+    Successfully analyzed 7/12 bins
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      Bin 9 (5.2-6.5 um): Unknown
+      ... and 2 more bins skipped
+  0428_W38_Pepco_Narrow_Mannequin_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.632))
+  0429_W38_Pepco_Narrow_Mannequin_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=-0.762))
+  0429_W38_Pepco_Narrow_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min))
+  0430_W38_Pepco_Narrow_Open_R01: Skipped (no lambda from CO2 analysis)
+  0430_W38_Pepco_Narrow_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 62 min after shower off, expected within 45 min))
+  0501_W38_Pepco_Narrow_Open_R01 (05/01 03:00): lambda=0.3720 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0501_W38_Pepco_Narrow_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 116 min after shower off, expected within 45 min))
+  0502_W38_Pepco_Narrow_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.642))
+  0502_W38_Pepco_Narrow_Open_R02 (05/02 15:00): lambda=1.1200 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0503_W38_Pepco_Narrow_Open_R01 (05/03 03:00): lambda=0.9910 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0503_W38_Pepco_Narrow_Open_R02 (05/03 15:00): lambda=1.3900 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0504_W38_Pepco_Narrow_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.358))
+  0504_W38_Pepco_Narrow_Ajar_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=-1.720))
+  0505_W38_Pepco_Narrow_Ajar_R01 (05/05 03:00): lambda=0.3600 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0505_W38_Pepco_Narrow_Ajar_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=-1.460))
+  0506_W38_Pepco_Narrow_Ajar_R01 (05/06 03:00): lambda=0.3160 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0506_W38_Pepco_Narrow_Ajar_R02 (05/06 15:00): lambda=0.2370 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0507_W38_Pepco_Narrow_Ajar_R01 (05/07 03:00): lambda=0.4180 h^-1
+    Successfully analyzed 6/12 bins
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      Bin 8 (4.0-5.2 um): Unknown
+      ... and 3 more bins skipped
+  0507_W38_Pepco_Narrow_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.548))
+  0508_W38_Pepco_Narrow_Open_R01 (05/08 03:00): lambda=0.3350 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0508_W38_Pepco_Narrow_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 63 min after shower off, expected within 45 min))
+  0509_W38_Pepco_Narrow_Open_R01 (05/09 03:00): lambda=0.2190 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 3 (1.0-1.3 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0509_W38_Pepco_Narrow_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 54 min after shower off, expected within 45 min))
+  0510_W38_Pepco_Narrow_Open_R01 (05/10 03:00): lambda=0.3130 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0510_W38_Pepco_Narrow_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.473))
+  0511_W38_Pepco_Narrow_Open_R01: Skipped (excluded: CO2 system failure)
+  0515_W38_Pepco_Narrow_Open_R01: Skipped (excluded: CO2 system failure)
+  0515_W38_Pepco_Narrow_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 85 min after shower off, expected within 45 min))
+  0516_W38_Pepco_Narrow_Open_R01 (05/16 03:00): lambda=0.3480 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 2 (0.66-1.0 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0516_W38_Pepco_Narrow_Open_R02 (05/16 15:00): lambda=0.2180 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 9 more bins skipped
+  0517_W38_Pepco_Narrow_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.540))
+  0517_W38_Pepco_Narrow_Open_R02 (05/17 15:00): lambda=0.3790 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0518_W38_Pepco_Narrow_Open_R01 (05/18 03:00): lambda=0.3460 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0518_W38_Pepco_Narrow_Open_R02 (05/18 15:00): lambda=0.2690 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0519_W38_Pepco_Narrow_Open_R01 (05/19 03:00): lambda=0.4120 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0519_W38_Pepco_Narrow_Open_R02 (05/19 15:00): lambda=0.2550 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0520_W38_Pepco_Narrow_Open_R01 (05/20 03:00): lambda=0.3590 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0520_W38_Pepco_Narrow_Open_R02 (05/20 15:00): lambda=0.3990 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0521_W38_Pepco_Narrow_Open_R01 (05/21 03:00): lambda=0.3710 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0521_W38_Pepco_Narrow_Open_R02: Skipped (excluded: Bathroom flooring removal)
+  0522_W38_Pepco_Narrow_Open_R01 (05/22 03:00): lambda=0.2890 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0522_W38_FilterWand_Open_R01 (05/22 15:00): lambda=0.3120 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0523_W38_FilterWand_Open_R01 (05/23 03:00): lambda=0.2640 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0523_W38_FilterWand_Open_R02 (05/23 15:00): lambda=0.3290 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0524_W38_FilterWand_Open_R01 (05/24 03:00): lambda=0.2800 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 1 (0.46-0.66 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      Bin 2 (0.66-1.0 um): before: Insufficient valid points: 0 (minimum 10 required); after: Insufficie...
+      ... and 9 more bins skipped
+  0524_W38_FilterWand_Open_R02 (05/24 15:00): lambda=0.3650 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0525_W38_FilterWand_Open_R01 (05/25 03:00): lambda=0.1680 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0525_W38_FilterWand_Open_R02 (05/25 15:00): lambda=0.2850 h^-1
+    Successfully analyzed 4/12 bins
+      Bin 4 (1.3-1.7 um): Unknown
+      Bin 5 (1.7-2.3 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      ... and 5 more bins skipped
+  0526_W38_FilterWand_Open_R01 (05/26 03:00): lambda=0.1920 h^-1
+    Successfully analyzed 5/12 bins
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 6 (2.3-3.0 um): Unknown
+      Bin 7 (3.0-4.0 um): Unknown
+      ... and 4 more bins skipped
+  0526_W38_Used_rainfall_Open_R01 (05/26 15:00): lambda=0.2570 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 9 more bins skipped
+  0527_W38_Used_rainfall_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=-2.590))
+  0528_W38_Used_rainfall_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.453))
+  0528_W38_Used_rainfall_Open_R02 (05/28 15:00): lambda=0.3730 h^-1
+    Successfully analyzed 2/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 7 more bins skipped
+  0529_W38_Used_rainfall_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 46 min after shower off, expected within 45 min))
+  0529_W38_Used_rainfall_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.165))
+  0530_W38_Used_rainfall_Open_R01 (05/30 03:00): lambda=0.2240 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 2 (0.66-1.0 um): Unknown
+      ... and 6 more bins skipped
+  0530_W38_Used_rainfall_Open_R02: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 47 min after shower off, expected within 45 min))
+  0531_W38_Used_rainfall_Open_R01 (05/31 03:00): lambda=0.3150 h^-1
+    Successfully analyzed 0/12 bins
+      Bin 0 (0.35-0.46 um): No valid concentration data in window
+      Bin 1 (0.46-0.66 um): No valid concentration data in window
+      Bin 2 (0.66-1.0 um): No valid concentration data in window
+      ... and 9 more bins skipped
+  0531_W38_Used_rainfall_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.513))
+  0601_W38_Used_rainfall_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 50 min after shower off, expected within 45 min))
+  0601_W38_Used_12Nozzle_Open_R01 (06/01 15:00): lambda=0.2820 h^-1
+    Successfully analyzed 3/12 bins
+      Bin 0 (0.35-0.46 um): Unknown
+      Bin 1 (0.46-0.66 um): Unknown
+      Bin 3 (1.0-1.3 um): Unknown
+      ... and 6 more bins skipped
+  0602_W38_Used_12Nozzle_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 63 min after shower off, expected within 45 min))
+  0602_W38_Used_12Nozzle_Open_R02: Skipped (excluded: Lambda R² less than 0.65 (R²=0.636))
+  0603_W38_Used_12Nozzle_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 50 min after shower off, expected within 45 min))
+  0603_W38_Used_SingleWide1_Open_R01: Skipped (excluded: Bedroom is deemed to be not well mixed by RH analysis (RH peak at 53 min after shower off, expected within 45 min))
+  0604_W38_Used_SingleWide1_Open_R01: Skipped (excluded: Lambda R² less than 0.65 (R²=0.105))
+
+================================================================================
+Overall Results Summary
+================================================================================
+
+Bin 0 (0.35-0.46 um):
+  p (penetration):     0.549 +/- 0.296
+  beta (deposition):   0.030 +/- 0.243 h^-1
+  E (emission):        5.25e+06 +/- 3.18e+06 #/min
+  Valid events:        91/163
+
+Bin 1 (0.46-0.66 um):
+  p (penetration):     0.884 +/- 0.268
+  beta (deposition):   -0.121 +/- 0.343 h^-1
+  E (emission):        2.08e+06 +/- 1.31e+06 #/min
+  Valid events:        106/163
+
+Bin 2 (0.66-1.0 um):
+  p (penetration):     0.969 +/- 0.124
+  beta (deposition):   -0.156 +/- 0.411 h^-1
+  E (emission):        1.19e+06 +/- 8.06e+05 #/min
+  Valid events:        106/163
+
+Bin 3 (1.0-1.3 um):
+  p (penetration):     0.922 +/- 0.187
+  beta (deposition):   -0.082 +/- 0.304 h^-1
+  E (emission):        4.28e+05 +/- 2.90e+05 #/min
+  Valid events:        94/163
+
+Bin 4 (1.3-1.7 um):
+  p (penetration):     0.779 +/- 0.265
+  beta (deposition):   -0.028 +/- 0.469 h^-1
+  E (emission):        4.84e+05 +/- 3.32e+05 #/min
+  Valid events:        103/163
+
+Bin 5 (1.7-2.3 um):
+  p (penetration):     0.648 +/- 0.334
+  beta (deposition):   0.106 +/- 0.323 h^-1
+  E (emission):        3.41e+05 +/- 2.41e+05 #/min
+  Valid events:        91/163
+
+Bin 6 (2.3-3.0 um):
+  p (penetration):     0.517 +/- 0.342
+  beta (deposition):   0.122 +/- 0.209 h^-1
+  E (emission):        1.79e+05 +/- 1.07e+05 #/min
+  Valid events:        45/163
+
+Bin 7 (3.0-4.0 um):
+  p (penetration):     0.603 +/- 0.312
+  beta (deposition):   0.000 +/- 0.000 h^-1
+  E (emission):        5.23e+04 +/- 1.33e+04 #/min
+  Valid events:        5/163
+
+Bin 8 (4.0-5.2 um):
+  p (penetration):     0.702 +/- 0.289
+  Valid events:        0/163
+
+Bin 9 (5.2-6.5 um):
+  p (penetration):     0.849 +/- 0.200
+  Valid events:        0/163
+
+Bin 10 (6.5-8.0 um):
+  p (penetration):     0.946 +/- 0.123
+  Valid events:        0/163
+
+Bin 11 (8.0-10.0 um):
+  p (penetration):     0.914 +/- 0.180
+  Valid events:        0/163
+
+Results saved to: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\particle_analysis_summary.xlsx
+
+Generating plots...
+  Loaded Bedroom_Conditions RH for boxplot annotations.
+  Generated: penetration_summary.png
+  Generated: deposition_summary.png
+  Generated: emission_summary.png
+  Merged Bedroom_Conditions for metric-axis figures.
+  Generated: emission_etotal_boxplot.png
+  Generated: other_process_rate_boxplot.png
+  Generated: emission_rate_boxplot.png
+  Generated: penetration_factor_boxplot.png
+  Generated: emission_etotal_by_bedroom_rh_boxplot.png (bin0-2 and bin3-6)
+  Generated: emission_etotal_by_bedroom_temp_boxplot.png (bin0-2 and bin3-6)
+  Generated: emission_etotal_by_acr_boxplot.png (bin0-2 and bin3-6)
+  Generated: emission_etotal_by_beta_boxplot.png (bin0-2 and bin3-6)
+  Generated: emission_etotal_by_p_boxplot.png (bin0-2 and bin3-6)
+  Generated: emission_etotal_by_showerhead_boxplot.png (bin0-2 and bin3-6)
+  Generated: spray_pattern_{emission_etotal,penetration_factor,other_process_rate}_boxplot_{bin0-2,bin3-6,bin7-11}.png  (spray pattern comparison)
+  Generated: head_type_{emission_etotal,penetration_factor,other_process_rate}_boxplot_{bin0-2,bin3-6,bin7-11}.png  (shower head type comparison)
+  Generated: mannequin_{emission_etotal,penetration_factor,other_process_rate}_boxplot_{bin0-2,bin3-6,bin7-11}.png  (mannequin presence comparison)
+  Generated: door_position_{emission_etotal,penetration_factor,other_process_rate}_boxplot_{bin0-2,bin3-6,bin7-11}.png  (door position comparison)
+  Generated: fan_status_{emission_etotal,penetration_factor,other_process_rate}_boxplot_{bin0-2,bin3-6,bin7-11}.png  (fan status comparison)
+  Plots saved to: \\elwood.nist.gov\732\internal\IAQ\EPA Shower\output\plots
