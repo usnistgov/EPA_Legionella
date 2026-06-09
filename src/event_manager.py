@@ -231,13 +231,14 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 4, 10, 8, 55, 0), None),  # Filtered Wand spray from Apr 10
     (datetime(2026, 4, 13, 11, 35, 0), "rainfall"),  # Used head rainfall spray from Apr 13
     (datetime(2026, 4, 15, 8, 25, 0), "12Nozzle"),  # Used head 12-nozzle spray from Apr 15
-    (datetime(2026, 4, 17, 8, 35, 0), "SingleWide1"),  # Used head SingleWide spray from Apr 17
-    (datetime(2026, 4, 20, 8, 35, 0), "SingleWide2"),  # Used head SingleWide spray from Apr 20
+    (datetime(2026, 4, 17, 8, 35, 0), "SingleWide"),  # Used head SingleWide spray from Apr 17
+    (datetime(2026, 4, 20, 8, 35, 0), "SingleNarrow"),  # Used head SingleNarrow spray from Apr 20
     (datetime(2026, 4, 23, 14, 15, 0), "Narrow"),  # Pepco narrow spray from Apr 23
     (datetime(2026, 5, 22, 10, 30, 0), None),  # Filtered Wand head installed May 22
     (datetime(2026, 5, 26, 10, 30, 0), "rainfall"),  # Used head installed May 26
-    (datetime(2026, 6, 1, 8, 0, 0), "12Nozzle"),  # Filtered Wand head installed Jun 1
-    (datetime(2026, 6, 3, 8, 30, 0), "SingleWide1"),  # Filtered Wand head installed Jun 3
+    (datetime(2026, 6, 1, 8, 0, 0), "12Nozzle"),  # Used head 12-nozzle installed Jun 1
+    (datetime(2026, 6, 3, 8, 30, 0), "SingleNarrow"),  # Used head SingleNarrow installed Jun 3
+    (datetime(2026, 6, 8, 13, 15, 0), "SingleWide"),  # Used head SingleWide installed Jun 8
 ]
 
 # Mannequin transitions: (datetime, present)
