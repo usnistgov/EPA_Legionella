@@ -239,6 +239,7 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 6, 1, 8, 0, 0), "12Nozzle"),  # Used head 12-nozzle installed Jun 1
     (datetime(2026, 6, 3, 8, 30, 0), "SingleNarrow"),  # Used head SingleNarrow installed Jun 3
     (datetime(2026, 6, 8, 13, 15, 0), "SingleWide"),  # Used head SingleWide installed Jun 8
+    (datetime(2026, 6, 11, 10, 30, 0), "rainfall"),  # Used head rainfall installed Jun 11
 ]
 
 # Mannequin transitions: (datetime, present)
@@ -255,6 +256,7 @@ MANNEQUIN_TRANSITIONS = [
     (datetime(2026, 3, 27, 8, 25, 0), False),  # Mannequin removed Mar 23
     (datetime(2026, 4, 23, 14, 15, 0), True),  # Mannequin added Apr 23
     (datetime(2026, 4, 29, 8, 35, 0), False),  # Mannequin removed Apr 29
+    (datetime(2026, 6, 22, 11, 45, 0), True),  # Mannequin added Jun 22
 ]
 
 # Bath door (bathroom–bedroom) position transitions: (datetime, position)
