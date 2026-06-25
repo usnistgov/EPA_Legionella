@@ -266,6 +266,13 @@
   "common_files": {
     "log_file": "log_file.xlsx",
     "output_folder": "output",
+    "moduair_pm_chunks": {
+      "path": "PATH/TO/moduair-pm/chunks",
+      "is_absolute": true,
+      "description": "Weekly per-sensor MODULAIR-PM chunk files (downloaded by the NIST_moduair-pm repo). Absolute path to the network share, separate from data_root.",
+      "file_pattern": "MOD-PM-{sn}-{data_type}-{start}-{end}.csv",
+      "source_repo": "NIST_moduair-pm"
+    },
     "co2_log_file": {
       "filename": "CO2_log_file.csv",
       "path": "Log - CO2 Injection",

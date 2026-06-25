@@ -322,6 +322,10 @@ def get_common_file(file_key: str) -> Path:
     if isinstance(file_entry, dict):
         path = file_entry.get("path", "")
         filename = file_entry.get("filename", "")
+        # Absolute entries (e.g., a separate network share) are not joined to
+        # data_root; the configured path is used as-is.
+        if file_entry.get("is_absolute", False):
+            return Path(path) / filename if filename else Path(path)
         return data_root / path / filename
 
     # Handle simple string entries (e.g., log_file, output_folder)
