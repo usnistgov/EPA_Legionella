@@ -32,13 +32,16 @@ Arguments
 Output Files
 ------------
     <output>/moduair_event_peak_times.csv         (event x sensor, minutes)
-    <output>/plots/moduair_correction/event_delta_peak_times.png
+    <output>/plots/moduair_correction/event_delta_peak_times.html
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
 Created: 2026-06-25
 Update log:
     2026-06-25 (Nathan Lima): Initial version.
+    2026-07-06 (Nathan Lima): Switch the delta-peak figure to an interactive
+        Bokeh plot with click-to-hide legend so individual sensor traces can be
+        toggled on and off; output is now an HTML file.
 """
 
 import argparse
@@ -53,6 +56,8 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import pandas as pd
+from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.plotting import figure, output_file, save
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -63,7 +68,7 @@ from src.moduair_loader import (  # noqa: E402
     list_available_sensors,
     load_fleet_bins,
 )
-from src.plot_style import SENSOR_COLORS, create_figure, save_figure  # noqa: E402
+from src.plot_style import SENSOR_COLORS  # noqa: E402
 
 DEFAULT_START = "2026-06-04 00:00:00"
 DEFAULT_PEAK_WINDOW_HOURS = 2.0
@@ -168,7 +173,11 @@ def compute_delta_peaks(
 
 def plot_delta_peaks(peaks: pd.DataFrame, sensor_ids: list, output_dir: Path) -> None:
     """
-    Plot delta peak time per event for each sensor.
+    Plot delta peak time per event for each sensor as an interactive Bokeh figure.
+
+    Each sensor is a separate line+scatter renderer. The legend uses a
+    click-to-hide policy so individual sensor traces can be toggled on and off
+    in the resulting HTML file.
 
     Parameters:
         peaks: DataFrame from compute_delta_peaks().
@@ -178,29 +187,52 @@ def plot_delta_peaks(peaks: pd.DataFrame, sensor_ids: list, output_dir: Path) ->
     plot_dir = output_dir / "plots" / "moduair_correction"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = create_figure(figsize=(12, 5))
-    x = peaks["shower_on"]
+    out_path = plot_dir / "event_delta_peak_times.html"
+    output_file(str(out_path), title="Delta peak time per shower event")
+
+    fig = figure(
+        width=1100,
+        height=500,
+        x_axis_type="datetime",
+        title="Delta peak time per shower event (summed bin0-11)",
+        x_axis_label="Shower ON",
+        y_axis_label="Delta peak time (min since shower ON)",
+        tools="pan,box_zoom,wheel_zoom,reset,save",
+    )
 
     for i, sn in enumerate(sensor_ids):
         col = f"delta_peak_min_{sn}"
-        ax.plot(
-            x,
-            peaks[col],
-            marker="o",
-            markersize=3,
-            linewidth=1.0,
-            color=SENSOR_COLORS[i % len(SENSOR_COLORS)],
-            label=sn[-3:],
+        source = ColumnDataSource(
+            data={"x": peaks["shower_on"], "y": peaks[col]}
+        )
+        color = SENSOR_COLORS[i % len(SENSOR_COLORS)]
+        label = sn[-3:]
+
+        line = fig.line(
+            "x", "y", source=source, line_width=1.0, color=color, legend_label=label
+        )
+        fig.scatter(
+            "x", "y", source=source, size=5, color=color, legend_label=label
+        )
+        # Hover reports the sensor, event time, and delta peak for the line only.
+        fig.add_tools(
+            HoverTool(
+                renderers=[line],
+                tooltips=[
+                    ("Sensor", label),
+                    ("Shower ON", "@x{%F %H:%M}"),
+                    ("Delta peak (min)", "@y{0.0}"),
+                ],
+                formatters={"@x": "datetime"},
+                mode="vline",
+            )
         )
 
-    ax.set_title("Delta peak time per shower event (summed bin0-11)")
-    ax.set_xlabel("Shower ON")
-    ax.set_ylabel("Delta peak time (min since shower ON)")
-    ax.legend(loc="upper right", ncol=2, title="Sensor")
-    fig.autofmt_xdate()
+    fig.legend.title = "Sensor"
+    fig.legend.click_policy = "hide"
+    fig.legend.location = "top_right"
 
-    out_path = plot_dir / "event_delta_peak_times.png"
-    save_figure(fig, out_path)
+    save(fig)
     print(f"  Saved {out_path.name}")
 
 
