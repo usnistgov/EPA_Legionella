@@ -20,6 +20,8 @@ Key Functions:
     - load_sensor_bins(): Load one sensor's raw chunks, parse the nested ``opc``
       dictionary, extract opc_bin0-opc_bin11, resample to 1 min, and apply a
       centered rolling average.
+    - load_sensor_bins_raw(): Same parsing as load_sensor_bins but returns the
+      chunk records at native cadence (no 1-min resample, no rolling average).
     - load_fleet_bins(): Load several sensors and align them on a shared
       1-minute datetime index, returning a dict of per-sensor DataFrames.
 
@@ -45,6 +47,9 @@ Created: 2026-06-25
 Update log:
     2026-06-25 (Nathan Lima): Initial version for the MODULAIR-PM correction
         factor and event peak-time analyses.
+    2026-07-23 (Nathan Lima): Factor the chunk read/parse loop into
+        _read_sensor_chunks and add load_sensor_bins_raw for native-cadence
+        records (used by the per-sensor event config time-series export).
 """
 
 import ast
@@ -145,25 +150,29 @@ def _parse_opc_bins(opc_str: str) -> Dict[str, float]:
     return out
 
 
-def load_sensor_bins(
+def _read_sensor_chunks(
     sensor_id: str,
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
-    rolling_window_min: int = ROLLING_WINDOW_MIN,
 ) -> pd.DataFrame:
     """
-    Load one sensor's raw chunks and return its 12 analysis bins at 1-min.
+    Read and parse one sensor's raw chunks at native cadence (no resampling).
+
+    Reads every ``MOD-PM-{sn}-raw-*.csv`` chunk, parses the nested ``opc``
+    dict into opc_bin0..opc_bin11, deduplicates on the timestamp, sorts by
+    time, and applies optional start/end bounds. This is the shared read path
+    for both the 1-minute (``load_sensor_bins``) and native-cadence
+    (``load_sensor_bins_raw``) loaders.
 
     Parameters:
         sensor_id: Sensor identifier ('195', '00195', or 'MOD-PM-00195').
-        start: Optional inclusive lower bound on timestamp_local.
-        end: Optional inclusive upper bound on timestamp_local.
-        rolling_window_min: Centered rolling-average window in minutes
-            (0 disables smoothing).
+        start: Optional inclusive lower bound on the timestamp.
+        end: Optional inclusive upper bound on the timestamp.
 
     Returns:
-        DataFrame indexed by 1-minute 'datetime' with columns
-        opc_bin0..opc_bin11. Empty DataFrame if no chunks are found.
+        DataFrame with a 'datetime' column and opc_bin0..opc_bin11 columns at
+        native cadence. Empty DataFrame (with those columns) if no chunks are
+        found or none fall in the window.
     """
     sn = _normalize_sn(sensor_id)
     chunks_dir = get_chunks_dir()
@@ -209,6 +218,33 @@ def load_sensor_bins(
     if combined.empty:
         return pd.DataFrame(columns=["datetime"] + BIN_COLUMNS)
 
+    return combined.reset_index(drop=True)
+
+
+def load_sensor_bins(
+    sensor_id: str,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+    rolling_window_min: int = ROLLING_WINDOW_MIN,
+) -> pd.DataFrame:
+    """
+    Load one sensor's raw chunks and return its 12 analysis bins at 1-min.
+
+    Parameters:
+        sensor_id: Sensor identifier ('195', '00195', or 'MOD-PM-00195').
+        start: Optional inclusive lower bound on timestamp_local.
+        end: Optional inclusive upper bound on timestamp_local.
+        rolling_window_min: Centered rolling-average window in minutes
+            (0 disables smoothing).
+
+    Returns:
+        DataFrame indexed by 1-minute 'datetime' with columns
+        opc_bin0..opc_bin11. Empty DataFrame if no chunks are found.
+    """
+    combined = _read_sensor_chunks(sensor_id, start=start, end=end)
+    if combined.empty:
+        return pd.DataFrame(columns=["datetime"] + BIN_COLUMNS)
+
     # Resample to a regular 1-minute grid
     combined = combined.set_index("datetime").sort_index()
     combined = combined[BIN_COLUMNS].resample("1min").mean()
@@ -219,6 +255,30 @@ def load_sensor_bins(
         ).mean()
 
     return combined.reset_index()
+
+
+def load_sensor_bins_raw(
+    sensor_id: str,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+) -> pd.DataFrame:
+    """
+    Load one sensor's raw chunks at native cadence (no resampling, no smoothing).
+
+    Unlike ``load_sensor_bins``, this returns the underlying chunk records on
+    their original timestamps without resampling to a 1-minute grid or applying
+    a rolling average. Use it when the true raw measurement records are needed.
+
+    Parameters:
+        sensor_id: Sensor identifier ('195', '00195', or 'MOD-PM-00195').
+        start: Optional inclusive lower bound on the timestamp.
+        end: Optional inclusive upper bound on the timestamp.
+
+    Returns:
+        DataFrame with a 'datetime' column and opc_bin0..opc_bin11 columns at
+        native cadence, sorted by time. Empty DataFrame if no chunks are found.
+    """
+    return _read_sensor_chunks(sensor_id, start=start, end=end)
 
 
 def load_fleet_bins(

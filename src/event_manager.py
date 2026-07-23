@@ -204,6 +204,8 @@ WATER_TEMP_TRANSITIONS = [
     (datetime(2026, 2, 26, 10, 23, 0), "W49"),  # Pepco 49°C from Feb 26 10:23AM
     (datetime(2026, 3, 2, 9, 23, 0), "W40"),  # Pepco 40°C from Mar 2 9:23AM
     (datetime(2026, 3, 12, 10, 47, 0), "W38"),  # 38°C from Mar 12 10:47AM
+    (datetime(2026, 7, 14, 10, 15, 0), "W49"),  # 49°C from Jul 14 10:15AM
+    (datetime(2026, 7, 15, 10, 15, 0), "W24"),  # 24°C from Jul 15 10:15AM
 ]
 
 # Shower head transitions: (datetime, head_type)
@@ -240,6 +242,7 @@ SPRAY_PATTERN_TRANSITIONS = [
     (datetime(2026, 6, 3, 8, 30, 0), "SingleNarrow"),  # Used head SingleNarrow installed Jun 3
     (datetime(2026, 6, 8, 13, 15, 0), "SingleWide"),  # Used head SingleWide installed Jun 8
     (datetime(2026, 6, 11, 10, 30, 0), "rainfall"),  # Used head rainfall installed Jun 11
+    (datetime(2026, 6, 26, 7, 45, 0), "SingleNarrow"),  # Used head SingleNarrow installed Jun 26
 ]
 
 # Mannequin transitions: (datetime, present)
@@ -257,6 +260,7 @@ MANNEQUIN_TRANSITIONS = [
     (datetime(2026, 4, 23, 14, 15, 0), True),  # Mannequin added Apr 23
     (datetime(2026, 4, 29, 8, 35, 0), False),  # Mannequin removed Apr 29
     (datetime(2026, 6, 22, 11, 45, 0), True),  # Mannequin added Jun 22
+    (datetime(2026, 7, 2, 9, 45, 0), False),  # Mannequin removed Jul 2
 ]
 
 # Bath door (bathroom–bedroom) position transitions: (datetime, position)
@@ -339,6 +343,14 @@ FLOW_RATE_TRANSITIONS: List[Tuple[datetime, Optional[float]]] = [
     (datetime(2026, 5, 26, 10, 30, 0), 5.6),  # May 26
     (datetime(2026, 6, 1, 8, 0, 0), 5.7),  # Jun 1
     (datetime(2026, 6, 3, 8, 30, 0), 5.6),  # Jun 3
+    (datetime(2026, 6, 8, 13, 15, 0), 5.5),  # Jun 8
+    (datetime(2026, 6, 11, 10, 30, 0), 5.8),  # Jun 11
+    (datetime(2026, 6, 22, 11, 45, 0), 5.8),  # Jun 22
+    (datetime(2026, 6, 26, 7, 45, 0), 5.5),  # Jun 26
+    (datetime(2026, 7, 2, 9, 45, 0), 5.5),  # Jul 2
+    (datetime(2026, 7, 6, 10, 15, 0), 5.6),  # Jul 6
+    (datetime(2026, 7, 14, 10, 15, 0), 5.2),  # Jul 14
+    (datetime(2026, 7, 15, 10, 15, 0), 5.5),  # Jul 15
 ]
 
 # Time of day boundaries (hour of day).
