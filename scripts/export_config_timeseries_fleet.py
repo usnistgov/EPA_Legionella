@@ -91,8 +91,20 @@ from src.particle_calculations import PARTICLE_BINS  # noqa: E402
 # The 14 IAQ&V fleet sensors: all sensors in the chunk share except 00467 and
 # 00785. 00195 is included and handled like any other sensor (from chunk data).
 SENSOR_IDS = [
-    "00195", "00401", "00402", "00465", "00515", "00516", "00554",
-    "00555", "00813", "00814", "00815", "00816", "00942", "00943",
+    "00195",
+    "00401",
+    "00402",
+    "00465",
+    "00515",
+    "00516",
+    "00554",
+    "00555",
+    "00813",
+    "00814",
+    "00815",
+    "00816",
+    "00942",
+    "00943",
 ]
 
 # Global processing window (inclusive) on shower-on time.
@@ -113,16 +125,20 @@ SENSOR_INSTALL_CUTOFFS = {
 # Event Loading and Gating
 # =============================================================================
 
+
 def load_valid_events() -> pd.DataFrame:
     """
-    Load the event registry and keep valid, non-excluded events in the window.
+    Load the event registry and keep numbered events in the date window.
 
-    Applies the same validity/exclusion filtering and flow-rate grouping as the
-    original single-sensor script, then restricts to the global date window on
-    shower-on time.
+    Keeps events that have an event number, a deposition_end, and a shower_on
+    time, then applies flow-rate grouping and restricts to the global date
+    window on shower-on time. Unlike the single-sensor script, the registry
+    ``is_excluded`` flag is not applied: it encodes CO2/RH data-quality criteria
+    (lambda R^2, bedroom RH-mixing) that do not bear on PM records. Water-temp-
+    testing runs are still dropped, since they never receive an event number.
 
     Returns:
-        DataFrame of valid events with a ``_group_key`` column, or empty.
+        DataFrame of numbered events with a ``_group_key`` column, or empty.
     """
     print("Loading event registry...")
     registry = load_event_registry()
@@ -132,17 +148,13 @@ def load_valid_events() -> pd.DataFrame:
         & registry["deposition_end"].notna()
         & registry["shower_on"].notna()
     )
-    if "is_excluded" in registry.columns:
-        mask &= ~registry["is_excluded"].fillna(False)
 
     valid = registry[mask].copy()
 
     # Fill deposition_end from shower_off if missing (fallback, same as original)
     if valid["deposition_end"].isna().any():
         missing = valid["deposition_end"].isna()
-        valid.loc[missing, "deposition_end"] = (
-            valid.loc[missing, "shower_off"] + timedelta(hours=2)
-        )
+        valid.loc[missing, "deposition_end"] = valid.loc[missing, "shower_off"] + timedelta(hours=2)
 
     # Restrict to the global date window on shower-on time
     in_window = (valid["shower_on"] >= DATE_START) & (valid["shower_on"] <= DATE_END)
@@ -176,6 +188,7 @@ def filter_events_for_sensor(valid: pd.DataFrame, sn: str) -> pd.DataFrame:
 # =============================================================================
 # Per-Event Time Series (this sensor's PM plus shared env sensors)
 # =============================================================================
+
 
 def build_event_pm_1min(
     event: dict,
@@ -267,6 +280,7 @@ def build_event_raw_pm(event: dict, sensor_raw: pd.DataFrame) -> pd.DataFrame:
 # Raw Workbook Output (one per config group)
 # =============================================================================
 
+
 def write_raw_group_workbook(
     output_path: Path,
     group_key: str,
@@ -299,8 +313,7 @@ def write_raw_group_workbook(
 
     # Column labels for the bins (raw records: one column per analysis bin)
     bin_labels = {
-        f"opc_bin{n}": f"Bin{n} [{PARTICLE_BINS[n]['name']} um] (#/cm3)"
-        for n in PARTICLE_BINS
+        f"opc_bin{n}": f"Bin{n} [{PARTICLE_BINS[n]['name']} um] (#/cm3)" for n in PARTICLE_BINS
     }
 
     # --- Assign sheet names up front (event-number based) ---
@@ -323,14 +336,16 @@ def write_raw_group_workbook(
 
     for i, (event_num, shower_on, window_end, raw_df) in enumerate(event_sheets, start=1):
         sname = sheet_names[event_num]
-        ws_idx.append([
-            i,
-            event_num,
-            sname,
-            shower_on.strftime("%Y-%m-%d %H:%M:%S"),
-            window_end.strftime("%Y-%m-%d %H:%M:%S"),
-            len(raw_df),
-        ])
+        ws_idx.append(
+            [
+                i,
+                event_num,
+                sname,
+                shower_on.strftime("%Y-%m-%d %H:%M:%S"),
+                window_end.strftime("%Y-%m-%d %H:%M:%S"),
+                len(raw_df),
+            ]
+        )
         link_cell = ws_idx.cell(row=ws_idx.max_row, column=3)
         link_cell.hyperlink = f"#'{sname}'!A1"
         link_cell.font = link_font
@@ -349,9 +364,7 @@ def write_raw_group_workbook(
 
         ws.append([f"Config Group: {group_key}    Event: {event_num}"])
         ws.cell(row=1, column=1).font = header_font
-        ws.append([
-            f"Window: {shower_on:%Y-%m-%d %H:%M:%S} to {window_end:%Y-%m-%d %H:%M:%S}"
-        ])
+        ws.append([f"Window: {shower_on:%Y-%m-%d %H:%M:%S} to {window_end:%Y-%m-%d %H:%M:%S}"])
         ws.append([])
 
         col_headers = ["Datetime"] + [bin_labels[c] for c in BIN_COLUMNS]
@@ -377,6 +390,7 @@ def write_raw_group_workbook(
 # =============================================================================
 # Per-Sensor Processing
 # =============================================================================
+
 
 def process_sensor(
     sn: str,
@@ -449,8 +463,8 @@ def process_sensor(
         event_nums = [int(e["event_number"]) for e in group_rows]
         n_events = len(group_rows)
 
-        event_dfs = []          # 1-min per-event frames for aggregation
-        raw_event_sheets = []   # (event_num, shower_on, window_end, raw_df)
+        event_dfs = []  # 1-min per-event frames for aggregation
+        raw_event_sheets = []  # (event_num, shower_on, window_end, raw_df)
 
         for event in group_rows:
             pm_df = build_event_pm_1min(event, sensor_1min, sensor_cache)
@@ -458,12 +472,14 @@ def process_sensor(
                 event_dfs.append(pm_df)
 
             raw_df = build_event_raw_pm(event, sensor_raw)
-            raw_event_sheets.append((
-                int(event["event_number"]),
-                event["shower_on"],
-                event["deposition_end"],
-                raw_df,
-            ))
+            raw_event_sheets.append(
+                (
+                    int(event["event_number"]),
+                    event["shower_on"],
+                    event["deposition_end"],
+                    raw_df,
+                )
+            )
 
         # --- Aggregated group ---
         if event_dfs:
@@ -495,6 +511,7 @@ def process_sensor(
 # =============================================================================
 # Main
 # =============================================================================
+
 
 def run(sensor_ids: list, sig_figs_enabled: bool = True) -> None:
     """Load events and shared env data, then process each sensor."""
