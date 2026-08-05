@@ -18,6 +18,17 @@ bins (opc_bin0 + ... + opc_bin11) inside the analysis window
 Shower events are read from the project shower log (state-change log) using the
 same ON-transition logic as the particle decay workflow.
 
+Sensor set
+----------
+The figure shows the co-located bedroom sensors only. The outside sensor
+(MOD-PM-00785) and MOD-PM-00555 are dropped. The four bedroom sensors added
+on 2026-06-25 (515, 465, 516, 467) are included; each is gated to its install
+time so that events before it went live are left blank for that sensor only.
+
+MOD-PM-00401 is retained, but its raw bins read exactly 0 for roughly 90 % of
+this period (a near-dead sensor), so its delta-peak values collapse to the
+window start. The script prints a warning to flag that 401 is unreliable here.
+
 Usage
 -----
     python scripts/moduair_event_peak_times.py
@@ -26,6 +37,7 @@ Usage
 Arguments
 ---------
     --start STR   Inclusive start datetime for events (default 2026-06-04 00:00:00).
+    --end STR     Inclusive end datetime for events (default 2026-07-16 23:59:59).
     --window-hours FLOAT  Hours after shower OFF to search for the peak (default 2.0).
     --output-dir PATH     Override output directory.
 
@@ -42,6 +54,14 @@ Update log:
     2026-07-06 (Nathan Lima): Switch the delta-peak figure to an interactive
         Bokeh plot with click-to-hide legend so individual sensor traces can be
         toggled on and off; output is now an HTML file.
+    2026-08-04 (Nathan Lima): Extend the default event window to 2026-06-04
+        through 2026-07-16, restrict the plotted fleet to the co-located
+        bedroom sensors (drop 555 and 785), add the four bedroom sensors
+        installed 2026-06-25 (515, 465, 516, 467) with per-sensor install
+        gating, and warn when 401 is a near-dead sensor for the window.
+    2026-08-05 (Nathan Lima): Double the figure size (2200x1000) and color
+        sensors by group (four colorblind-safe hue families, distinct shade
+        per member); trace and legend order now follow the group sequence.
 """
 
 import argparse
@@ -68,15 +88,75 @@ from src.moduair_loader import (  # noqa: E402
     list_available_sensors,
     load_fleet_bins,
 )
-from src.plot_style import SENSOR_COLORS  # noqa: E402
 
 DEFAULT_START = "2026-06-04 00:00:00"
+DEFAULT_END = "2026-07-16 23:59:59"
 DEFAULT_PEAK_WINDOW_HOURS = 2.0
 
+# Co-located bedroom sensors shown on the figure. The outside sensor (00785)
+# and 00555 are excluded. 00401 is kept but is a near-dead sensor for this
+# window (see module docstring); a warning is printed at run time.
+PLOT_SENSORS = [
+    "00195",
+    "00401",
+    "00402",
+    "00465",
+    "00467",
+    "00515",
+    "00516",
+    "00554",
+    "00813",
+    "00814",
+    "00815",
+    "00816",
+    "00942",
+    "00943",
+]
 
-def get_shower_events(start: pd.Timestamp) -> list:
+# Per-sensor install cutoffs: an event is blanked for that sensor if its
+# shower-on time falls before the cutoff (sensor not yet in the test area).
+# Matches SENSOR_INSTALL_CUTOFFS in scripts/export_config_timeseries_fleet.py;
+# 00467 shares the 2026-07-08 window with the other three late installs.
+SENSOR_INSTALL_CUTOFFS = {
+    "00465": pd.Timestamp("2026-07-08 13:00:00"),
+    "00467": pd.Timestamp("2026-07-08 13:00:00"),
+    "00515": pd.Timestamp("2026-07-08 13:00:00"),
+    "00516": pd.Timestamp("2026-07-08 13:00:00"),
+}
+
+# Sensor groups for the delta-peak figure. Each group shares a colorblind-safe
+# base hue, and members are given distinct shades of that hue so co-located
+# sensors read as one family on the plot. The plotting order below (group by
+# group, in this sequence) also sets the legend order. Keys are 3-digit sensor
+# labels (the last three digits of the sensor ID).
+SENSOR_GROUP_COLORS = {
+    # Group A: blues
+    "465": "#08306b",
+    "467": "#08519c",
+    "515": "#2171b5",
+    "516": "#4292c6",
+    "943": "#6baed6",
+    # Group B: oranges
+    "402": "#e6550d",
+    "816": "#fd8d3c",
+    # Group C: greens
+    "195": "#238b45",
+    "813": "#74c476",
+    # Group D: purples
+    "401": "#3f007d",
+    "554": "#6a51a3",
+    "814": "#807dba",
+    "815": "#9e9ac8",
+    "942": "#bcbddc",
+}
+
+# Legend/draw order for the figure, matching the group sequence above.
+SENSOR_PLOT_ORDER = list(SENSOR_GROUP_COLORS.keys())
+
+
+def get_shower_events(start: pd.Timestamp, end: pd.Timestamp) -> list:
     """
-    Read shower ON events from the shower log on or after ``start``.
+    Read shower ON events from the shower log within [start, end].
 
     A shower event is a 0 -> >0 transition of the 'shower' column, matching
     identify_shower_events() in src.particle_data_loader. The following OFF
@@ -85,6 +165,7 @@ def get_shower_events(start: pd.Timestamp) -> list:
 
     Parameters:
         start: Inclusive lower bound on shower_on.
+        end: Inclusive upper bound on shower_on.
 
     Returns:
         List of dicts: {shower_on, shower_off}.
@@ -92,8 +173,7 @@ def get_shower_events(start: pd.Timestamp) -> list:
     log_path = get_common_file("shower_log_file")
     if not log_path.exists():
         raise FileNotFoundError(
-            f"Shower log not found: {log_path}\n"
-            "Run scripts/process_shower_log.py first."
+            f"Shower log not found: {log_path}\nRun scripts/process_shower_log.py first."
         )
 
     df = pd.read_csv(log_path)
@@ -104,7 +184,7 @@ def get_shower_events(start: pd.Timestamp) -> list:
     for i in range(len(df) - 1):
         if df.iloc[i]["shower"] == 0 and df.iloc[i + 1]["shower"] > 0:
             shower_on = df.iloc[i + 1]["datetime_EDT"]
-            if shower_on < start:
+            if shower_on < start or shower_on > end:
                 continue
 
             shower_off = None
@@ -158,6 +238,11 @@ def compute_delta_peaks(
 
         row = {"shower_on": shower_on, "shower_off": shower_off}
         for sn in sensor_ids:
+            # Blank events that precede this sensor's install time.
+            cutoff = SENSOR_INSTALL_CUTOFFS.get(sn)
+            if cutoff is not None and shower_on < cutoff:
+                row[f"delta_peak_min_{sn}"] = float("nan")
+                continue
             series = totals[sn]
             mask = (series.index >= shower_on) & (series.index <= win_end)
             window = series[mask].dropna()
@@ -191,8 +276,8 @@ def plot_delta_peaks(peaks: pd.DataFrame, sensor_ids: list, output_dir: Path) ->
     output_file(str(out_path), title="Delta peak time per shower event")
 
     fig = figure(
-        width=1100,
-        height=500,
+        width=1600,
+        height=800,
         x_axis_type="datetime",
         title="Delta peak time per shower event (summed bin0-11)",
         x_axis_label="Shower ON",
@@ -200,20 +285,20 @@ def plot_delta_peaks(peaks: pd.DataFrame, sensor_ids: list, output_dir: Path) ->
         tools="pan,box_zoom,wheel_zoom,reset,save",
     )
 
-    for i, sn in enumerate(sensor_ids):
-        col = f"delta_peak_min_{sn}"
-        source = ColumnDataSource(
-            data={"x": peaks["shower_on"], "y": peaks[col]}
-        )
-        color = SENSOR_COLORS[i % len(SENSOR_COLORS)]
-        label = sn[-3:]
+    # Draw sensors in the grouped legend order; any plotted sensor not covered
+    # by SENSOR_GROUP_COLORS is appended afterward so it is never silently dropped.
+    label_by_sn = {sn: sn[-3:] for sn in sensor_ids}
+    ordered = [sn for lbl in SENSOR_PLOT_ORDER for sn in sensor_ids if label_by_sn[sn] == lbl]
+    ordered += [sn for sn in sensor_ids if sn not in ordered]
 
-        line = fig.line(
-            "x", "y", source=source, line_width=1.0, color=color, legend_label=label
-        )
-        fig.scatter(
-            "x", "y", source=source, size=5, color=color, legend_label=label
-        )
+    for sn in ordered:
+        col = f"delta_peak_min_{sn}"
+        source = ColumnDataSource(data={"x": peaks["shower_on"], "y": peaks[col]})
+        label = label_by_sn[sn]
+        color = SENSOR_GROUP_COLORS.get(label, "#7f7f7f")
+
+        line = fig.line("x", "y", source=source, line_width=1.0, color=color, legend_label=label)
+        fig.scatter("x", "y", source=source, size=5, color=color, legend_label=label)
         # Hover reports the sensor, event time, and delta peak for the line only.
         fig.add_tools(
             HoverTool(
@@ -237,10 +322,9 @@ def plot_delta_peaks(peaks: pd.DataFrame, sensor_ids: list, output_dir: Path) ->
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="MODULAIR-PM delta peak times per shower event."
-    )
+    parser = argparse.ArgumentParser(description="MODULAIR-PM delta peak times per shower event.")
     parser.add_argument("--start", default=DEFAULT_START, help="Inclusive start datetime.")
+    parser.add_argument("--end", default=DEFAULT_END, help="Inclusive end datetime.")
     parser.add_argument(
         "--window-hours",
         type=float,
@@ -251,30 +335,51 @@ def main() -> None:
     args = parser.parse_args()
 
     start = pd.Timestamp(args.start)
+    end = pd.Timestamp(args.end)
     output_dir = Path(args.output_dir) if args.output_dir else get_data_root() / "output"
 
     print("\n" + "=" * 70)
     print("MODULAIR-PM Event Delta Peak Times")
     print("=" * 70)
-    print(f"Start: {start}  Peak window: shower OFF + {args.window_hours} h")
+    print(f"Events: {start} to {end}  Peak window: shower OFF + {args.window_hours} h")
 
-    events = get_shower_events(start)
-    print(f"\nShower events since {start.date()}: {len(events)}")
+    events = get_shower_events(start, end)
+    print(f"\nShower events in window: {len(events)}")
     if not events:
         print("No events found; nothing to do.")
         return
 
     available = list_available_sensors("raw")
-    print(f"Available raw sensors: {', '.join(available)}")
+    # Restrict to the co-located bedroom sensors we plot, keeping only those
+    # that actually have chunk files in the share.
+    sensor_ids = [sn for sn in PLOT_SENSORS if sn in available]
+    missing = [sn for sn in PLOT_SENSORS if sn not in available]
+    if missing:
+        print(f"Requested sensors with no chunks (skipped): {', '.join(missing)}")
+    print(f"Plotting sensors: {', '.join(sensor_ids)}")
 
     # Load fleet data spanning the full event range plus the peak window.
     load_end = max(e["shower_off"] for e in events) + timedelta(hours=args.window_hours + 1)
     print("\nLoading fleet data...")
-    fleet = load_fleet_bins(available, start=start, end=load_end)
+    fleet = load_fleet_bins(sensor_ids, start=start, end=load_end)
+
+    # Keep only sensors we intend to plot and that loaded successfully.
+    sensor_ids = [sn for sn in sensor_ids if sn in fleet]
 
     print("\nComputing delta peak times...")
     peaks = compute_delta_peaks(events, fleet, args.window_hours)
-    sensor_ids = sorted(fleet.keys())
+
+    # Flag 401 if it is effectively dead for this window: its summed bins are
+    # zero for a large share of minutes, so delta-peaks collapse to the start.
+    if "00401" in fleet:
+        total_401 = fleet["00401"].set_index("datetime")[BIN_COLUMNS].sum(axis=1)
+        zero_frac = float((total_401 == 0).mean())
+        if zero_frac > 0.3:
+            print(
+                f"\n[WARN] MOD-PM-00401 reads exactly 0 for {zero_frac * 100:.0f}% of "
+                "minutes in this window (near-dead sensor). Its delta-peak values "
+                "collapse to the window start and should not be interpreted."
+            )
 
     csv_path = output_dir / "moduair_event_peak_times.csv"
     peaks.to_csv(csv_path, index=False)

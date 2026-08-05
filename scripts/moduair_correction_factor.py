@@ -13,21 +13,23 @@ Three ratios are produced, per particle-size bin, on a shared time base:
     Ratio 813:   195 / 813
         Direct ratio against reference sensor MOD-PM-00813.
 
-    Ratio 943:   195 / 943
-        Direct ratio against reference sensor MOD-PM-00943.
+    Ratio quad:  195 / mean(515, 465, 943, 516)
+        Ratio against the average of the four co-located reference sensors
+        515, 465, 943, and 516.
 
-    Ratio mean:  195 / mean(all others)
-        Ratio against the average of all other fleet sensors, excluding the
-        target (195), the two reference sensors (813, 943), and 785. The
-        averaging set is every remaining sensor with data.
+    Ratio others: 195 / mean(remaining bedroom sensors)
+        Ratio against the average of the co-located bedroom sensors that are
+        not already used above: every sensor except the target (195), the
+        outside sensor (785), the direct reference (813), and the four
+        quad-average sensors (515, 465, 943, 516).
 
 A value near 1.0 means the inside sensor agrees with the reference; a sustained
 offset is a candidate multiplicative correction factor.
 
-Figures are produced for two trailing windows measured back from the latest
-timestamp present in the loaded fleet data: the last week and the last 24
-hours. One figure is produced per bin (0-11) per window, with all three ratios
-drawn on the same axes so they can be compared directly.
+One figure is produced per bin (0-11) over the full analysis window
+(2026-06-04 through 2026-07-16 by default), with all three ratios drawn on the
+same axes so they can be compared directly. Figures are interactive Bokeh HTML
+files with a click-to-hide legend.
 
 Usage
 -----
@@ -37,17 +39,16 @@ Usage
 Arguments
 ---------
     --start STR   Inclusive start datetime (default: 2026-06-04 00:00:00).
-    --end STR     Inclusive end datetime (default: latest available).
+    --end STR     Inclusive end datetime (default: 2026-07-16 23:59:59).
     --output-dir  Override the figure output directory.
 
 Output Files
 ------------
-    <output>/plots/moduair_correction/last_week/correction_factor_bin{N}.png
-    <output>/plots/moduair_correction/last_24h/correction_factor_bin{N}.png
-    <output>/moduair_correction_factor_ratios_last_week.csv
-    <output>/moduair_correction_factor_ratios_last_24h.csv
-    <output>/moduair_correction_factor_summary_last_week.csv
-    <output>/moduair_correction_factor_summary_last_24h.csv
+    <output>/plots/moduair_correction/jun04_jul16/correction_factor_bin{N}.html
+    <output>/moduair_correction_factor_ratios_jun04_jul16.csv
+    <output>/moduair_correction_factor_summary_jun04_jul16.csv
+    <output>/moduair_correction_factor_195_813_jun04_jul16.csv
+        Focused 195/813 table: per-bin mean, standard deviation, and count.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -57,11 +58,14 @@ Update log:
     2026-07-06 (Nathan Lima): Switch to three ratios (195/813, 195/943,
         195/mean(all others), excluding 785); add last-week and last-24h
         windowed figure sets and per-window ratio and summary tables.
+    2026-08-04 (Nathan Lima): Fix the analysis to a single 2026-06-04 through
+        2026-07-16 window (drop last-week and last-24h). Redefine the ratios:
+        195/813, 195/mean(515,465,943,516), and 195/mean(remaining bedroom
+        sensors). Switch the per-bin figures to interactive Bokeh plots.
 """
 
 import argparse
 import sys
-from datetime import timedelta
 from pathlib import Path
 
 # Ensure stdout/stderr use UTF-8 on Windows (log files default to cp1252)
@@ -70,8 +74,9 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-import matplotlib.dates as mdates
 import pandas as pd
+from bokeh.models import ColumnDataSource, HoverTool, Span
+from bokeh.plotting import figure, output_file, save
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -84,42 +89,37 @@ from src.moduair_loader import (  # noqa: E402
     load_fleet_bins,
 )
 from src.particle_calculations import PARTICLE_BINS  # noqa: E402
-from src.plot_style import COLORS, create_figure, save_figure  # noqa: E402
+from src.plot_style import COLORS  # noqa: E402
 
-# Sensor of interest (inside) and the two reference sensors for direct ratios.
+# Sensor of interest (inside) and the direct-ratio reference sensor.
 TARGET_SN = "00195"
-REFERENCE_SNS = ["00813", "00943"]
+REFERENCE_SN = "00813"
 
-# Sensors excluded from the "mean (all others)" average: the two reference
-# sensors (813, 943) and 785. The target (195) is always excluded implicitly.
-EXCLUDE_FROM_AVERAGE = {"00785", "00813", "00943"}
+# The four co-located sensors averaged for the "quad" ratio: 195 / mean(these).
+QUAD_AVERAGE_SNS = ["00515", "00465", "00943", "00516"]
+
+# Sensors excluded from the "others" average: the target (195), the outside
+# sensor (785), the direct reference (813), and the four quad-average sensors.
+# Every remaining sensor with data forms the "others" set.
+EXCLUDE_FROM_OTHERS = {"00195", "00785", "00813", "00515", "00465", "00943", "00516"}
 
 DEFAULT_START = "2026-06-04 00:00:00"
-
-# Trailing figure windows, measured back from the latest available timestamp.
-WINDOWS = {
-    "last_week": {
-        "label": "last 7 days",
-        "delta": timedelta(days=7),
-        "date_fmt": "%m-%d",
-    },
-    "last_24h": {
-        "label": "last 24 hours",
-        "delta": timedelta(hours=24),
-        "date_fmt": "%m-%d %H:%M",
-    },
-}
+DEFAULT_END = "2026-07-16 23:59:59"
+WINDOW_KEY = "jun04_jul16"
+WINDOW_LABEL = "2026-06-04 to 2026-07-16"
 
 # Line colors for the three ratios (single source of truth: plot_style COLORS)
 COLOR_RATIO_813 = COLORS["lambda"]    # red:    195 / 813
-COLOR_RATIO_943 = COLORS["outside"]   # green:  195 / 943
-COLOR_RATIO_MEAN = COLORS["bedroom"]  # blue:   195 / mean(all others)
+COLOR_RATIO_QUAD = COLORS["outside"]  # green:  195 / mean(515,465,943,516)
+COLOR_RATIO_OTHERS = COLORS["bedroom"]  # blue:  195 / mean(remaining bedroom)
 
-# Ratio metadata driving both plotting and table columns.
+# Ratio metadata driving both plotting and table columns. The "key" is the
+# suffix used in the ratio_<key>_bin{N} column names; "label" is the figure
+# legend and table label (kept in sync with compute_ratios()).
 RATIO_SPECS = [
     {"key": "813", "color": COLOR_RATIO_813, "label": "195 / 813"},
-    {"key": "943", "color": COLOR_RATIO_943, "label": "195 / 943"},
-    {"key": "mean", "color": COLOR_RATIO_MEAN, "label": "195 / mean(others)"},
+    {"key": "quad", "color": COLOR_RATIO_QUAD, "label": "195 / mean(515,465,943,516)"},
+    {"key": "others", "color": COLOR_RATIO_OTHERS, "label": "195 / mean(other bedroom)"},
 ]
 
 
@@ -127,133 +127,157 @@ def compute_ratios(fleet: dict) -> pd.DataFrame:
     """
     Build a tidy DataFrame of all three bin-wise ratios on a common time index.
 
+    Ratios per bin N:
+        ratio_813_bin{N}    = 195 / 813
+        ratio_quad_bin{N}   = 195 / mean(515, 465, 943, 516)
+        ratio_others_bin{N} = 195 / mean(remaining bedroom sensors)
+
     Parameters:
         fleet: Dict of {sensor_id: DataFrame(datetime + opc_bin0..11)} from
             src.moduair_loader.load_fleet_bins().
 
     Returns:
         DataFrame indexed by datetime with columns ratio_813_bin{N},
-        ratio_943_bin{N}, and ratio_mean_bin{N} for N in 0..N_BINS-1.
+        ratio_quad_bin{N}, and ratio_others_bin{N} for N in 0..N_BINS-1.
     """
     if TARGET_SN not in fleet:
         raise ValueError(f"Target sensor {TARGET_SN} has no data in the fleet.")
-    for ref in REFERENCE_SNS:
-        if ref not in fleet:
-            raise ValueError(f"Reference sensor {ref} has no data in the fleet.")
+    if REFERENCE_SN not in fleet:
+        raise ValueError(f"Reference sensor {REFERENCE_SN} has no data in the fleet.")
 
     target = fleet[TARGET_SN].set_index("datetime")[BIN_COLUMNS]
-    references = {
-        ref: fleet[ref].set_index("datetime")[BIN_COLUMNS] for ref in REFERENCE_SNS
-    }
+    reference = fleet[REFERENCE_SN].set_index("datetime")[BIN_COLUMNS]
 
-    # Sensors that form the "others" average for the mean ratio.
-    other_ids = [
-        sid for sid in fleet
-        if sid != TARGET_SN and sid not in EXCLUDE_FROM_AVERAGE
-    ]
-    print(f"  Direct ratio references: {', '.join(REFERENCE_SNS)}")
-    print(f"  Mean ratio average over {len(other_ids)} sensors: {', '.join(other_ids)}")
+    # Quad-average sensors that actually have data.
+    quad_ids = [sid for sid in QUAD_AVERAGE_SNS if sid in fleet]
+    missing_quad = [sid for sid in QUAD_AVERAGE_SNS if sid not in fleet]
+    if missing_quad:
+        print(f"  [WARN] Quad-average sensors with no data (dropped): {', '.join(missing_quad)}")
 
-    # Average the "others" per bin across sensors on the shared 1-min index.
-    others_stack = pd.concat(
-        [fleet[sid].set_index("datetime")[BIN_COLUMNS] for sid in other_ids],
-        axis=1,
-        keys=other_ids,
-    )
+    # "Others" set: every remaining sensor with data.
+    other_ids = [sid for sid in fleet if sid not in EXCLUDE_FROM_OTHERS]
+
+    print(f"  Direct ratio reference: {REFERENCE_SN}")
+    print(f"  Quad ratio averages over {len(quad_ids)} sensors: {', '.join(quad_ids)}")
+    print(f"  Others ratio averages over {len(other_ids)} sensors: {', '.join(other_ids)}")
+
+    def _mean_stack(sensor_ids: list) -> pd.DataFrame:
+        """Per-bin mean across a set of sensors, aligned to the target index."""
+        stack = pd.concat(
+            [fleet[sid].set_index("datetime")[BIN_COLUMNS] for sid in sensor_ids],
+            axis=1,
+            keys=sensor_ids,
+        )
+        return stack
+
+    quad_stack = _mean_stack(quad_ids) if quad_ids else None
+    others_stack = _mean_stack(other_ids) if other_ids else None
 
     out = pd.DataFrame(index=target.index)
     for i in range(N_BINS):
         col = f"opc_bin{i}"
 
-        # Direct ratios: 195 / 813 and 195 / 943
-        for ref in REFERENCE_SNS:
-            ref_aligned = references[ref][col].reindex(target.index)
-            out[f"ratio_{ref[-3:]}_bin{i}"] = (
-                target[col] / ref_aligned.where(ref_aligned != 0)
-            )
+        # Direct ratio: 195 / 813
+        ref_aligned = reference[col].reindex(target.index)
+        out[f"ratio_813_bin{i}"] = target[col] / ref_aligned.where(ref_aligned != 0)
 
-        # Mean ratio: 195 / mean(others), averaging across the sensor level
-        others_bin = others_stack.xs(col, axis=1, level=1)
-        others_mean = others_bin.mean(axis=1, skipna=True).reindex(target.index)
-        out[f"ratio_mean_bin{i}"] = target[col] / others_mean.where(others_mean != 0)
+        # Quad ratio: 195 / mean(515, 465, 943, 516)
+        if quad_stack is not None:
+            quad_bin = quad_stack.xs(col, axis=1, level=1)
+            quad_mean = quad_bin.mean(axis=1, skipna=True).reindex(target.index)
+            out[f"ratio_quad_bin{i}"] = target[col] / quad_mean.where(quad_mean != 0)
+        else:
+            out[f"ratio_quad_bin{i}"] = float("nan")
+
+        # Others ratio: 195 / mean(remaining bedroom sensors)
+        if others_stack is not None:
+            others_bin = others_stack.xs(col, axis=1, level=1)
+            others_mean = others_bin.mean(axis=1, skipna=True).reindex(target.index)
+            out[f"ratio_others_bin{i}"] = target[col] / others_mean.where(others_mean != 0)
+        else:
+            out[f"ratio_others_bin{i}"] = float("nan")
 
     return out
 
 
-def slice_window(ratios: pd.DataFrame, delta: timedelta) -> pd.DataFrame:
+def plot_bin_ratios(ratios: pd.DataFrame, plot_dir: Path, window_label: str) -> None:
     """
-    Return the trailing slice of ``ratios`` covering the last ``delta``.
+    Plot all three ratios per bin (one interactive Bokeh figure per bin).
 
-    The window is anchored to the latest timestamp in the ratio index, so it
-    tracks the most recent data regardless of any lag behind wall-clock time.
+    Each figure shows the three ratio traces on a shared datetime axis with a
+    dashed reference line at 1.0 (perfect agreement) and a click-to-hide
+    legend. Output is one HTML file per bin.
 
     Parameters:
         ratios: DataFrame from compute_ratios(), datetime-indexed.
-        delta: Trailing window length.
-
-    Returns:
-        Row-subset of ``ratios`` with index in [latest - delta, latest].
-    """
-    if ratios.empty:
-        return ratios
-    latest = ratios.index.max()
-    return ratios.loc[ratios.index >= (latest - delta)]
-
-
-def plot_bin_ratios(ratios: pd.DataFrame, plot_dir: Path, window_label: str, date_fmt: str) -> None:
-    """
-    Plot all three ratios per bin (one figure per bin) for a single window.
-
-    Parameters:
-        ratios: Windowed DataFrame from slice_window().
-        plot_dir: Directory to write the per-bin figures into.
+        plot_dir: Directory to write the per-bin HTML figures into.
         window_label: Human-readable window name for figure titles.
-        date_fmt: strftime format for x-axis major tick labels.
     """
     plot_dir.mkdir(parents=True, exist_ok=True)
     times = ratios.index
 
     for i in range(N_BINS):
         bin_name = PARTICLE_BINS[i]["name"]
-        fig, ax = create_figure(figsize=(11, 4))
+        out_path = plot_dir / f"correction_factor_bin{i}.html"
+        output_file(str(out_path), title=f"Correction factor bin {i}")
+
+        fig = figure(
+            width=1100,
+            height=450,
+            x_axis_type="datetime",
+            title=(
+                f"MODULAIR-PM correction factor, bin {i} ({bin_name} µm) "
+                f"— {window_label}"
+            ),
+            x_axis_label="Date",
+            y_axis_label="Concentration ratio",
+            tools="pan,box_zoom,wheel_zoom,reset,save",
+        )
 
         for spec in RATIO_SPECS:
-            ax.plot(
-                times,
-                ratios[f"ratio_{spec['key']}_bin{i}"],
-                color=spec["color"],
-                linewidth=1.2,
-                label=spec["label"],
+            col = f"ratio_{spec['key']}_bin{i}"
+            source = ColumnDataSource(data={"x": times, "y": ratios[col]})
+            line = fig.line(
+                "x", "y", source=source, line_width=1.2,
+                color=spec["color"], legend_label=spec["label"],
+            )
+            fig.add_tools(
+                HoverTool(
+                    renderers=[line],
+                    tooltips=[
+                        ("Ratio", spec["label"]),
+                        ("Time", "@x{%F %H:%M}"),
+                        ("Value", "@y{0.000}"),
+                    ],
+                    formatters={"@x": "datetime"},
+                    mode="vline",
+                )
             )
 
-        # Reference line at 1.0 (perfect agreement)
-        ax.axhline(1.0, color=COLORS["grid"], linewidth=1.0, linestyle="--", zorder=0)
-
-        ax.set_title(
-            f"MODULAIR-PM correction factor, bin {i} ({bin_name} µm) — {window_label}"
+        # Reference line at 1.0 (perfect agreement).
+        fig.add_layout(
+            Span(location=1.0, dimension="width", line_color=COLORS["grid"],
+                 line_dash="dashed", line_width=1.0)
         )
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Concentration ratio")
-        ax.legend(loc="upper right")
 
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter(date_fmt))
-        fig.autofmt_xdate()
+        fig.legend.title = "Ratio"
+        fig.legend.click_policy = "hide"
+        fig.legend.location = "top_right"
 
-        out_path = plot_dir / f"correction_factor_bin{i}.png"
-        save_figure(fig, out_path)
+        save(fig)
         print(f"    Saved {out_path.name}")
 
 
 def summarize_ratios(ratios: pd.DataFrame) -> pd.DataFrame:
     """
-    Build a per-bin, per-ratio summary table (mean, median, count).
+    Build a per-bin, per-ratio summary table (mean, std, median, count).
 
     Parameters:
-        ratios: Windowed DataFrame from slice_window().
+        ratios: DataFrame from compute_ratios().
 
     Returns:
-        Long-format DataFrame with columns bin, ratio, mean, median, count.
+        Long-format DataFrame with columns bin, bin_name_um, ratio, mean, std,
+        median, count.
     """
     rows = []
     for i in range(N_BINS):
@@ -265,10 +289,42 @@ def summarize_ratios(ratios: pd.DataFrame) -> pd.DataFrame:
                     "bin_name_um": PARTICLE_BINS[i]["name"],
                     "ratio": spec["label"],
                     "mean": series.mean(),
+                    "std": series.std(),
                     "median": series.median(),
                     "count": int(series.count()),
                 }
             )
+    return pd.DataFrame(rows)
+
+
+def summarize_813(ratios: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build the focused 195/813 correction-factor table (Task 3).
+
+    One row per particle-size bin with the mean 195/813 ratio, its standard
+    deviation, median, and the number of contributing 1-minute samples over the
+    analysis window.
+
+    Parameters:
+        ratios: DataFrame from compute_ratios().
+
+    Returns:
+        DataFrame with columns bin, bin_name_um, correction_factor_mean,
+        correction_factor_std, correction_factor_median, count.
+    """
+    rows = []
+    for i in range(N_BINS):
+        series = ratios[f"ratio_813_bin{i}"].dropna()
+        rows.append(
+            {
+                "bin": i,
+                "bin_name_um": PARTICLE_BINS[i]["name"],
+                "correction_factor_mean": series.mean(),
+                "correction_factor_std": series.std(),
+                "correction_factor_median": series.median(),
+                "count": int(series.count()),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -277,12 +333,12 @@ def main() -> None:
         description="MODULAIR-PM inter-sensor correction factor (bin-wise ratios)."
     )
     parser.add_argument("--start", default=DEFAULT_START, help="Inclusive start datetime.")
-    parser.add_argument("--end", default=None, help="Inclusive end datetime.")
+    parser.add_argument("--end", default=DEFAULT_END, help="Inclusive end datetime.")
     parser.add_argument("--output-dir", default=None, help="Override output directory.")
     args = parser.parse_args()
 
     start = pd.Timestamp(args.start)
-    end = pd.Timestamp(args.end) if args.end else None
+    end = pd.Timestamp(args.end)
 
     output_dir = Path(args.output_dir) if args.output_dir else get_data_root() / "output"
     plot_root = output_dir / "plots" / "moduair_correction"
@@ -290,7 +346,7 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("MODULAIR-PM Correction Factor Analysis")
     print("=" * 70)
-    print(f"Start: {start}  End: {end if end else 'latest available'}")
+    print(f"Window: {start} to {end}")
 
     available = list_available_sensors("raw")
     print(f"\nAvailable raw sensors: {', '.join(available)}")
@@ -304,30 +360,30 @@ def main() -> None:
         print("No overlapping ratio data; nothing to do.")
         return
 
-    latest = ratios.index.max()
-    print(f"  Latest timestamp: {latest}")
+    print(f"  Time range: {ratios.index.min()} to {ratios.index.max()}")
 
-    for win_key, win in WINDOWS.items():
-        print(f"\n[{win['label']}] plots and tables...")
-        windowed = slice_window(ratios, win["delta"])
-        if windowed.empty:
-            print("  No data in this window; skipping.")
-            continue
+    print(f"\n[{WINDOW_LABEL}] plots and tables...")
+    plot_bin_ratios(ratios, plot_root / WINDOW_KEY, WINDOW_LABEL)
 
-        plot_bin_ratios(
-            windowed,
-            plot_root / win_key,
-            win["label"],
-            win["date_fmt"],
+    ratios_path = output_dir / f"moduair_correction_factor_ratios_{WINDOW_KEY}.csv"
+    ratios.reset_index().to_csv(ratios_path, index=False)
+    print(f"  Saved {ratios_path.name}")
+
+    summary_path = output_dir / f"moduair_correction_factor_summary_{WINDOW_KEY}.csv"
+    summarize_ratios(ratios).to_csv(summary_path, index=False)
+    print(f"  Saved {summary_path.name}")
+
+    # Task 3: focused 195/813 per-bin correction factor with standard deviation.
+    table_813_path = output_dir / f"moduair_correction_factor_195_813_{WINDOW_KEY}.csv"
+    table_813 = summarize_813(ratios)
+    table_813.to_csv(table_813_path, index=False)
+    print(f"  Saved {table_813_path.name}")
+    print("\n  195/813 correction factor per bin (mean ± std):")
+    for _, r in table_813.iterrows():
+        print(
+            f"    bin {int(r['bin']):>2} ({r['bin_name_um']:>9} µm): "
+            f"{r['correction_factor_mean']:.3f} ± {r['correction_factor_std']:.3f}"
         )
-
-        ratios_path = output_dir / f"moduair_correction_factor_ratios_{win_key}.csv"
-        windowed.reset_index().to_csv(ratios_path, index=False)
-        print(f"  Saved {ratios_path.name}")
-
-        summary_path = output_dir / f"moduair_correction_factor_summary_{win_key}.csv"
-        summarize_ratios(windowed).to_csv(summary_path, index=False)
-        print(f"  Saved {summary_path.name}")
 
     print("\n" + "=" * 70)
     print("Done")
