@@ -31,6 +31,23 @@ One figure is produced per bin (0-11) over the full analysis window
 same axes so they can be compared directly. Figures are interactive Bokeh HTML
 files with a click-to-hide legend.
 
+195-813 correlation (campaign correction)
+-----------------------------------------
+The instrument suite (including reference sensor 813) was added to the space in
+June; that is when the historical 195 record was found to be off. 813 was then
+relocated to the 195 position so a co-located x-y correlation could be built.
+For each bin, an orthogonal-distance (Deming) regression is fit with 195 on the
+x-axis and 813 on the y-axis, so the fitted line maps a measured 195 value to
+its 813-equivalent corrected value:
+
+    corrected_195 = slope * measured_195 + intercept
+
+The Deming fit treats both sensors as noisy (both are the same MODULAIR-PM
+model, so equal x/y error variance is assumed, delta=1). The per-bin slope,
+intercept, and their standard errors are written out so the correction can be
+applied to the full 195 campaign in a later step (this script only fits and
+reports; it does not modify the historical record).
+
 Usage
 -----
     python scripts/moduair_correction_factor.py
@@ -49,6 +66,13 @@ Output Files
     <output>/moduair_correction_factor_summary_jun04_jul16.csv
     <output>/moduair_correction_factor_195_813_jun04_jul16.csv
         Focused 195/813 table: per-bin mean, standard deviation, and count.
+    <output>/moduair_correction_195_813_fit_jun04_jul16.csv
+        Per-bin Deming (orthogonal) fit of 813 vs 195: slope, intercept, their
+        standard errors, Pearson r, r^2, and sample count. Use as
+        corrected_195 = slope * measured_195 + intercept.
+    <output>/plots/moduair_correction/jun04_jul16/correlation_bin{N}.html
+        Per-bin 195 (x) vs 813 (y) scatter with the fitted Deming line and a
+        1:1 reference line.
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
@@ -62,6 +86,10 @@ Update log:
         2026-07-16 window (drop last-week and last-24h). Redefine the ratios:
         195/813, 195/mean(515,465,943,516), and 195/mean(remaining bedroom
         sensors). Switch the per-bin figures to interactive Bokeh plots.
+    2026-08-06 (Nathan Lima): Add a per-bin Deming (orthogonal-distance) x-y
+        correlation of 813 vs 195 over the co-located window, plus per-bin
+        scatter figures and a fit table, for correcting the historical 195
+        record campaign-wide.
 """
 
 import argparse
@@ -74,8 +102,9 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+import numpy as np
 import pandas as pd
-from bokeh.models import ColumnDataSource, HoverTool, Span
+from bokeh.models import ColumnDataSource, HoverTool, Slope, Span
 from bokeh.plotting import figure, output_file, save
 
 # Add project root to path for imports
@@ -328,6 +357,211 @@ def summarize_813(ratios: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def fit_deming(x: pd.Series, y: pd.Series) -> dict:
+    """
+    Fit an orthogonal-distance (Deming) regression of y on x.
+
+    Both MODULAIR-PM sensors carry measurement error, so an ordinary
+    least-squares fit (which assumes x is error-free) would bias the slope.
+    ODR minimizes perpendicular distance instead. Equal x/y error variance is
+    assumed (delta = 1), appropriate when x and y are the same instrument model.
+
+    Parameters:
+        x: Independent-axis values (measured 195).
+        y: Dependent-axis values (reference 813), aligned to x.
+
+    Returns:
+        Dict with slope, slope_stderr, intercept, intercept_stderr, pearson_r,
+        r_squared, and n (number of paired, finite samples). All fit fields are
+        NaN if fewer than two finite pairs are available.
+    """
+    xv = np.asarray(x, dtype=float)
+    yv = np.asarray(y, dtype=float)
+    mask = np.isfinite(xv) & np.isfinite(yv)
+    xv, yv = xv[mask], yv[mask]
+    n = int(xv.size)
+
+    nan = float("nan")
+    if n < 2 or np.ptp(xv) == 0:
+        return {
+            "slope": nan, "slope_stderr": nan, "intercept": nan,
+            "intercept_stderr": nan, "pearson_r": nan, "r_squared": nan, "n": n,
+        }
+
+    # scipy.odr is deprecated as of SciPy 1.17 but still functional; import it
+    # locally with the warning suppressed to keep module load quiet.
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        from scipy.odr import ODR, Data, Model
+
+        # OLS slope/intercept as ODR starting guess.
+        ols_slope, ols_intercept = np.polyfit(xv, yv, 1)
+
+        odr = ODR(
+            Data(xv, yv),
+            Model(lambda beta, xx: beta[0] * xx + beta[1]),
+            beta0=[ols_slope, ols_intercept],
+        )
+        result = odr.run()
+    slope, intercept = result.beta
+    slope_se, intercept_se = result.sd_beta
+
+    pearson_r = float(np.corrcoef(xv, yv)[0, 1])
+
+    return {
+        "slope": float(slope),
+        "slope_stderr": float(slope_se),
+        "intercept": float(intercept),
+        "intercept_stderr": float(intercept_se),
+        "pearson_r": pearson_r,
+        "r_squared": pearson_r ** 2,
+        "n": n,
+    }
+
+
+def correlate_195_813(fleet: dict) -> pd.DataFrame:
+    """
+    Build the per-bin 813-vs-195 Deming correlation table.
+
+    For each analysis bin, 195 and 813 are paired on their shared 1-minute
+    index and fit with fit_deming() (195 on x, 813 on y). The resulting slope
+    and intercept map a measured 195 value to its 813-equivalent corrected
+    value: corrected_195 = slope * measured_195 + intercept.
+
+    Parameters:
+        fleet: Dict of {sensor_id: DataFrame(datetime + opc_bin0..11)}.
+
+    Returns:
+        DataFrame with one row per bin: bin, bin_name_um, slope, slope_stderr,
+        intercept, intercept_stderr, pearson_r, r_squared, n.
+    """
+    if TARGET_SN not in fleet:
+        raise ValueError(f"Target sensor {TARGET_SN} has no data in the fleet.")
+    if REFERENCE_SN not in fleet:
+        raise ValueError(f"Reference sensor {REFERENCE_SN} has no data in the fleet.")
+
+    target = fleet[TARGET_SN].set_index("datetime")[BIN_COLUMNS]
+    reference = fleet[REFERENCE_SN].set_index("datetime")[BIN_COLUMNS]
+    ref_aligned = reference.reindex(target.index)
+
+    rows = []
+    for i in range(N_BINS):
+        col = f"opc_bin{i}"
+        fit = fit_deming(target[col], ref_aligned[col])
+        rows.append(
+            {
+                "bin": i,
+                "bin_name_um": PARTICLE_BINS[i]["name"],
+                "slope": fit["slope"],
+                "slope_stderr": fit["slope_stderr"],
+                "intercept": fit["intercept"],
+                "intercept_stderr": fit["intercept_stderr"],
+                "pearson_r": fit["pearson_r"],
+                "r_squared": fit["r_squared"],
+                "n": fit["n"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def plot_195_813_scatter(fleet: dict, fit_table: pd.DataFrame, plot_dir: Path,
+                         window_label: str) -> None:
+    """
+    Plot per-bin 195 (x) vs 813 (y) scatter with the fitted Deming line.
+
+    Each figure overlays the paired 1-minute samples, the fitted correction
+    line (corrected_195 = slope*195 + intercept), and a dashed 1:1 reference
+    line. Output is one interactive Bokeh HTML file per bin.
+
+    Parameters:
+        fleet: Dict of {sensor_id: DataFrame(datetime + opc_bin0..11)}.
+        fit_table: DataFrame from correlate_195_813() (per-bin slope/intercept).
+        plot_dir: Directory to write the per-bin HTML figures into.
+        window_label: Human-readable window name for figure titles.
+    """
+    plot_dir.mkdir(parents=True, exist_ok=True)
+
+    target = fleet[TARGET_SN].set_index("datetime")[BIN_COLUMNS]
+    reference = fleet[REFERENCE_SN].set_index("datetime")[BIN_COLUMNS]
+    ref_aligned = reference.reindex(target.index)
+
+    fit_by_bin = {int(r["bin"]): r for _, r in fit_table.iterrows()}
+
+    for i in range(N_BINS):
+        col = f"opc_bin{i}"
+        bin_name = PARTICLE_BINS[i]["name"]
+        fit = fit_by_bin[i]
+
+        paired = pd.DataFrame(
+            {"x": target[col], "y": ref_aligned[col], "t": target.index}
+        ).replace([np.inf, -np.inf], np.nan).dropna(subset=["x", "y"])
+        if paired.empty:
+            print(f"    [WARN] No paired data for bin {i}; skipping scatter")
+            continue
+
+        out_path = plot_dir / f"correlation_bin{i}.html"
+        output_file(str(out_path), title=f"195-813 correlation bin {i}")
+
+        title = (
+            f"195 vs 813 correlation, bin {i} ({bin_name} µm) — {window_label} | "
+            f"813 = {fit['slope']:.3f}·195 + {fit['intercept']:.3f}, "
+            f"r² = {fit['r_squared']:.3f}, n = {int(fit['n'])}"
+        )
+        fig = figure(
+            width=650,
+            height=600,
+            title=title,
+            x_axis_label="195 concentration (measured)",
+            y_axis_label="813 concentration (reference)",
+            tools="pan,box_zoom,wheel_zoom,reset,save",
+        )
+
+        source = ColumnDataSource(
+            data={"x": paired["x"], "y": paired["y"], "t": paired["t"]}
+        )
+        pts = fig.scatter(
+            "x", "y", source=source, size=3, alpha=0.35,
+            color=COLORS["bedroom"], legend_label="1-min samples",
+        )
+        fig.add_tools(
+            HoverTool(
+                renderers=[pts],
+                tooltips=[
+                    ("195 (x)", "@x{0.000}"),
+                    ("813 (y)", "@y{0.000}"),
+                    ("Time", "@t{%F %H:%M}"),
+                ],
+                formatters={"@t": "datetime"},
+            )
+        )
+
+        # Axis span: shared range so the 1:1 line is meaningful.
+        lo = float(min(paired["x"].min(), paired["y"].min()))
+        hi = float(max(paired["x"].max(), paired["y"].max()))
+        fig.line([lo, hi], [lo, hi], line_color=COLORS["grid"],
+                 line_dash="dashed", line_width=1.0, legend_label="1:1")
+
+        # Fitted Deming correction line.
+        if pd.notna(fit["slope"]):
+            fig.add_layout(
+                Slope(gradient=float(fit["slope"]), y_intercept=float(fit["intercept"]),
+                      line_color=COLORS["lambda"], line_width=2.0)
+            )
+            # Legend proxy for the fit line (Slope has no legend entry).
+            fig.line([lo, hi],
+                     [fit["slope"] * lo + fit["intercept"],
+                      fit["slope"] * hi + fit["intercept"]],
+                     line_color=COLORS["lambda"], line_width=2.0,
+                     legend_label="Deming fit")
+
+        fig.legend.location = "top_left"
+        fig.legend.click_policy = "hide"
+
+        save(fig)
+        print(f"    Saved {out_path.name}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="MODULAIR-PM inter-sensor correction factor (bin-wise ratios)."
@@ -383,6 +617,24 @@ def main() -> None:
         print(
             f"    bin {int(r['bin']):>2} ({r['bin_name_um']:>9} µm): "
             f"{r['correction_factor_mean']:.3f} ± {r['correction_factor_std']:.3f}"
+        )
+
+    # 195-813 Deming correlation for campaign-wide correction of 195.
+    print("\nFitting 195-813 Deming correlation...")
+    fit_table = correlate_195_813(fleet)
+    fit_path = output_dir / f"moduair_correction_195_813_fit_{WINDOW_KEY}.csv"
+    fit_table.to_csv(fit_path, index=False)
+    print(f"  Saved {fit_path.name}")
+
+    plot_195_813_scatter(fleet, fit_table, plot_root / WINDOW_KEY, WINDOW_LABEL)
+
+    print("\n  195-813 per-bin fit (corrected_195 = slope·195 + intercept):")
+    for _, r in fit_table.iterrows():
+        print(
+            f"    bin {int(r['bin']):>2} ({r['bin_name_um']:>9} µm): "
+            f"slope {r['slope']:.3f} ± {r['slope_stderr']:.3f}, "
+            f"intercept {r['intercept']:.3f} ± {r['intercept_stderr']:.3f}, "
+            f"r² {r['r_squared']:.3f}, n {int(r['n'])}"
         )
 
     print("\n" + "=" * 70)
