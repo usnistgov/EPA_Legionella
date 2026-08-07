@@ -62,6 +62,13 @@ Update log:
     2026-08-05 (Nathan Lima): Double the figure size (2200x1000) and color
         sensors by group (four colorblind-safe hue families, distinct shade
         per member); trace and legend order now follow the group sequence.
+    2026-08-07 (Nathan Lima): Restrict events to the twice-daily shower runs
+        (ON transitions within +/-5 min of 03:00 or 15:00), dropping off-hour
+        temperature-test transitions; move figure styling, colors, and the
+        descriptive sensor legend into the shared MODULAIR-PM Bokeh helpers in
+        src.plot_style (1600x800, no title, 12pt); and break each sensor trace
+        at genuine data gaps so missing periods (e.g. 401's dead weeks) are not
+        drawn.
 """
 
 import argparse
@@ -88,10 +95,22 @@ from src.moduair_loader import (  # noqa: E402
     list_available_sensors,
     load_fleet_bins,
 )
+from src.plot_style import (  # noqa: E402
+    moduair_color,
+    moduair_label,
+    order_moduair_sensors,
+    style_moduair_figure,
+)
 
 DEFAULT_START = "2026-06-04 00:00:00"
 DEFAULT_END = "2026-07-16 23:59:59"
 DEFAULT_PEAK_WINDOW_HOURS = 2.0
+
+# Real shower events run twice daily at 03:00 and 15:00. Off-hour ON
+# transitions in the log are temperature/flow tests, not events, so the
+# figure keeps only ON times within EVENT_TOLERANCE_MIN of those two clocks.
+EVENT_HOURS = (3, 15)
+EVENT_TOLERANCE_MIN = 5
 
 # Co-located bedroom sensors shown on the figure. The outside sensor (00785)
 # and 00555 are excluded. 00401 is kept but is a near-dead sensor for this
@@ -124,35 +143,6 @@ SENSOR_INSTALL_CUTOFFS = {
     "00516": pd.Timestamp("2026-07-08 13:00:00"),
 }
 
-# Sensor groups for the delta-peak figure. Each group shares a colorblind-safe
-# base hue, and members are given distinct shades of that hue so co-located
-# sensors read as one family on the plot. The plotting order below (group by
-# group, in this sequence) also sets the legend order. Keys are 3-digit sensor
-# labels (the last three digits of the sensor ID).
-SENSOR_GROUP_COLORS = {
-    # Group A: blues
-    "465": "#08306b",
-    "467": "#08519c",
-    "515": "#2171b5",
-    "516": "#4292c6",
-    "943": "#6baed6",
-    # Group B: oranges
-    "402": "#e6550d",
-    "816": "#fd8d3c",
-    # Group C: greens
-    "195": "#238b45",
-    "813": "#74c476",
-    # Group D: purples
-    "401": "#3f007d",
-    "554": "#6a51a3",
-    "814": "#807dba",
-    "815": "#9e9ac8",
-    "942": "#bcbddc",
-}
-
-# Legend/draw order for the figure, matching the group sequence above.
-SENSOR_PLOT_ORDER = list(SENSOR_GROUP_COLORS.keys())
-
 
 def get_shower_events(start: pd.Timestamp, end: pd.Timestamp) -> list:
     """
@@ -162,6 +152,11 @@ def get_shower_events(start: pd.Timestamp, end: pd.Timestamp) -> list:
     identify_shower_events() in src.particle_data_loader. The following OFF
     transition (back to 0) gives shower_off; if none is found within a short
     window, a 10-minute default duration is assumed.
+
+    Only the twice-daily shower runs are kept: an ON transition counts as an
+    event only if its clock time is within EVENT_TOLERANCE_MIN minutes of one of
+    the EVENT_HOURS (03:00 or 15:00). Off-hour transitions are temperature or
+    flow-rate tests and are excluded.
 
     Parameters:
         start: Inclusive lower bound on shower_on.
@@ -186,6 +181,8 @@ def get_shower_events(start: pd.Timestamp, end: pd.Timestamp) -> list:
             shower_on = df.iloc[i + 1]["datetime_EDT"]
             if shower_on < start or shower_on > end:
                 continue
+            if not _is_event_time(shower_on):
+                continue
 
             shower_off = None
             for j in range(i + 2, min(i + 30, len(df))):
@@ -198,6 +195,26 @@ def get_shower_events(start: pd.Timestamp, end: pd.Timestamp) -> list:
             events.append({"shower_on": shower_on, "shower_off": shower_off})
 
     return events
+
+
+def _is_event_time(shower_on: pd.Timestamp) -> bool:
+    """
+    Return True if a shower-on time is one of the twice-daily shower events.
+
+    An ON transition is an event only when its clock time is within
+    EVENT_TOLERANCE_MIN minutes of an EVENT_HOURS boundary (03:00 or 15:00).
+
+    Parameters:
+        shower_on: Timestamp of a shower ON transition.
+
+    Returns:
+        True if the time falls in an event window, False otherwise.
+    """
+    minutes_of_day = shower_on.hour * 60 + shower_on.minute
+    for hour in EVENT_HOURS:
+        if abs(minutes_of_day - hour * 60) <= EVENT_TOLERANCE_MIN:
+            return True
+    return False
 
 
 def compute_delta_peaks(
@@ -246,7 +263,11 @@ def compute_delta_peaks(
             series = totals[sn]
             mask = (series.index >= shower_on) & (series.index <= win_end)
             window = series[mask].dropna()
-            if window.empty:
+            # Treat an all-zero window as missing: a dead sensor (e.g. 401 over
+            # 2026-06-06..06-21) records exact 0 rather than NaN, so idxmax would
+            # otherwise return a meaningless collapsed peak. Require at least one
+            # positive reading before computing a delta peak.
+            if window.empty or (window <= 0).all():
                 row[f"delta_peak_min_{sn}"] = float("nan")
                 continue
             peak_time = window.idxmax()
@@ -276,26 +297,25 @@ def plot_delta_peaks(peaks: pd.DataFrame, sensor_ids: list, output_dir: Path) ->
     output_file(str(out_path), title="Delta peak time per shower event")
 
     fig = figure(
-        width=1600,
-        height=800,
         x_axis_type="datetime",
-        title="Delta peak time per shower event (summed bin0-11)",
         x_axis_label="Shower ON",
         y_axis_label="Delta peak time (min since shower ON)",
         tools="pan,box_zoom,wheel_zoom,reset,save",
     )
 
-    # Draw sensors in the grouped legend order; any plotted sensor not covered
-    # by SENSOR_GROUP_COLORS is appended afterward so it is never silently dropped.
-    label_by_sn = {sn: sn[-3:] for sn in sensor_ids}
-    ordered = [sn for lbl in SENSOR_PLOT_ORDER for sn in sensor_ids if label_by_sn[sn] == lbl]
-    ordered += [sn for sn in sensor_ids if sn not in ordered]
+    # Draw sensors in the shared MODULAIR-PM legend order; any plotted sensor
+    # not covered by the shared palette is appended so it is never dropped.
+    ordered = order_moduair_sensors(sensor_ids)
 
     for sn in ordered:
         col = f"delta_peak_min_{sn}"
-        source = ColumnDataSource(data={"x": peaks["shower_on"], "y": peaks[col]})
-        label = label_by_sn[sn]
-        color = SENSOR_GROUP_COLORS.get(label, "#7f7f7f")
+        # Drop NaN points (events before install or with no data) so the line
+        # breaks at genuine gaps instead of drawing a collapsed/interpolated
+        # segment across, e.g., 401's dead weeks.
+        trace = peaks[["shower_on", col]].dropna(subset=[col])
+        source = ColumnDataSource(data={"x": trace["shower_on"], "y": trace[col]})
+        label = moduair_label(sn)
+        color = moduair_color(sn)
 
         line = fig.line("x", "y", source=source, line_width=1.0, color=color, legend_label=label)
         fig.scatter("x", "y", source=source, size=5, color=color, legend_label=label)
@@ -313,9 +333,7 @@ def plot_delta_peaks(peaks: pd.DataFrame, sensor_ids: list, output_dir: Path) ->
             )
         )
 
-    fig.legend.title = "Sensor"
-    fig.legend.click_policy = "hide"
-    fig.legend.location = "top_right"
+    style_moduair_figure(fig)
 
     save(fig)
     print(f"  Saved {out_path.name}")

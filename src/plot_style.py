@@ -23,6 +23,11 @@ Key Functions:
     - add_shower_on_marker(): Add shower ON marker using SHOWER_ON_STYLE (green dotted)
     - add_shower_off_marker(): Add shower OFF marker using SHOWER_OFF_STYLE (red dotted)
     - add_shaded_window(): Shade a time window between two datetimes on an axes
+    - moduair_label()/moduair_color(): Descriptive legend label and trace color
+      for a MODULAIR-PM sensor (shared by the moduair_correction Bokeh figures)
+    - order_moduair_sensors(): Sort sensor IDs into the shared legend/draw order
+    - style_moduair_figure(): Apply shared Bokeh figure size (1600x800), 12pt
+      text, no title, and click-to-hide legend to a MODULAIR-PM figure
 
 Processing Features:
     - COLORS dict: 17 named colorblind-friendly entries for CO2, environmental sensors,
@@ -587,3 +592,159 @@ def add_shaded_window(
         color=color,
         label=label,
     )
+
+
+# =============================================================================
+# MODULAIR-PM Bokeh Figure Styling (shared by moduair_correction figures)
+# =============================================================================
+#
+# These constants and helpers are shared by the interactive Bokeh figures in
+# scripts/moduair_event_peak_times.py and scripts/moduair_bin2_timeseries.py so
+# that both use one figure geometry, one font size, one set of trace colors, and
+# one descriptive sensor legend. Bokeh HTML output is sized in CSS pixels and
+# has no DPI concept, so only the pixel dimensions apply.
+
+# Shared Bokeh figure geometry and font size.
+MODUAIR_FIGURE_WIDTH = 1600
+MODUAIR_FIGURE_HEIGHT = 800
+MODUAIR_TEXT_PT = "12pt"
+
+# Descriptive legend label per sensor, keyed by the 3-digit sensor label
+# (last three digits of the 5-digit sensor ID). A given figure may show only a
+# subset of these sensors.
+MODUAIR_SENSOR_LABELS = {
+    "515": "Low 1",
+    "465": "Low 2",
+    "943": "Low 3",
+    "516": "Low 4",
+    "467": "Low 5",
+    "195": "Bed 1",
+    "813": "Bed 2",
+    "814": "Middle 1",
+    "554": "Middle 2",
+    "942": "Middle 3",
+    "401": "Middle 4",
+    "815": "Middle 5",
+    "555": "Middle Bathroom",
+    "402": "High 1",
+    "816": "High 2",
+}
+
+# Per-sensor trace color, keyed by 3-digit sensor label. These match the group
+# palette originally defined in scripts/moduair_event_peak_times.py (four
+# colorblind-safe hue families) so both figures color a sensor identically.
+# 00555 is not in the delta-peak figure; it is given a distinct red here so the
+# bin time-series figure (which does show it) never reuses another sensor's hue.
+MODUAIR_SENSOR_COLORS = {
+    # Group A: blues
+    "465": "#08306b",
+    "467": "#08519c",
+    "515": "#2171b5",
+    "516": "#4292c6",
+    "943": "#6baed6",
+    # Group B: oranges
+    "402": "#e6550d",
+    "816": "#fd8d3c",
+    # Group C: greens
+    "195": "#238b45",
+    "813": "#74c476",
+    # Group D: purples
+    "401": "#3f007d",
+    "554": "#6a51a3",
+    "814": "#807dba",
+    "815": "#9e9ac8",
+    "942": "#bcbddc",
+    # Standalone: Middle Bathroom (only on the bin time-series figure)
+    "555": "#d62728",
+}
+
+# Legend/draw order for the figures, following the Low/Bed/Middle/High sequence
+# (and number order within each group) defined by MODUAIR_SENSOR_LABELS above.
+MODUAIR_SENSOR_ORDER = list(MODUAIR_SENSOR_LABELS.keys())
+
+# Fallback color for any sensor not covered by MODUAIR_SENSOR_COLORS.
+MODUAIR_FALLBACK_COLOR = "#7f7f7f"
+
+
+def _moduair_key(sensor_id: str) -> str:
+    """Return the 3-digit color/label key for a 5-digit sensor ID."""
+    return str(sensor_id)[-3:]
+
+
+def moduair_label(sensor_id: str) -> str:
+    """
+    Return the descriptive legend label for a MODULAIR-PM sensor.
+
+    Parameters:
+        sensor_id: 5-digit sensor ID (e.g., "00515") or 3-digit label.
+
+    Returns:
+        Descriptive label (e.g., "515-Low 1"); falls back to the bare 3-digit
+        label if the sensor is not in MODUAIR_SENSOR_LABELS.
+    """
+    key = _moduair_key(sensor_id)
+    return MODUAIR_SENSOR_LABELS.get(key, key)
+
+
+def moduair_color(sensor_id: str) -> str:
+    """
+    Return the trace color for a MODULAIR-PM sensor.
+
+    Parameters:
+        sensor_id: 5-digit sensor ID (e.g., "00515") or 3-digit label.
+
+    Returns:
+        Hex color string; MODUAIR_FALLBACK_COLOR if the sensor is unknown.
+    """
+    key = _moduair_key(sensor_id)
+    return MODUAIR_SENSOR_COLORS.get(key, MODUAIR_FALLBACK_COLOR)
+
+
+def order_moduair_sensors(sensor_ids: list) -> list:
+    """
+    Order sensor IDs by the shared MODULAIR-PM legend/draw sequence.
+
+    Sensors covered by MODUAIR_SENSOR_ORDER come first in that order; any
+    remaining sensors are appended in their original order so none is dropped.
+
+    Parameters:
+        sensor_ids: Iterable of 5-digit sensor IDs to plot.
+
+    Returns:
+        List of the same sensor IDs, reordered.
+    """
+    key_of = {sn: _moduair_key(sn) for sn in sensor_ids}
+    ordered = [sn for key in MODUAIR_SENSOR_ORDER for sn in sensor_ids if key_of[sn] == key]
+    ordered += [sn for sn in sensor_ids if sn not in ordered]
+    return ordered
+
+
+def style_moduair_figure(fig, legend_title: str = "Sensor",
+                         legend_location: str = "top_right") -> None:
+    """
+    Apply the shared MODULAIR-PM Bokeh figure style in place.
+
+    Sets the figure size to MODUAIR_FIGURE_WIDTH x MODUAIR_FIGURE_HEIGHT pixels,
+    removes the title, applies MODUAIR_TEXT_PT (12pt) to axis labels, tick
+    labels, and the legend, and sets the legend to click-to-hide. Bokeh HTML has
+    no DPI concept, so DPI is intentionally not set.
+
+    Parameters:
+        fig: A bokeh.plotting.figure to style in place.
+        legend_title: Title shown above the legend entries.
+        legend_location: Bokeh legend location (e.g., "top_right", "top_left").
+    """
+    fig.width = MODUAIR_FIGURE_WIDTH
+    fig.height = MODUAIR_FIGURE_HEIGHT
+    fig.title = None
+
+    for axis in (fig.xaxis, fig.yaxis):
+        axis.axis_label_text_font_size = MODUAIR_TEXT_PT
+        axis.major_label_text_font_size = MODUAIR_TEXT_PT
+
+    if fig.legend:
+        fig.legend.title = legend_title
+        fig.legend.title_text_font_size = MODUAIR_TEXT_PT
+        fig.legend.label_text_font_size = MODUAIR_TEXT_PT
+        fig.legend.click_policy = "hide"
+        fig.legend.location = legend_location

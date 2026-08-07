@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MODULAIR-PM Bin-2 Time Series (Bedroom Fleet)
-=============================================
+MODULAIR-PM Per-Bin Time Series (Bedroom Fleet)
+===============================================
 
-Plots the opc_bin2 (0.66-1.0 µm) particle concentration for the co-located
-bedroom MODULAIR-PM sensors over 2026-06-04 through 2026-07-16, as a single
-interactive Bokeh figure styled after the weekly QuantAQ PM figures produced by
-the NIST_moduair-pm repository (quantaq_pm25.html): one line per sensor on a
-shared datetime axis with a click-to-hide legend.
+Plots the opc particle-size-bin concentration for the co-located bedroom
+MODULAIR-PM sensors over 2026-06-04 through 2026-07-16, as one interactive
+Bokeh figure per bin (bins 0-10), styled after the weekly QuantAQ PM figures
+produced by the NIST_moduair-pm repository (quantaq_pm25.html): one line per
+sensor on a shared datetime axis with a click-to-hide legend. Figure geometry,
+font size, trace colors, and the descriptive sensor legend come from the shared
+MODULAIR-PM helpers in src.plot_style.
 
 Sensor set
 ----------
@@ -31,11 +33,19 @@ Arguments
 
 Output Files
 ------------
-    <output>/plots/moduair_correction/bin2_timeseries.html
+    <output>/plots/moduair_correction/bin0_timeseries.html
+    ...
+    <output>/plots/moduair_correction/bin10_timeseries.html
 
 Author: Nathan Lima
 Institution: National Institute of Standards and Technology (NIST)
 Created: 2026-08-04
+Update log:
+    2026-08-07 (Nathan Lima): Produce one figure per bin (0-10) instead of only
+        bin 2; move figure size, font, colors, and the descriptive sensor
+        legend into the shared MODULAIR-PM Bokeh helpers in src.plot_style
+        (1600x800, no title, 12pt); remove x-axis range padding; and cap the
+        x-axis at 2026-07-16 10:00.
 """
 
 import argparse
@@ -49,7 +59,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import pandas as pd
-from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.models import ColumnDataSource, HoverTool, Range1d
 from bokeh.plotting import figure, output_file, save
 
 # Add project root to path for imports
@@ -58,14 +68,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.data_paths import get_data_root  # noqa: E402
 from src.moduair_loader import list_available_sensors, load_fleet_bins  # noqa: E402
 from src.particle_calculations import PARTICLE_BINS  # noqa: E402
-from src.plot_style import SENSOR_COLORS  # noqa: E402
+from src.plot_style import (  # noqa: E402
+    moduair_color,
+    moduair_label,
+    order_moduair_sensors,
+    style_moduair_figure,
+)
 
 DEFAULT_START = "2026-06-04 00:00:00"
 DEFAULT_END = "2026-07-16 23:59:59"
 
-# Particle-size bin to plot (opc_bin2, 0.66-1.0 µm).
-BIN_INDEX = 2
-BIN_COLUMN = f"opc_bin{BIN_INDEX}"
+# Particle-size bins to plot (opc_bin0 through opc_bin10), one figure per bin.
+BIN_INDICES = list(range(0, 11))
+
+# Right edge of the x-axis, shared by every bin figure.
+X_AXIS_END = pd.Timestamp("2026-07-16 10:00:00")
 
 # Co-located bedroom sensors. The outside sensor (00785) and the near-dead
 # 00401 are excluded so the figure shows only trustworthy bedroom traces.
@@ -87,46 +104,51 @@ PLOT_SENSORS = [
 ]
 
 
-def plot_bin2(fleet: dict, sensor_ids: list, output_dir: Path,
-              start: pd.Timestamp, end: pd.Timestamp) -> None:
+def plot_bin(fleet: dict, sensor_ids: list, bin_index: int, output_dir: Path,
+             start: pd.Timestamp) -> None:
     """
-    Plot opc_bin2 per sensor as a single interactive Bokeh figure.
+    Plot one opc bin per sensor as a single interactive Bokeh figure.
 
-    Each sensor is one line renderer with its own color and a click-to-hide
-    legend entry, matching the weekly QuantAQ PM figure style.
+    Each sensor is one line renderer with its shared MODULAIR-PM color and a
+    click-to-hide legend entry, matching the weekly QuantAQ PM figure style.
+    The x-axis is set explicitly with no range padding, from ``start`` to the
+    shared X_AXIS_END (2026-07-16 10:00).
 
     Parameters:
         fleet: Dict of {sensor_id: DataFrame(datetime + opc_bin0..11)}.
         sensor_ids: Sensor IDs to plot, in legend order.
+        bin_index: opc bin index to plot (0-10).
         output_dir: Analysis output directory.
-        start: Window start (for the title).
-        end: Window end (for the title).
+        start: Window start (left edge of the x-axis).
     """
     plot_dir = output_dir / "plots" / "moduair_correction"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
-    out_path = plot_dir / "bin2_timeseries.html"
-    output_file(str(out_path), title="Bin 2 concentration, bedroom fleet")
+    bin_column = f"opc_bin{bin_index}"
+    bin_name = PARTICLE_BINS[bin_index]["name"]
 
-    bin_name = PARTICLE_BINS[BIN_INDEX]["name"]
+    out_path = plot_dir / f"bin{bin_index}_timeseries.html"
+    output_file(str(out_path), title=f"Bin {bin_index} concentration, bedroom fleet")
+
     fig = figure(
-        width=1400,
-        height=650,
         x_axis_type="datetime",
-        title=(
-            f"MODULAIR-PM bin {BIN_INDEX} ({bin_name} µm) concentration, "
-            f"bedroom fleet ({start.date()} to {end.date()})"
-        ),
         x_axis_label="Time",
-        y_axis_label=f"Bin {BIN_INDEX} ({bin_name} µm) (# / cm³)",
+        y_axis_label=f"Bin {bin_index} ({bin_name} µm) (# / cm³)",
         tools="pan,box_zoom,wheel_zoom,reset,save",
     )
 
-    for idx, sn in enumerate(sensor_ids):
+    # Explicit x-range with no padding, capped at X_AXIS_END.
+    fig.x_range = Range1d(start=start, end=X_AXIS_END)
+
+    for sn in order_moduair_sensors(sensor_ids):
         df = fleet[sn]
-        source = ColumnDataSource(data={"x": df["datetime"], "y": df[BIN_COLUMN]})
-        color = SENSOR_COLORS[idx % len(SENSOR_COLORS)]
-        label = f"MOD-PM-{sn}"
+        # Clip to the visible x-window before plotting so the auto-scaled y-axis
+        # is driven only by data shown in the figure, not by points past
+        # X_AXIS_END (2026-07-16 10:00).
+        df = df[(df["datetime"] >= start) & (df["datetime"] <= X_AXIS_END)]
+        source = ColumnDataSource(data={"x": df["datetime"], "y": df[bin_column]})
+        color = moduair_color(sn)
+        label = moduair_label(sn)
 
         line = fig.line(
             "x", "y", source=source, line_width=1.0,
@@ -138,16 +160,14 @@ def plot_bin2(fleet: dict, sensor_ids: list, output_dir: Path,
                 tooltips=[
                     ("Sensor", label),
                     ("Time", "@x{%F %H:%M}"),
-                    (f"Bin {BIN_INDEX}", "@y{0.000}"),
+                    (f"Bin {bin_index}", "@y{0.000}"),
                 ],
                 formatters={"@x": "datetime"},
                 mode="vline",
             )
         )
 
-    fig.legend.title = "Sensor"
-    fig.legend.click_policy = "hide"
-    fig.legend.location = "top_right"
+    style_moduair_figure(fig, legend_location="top_left")
 
     save(fig)
     print(f"  Saved {out_path.name}")
@@ -155,7 +175,7 @@ def plot_bin2(fleet: dict, sensor_ids: list, output_dir: Path,
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="MODULAIR-PM bin-2 time series for the bedroom fleet."
+        description="MODULAIR-PM per-bin (0-10) time series for the bedroom fleet."
     )
     parser.add_argument("--start", default=DEFAULT_START, help="Inclusive start datetime.")
     parser.add_argument("--end", default=DEFAULT_END, help="Inclusive end datetime.")
@@ -167,9 +187,9 @@ def main() -> None:
     output_dir = Path(args.output_dir) if args.output_dir else get_data_root() / "output"
 
     print("\n" + "=" * 70)
-    print("MODULAIR-PM Bin-2 Time Series (bedroom fleet)")
+    print("MODULAIR-PM Per-Bin Time Series (bedroom fleet)")
     print("=" * 70)
-    print(f"Window: {start} to {end}  Bin: {BIN_COLUMN} ({PARTICLE_BINS[BIN_INDEX]['name']} µm)")
+    print(f"Window: {start} to {end}  Bins: 0-10")
 
     available = list_available_sensors("raw")
     sensor_ids = [sn for sn in PLOT_SENSORS if sn in available]
@@ -183,7 +203,8 @@ def main() -> None:
     sensor_ids = [sn for sn in sensor_ids if sn in fleet]
 
     print("\nPlotting...")
-    plot_bin2(fleet, sensor_ids, output_dir, start, end)
+    for bin_index in BIN_INDICES:
+        plot_bin(fleet, sensor_ids, bin_index, output_dir, start)
 
     print("\n" + "=" * 70)
     print("Done")
