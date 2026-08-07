@@ -19,7 +19,10 @@ generates:
   2. One raw workbook per configuration group. Each workbook has an Index sheet
      plus one sheet per replicate event. Every event sheet holds that sensor's
      raw particle records at native cadence (no 1-minute resample, no rolling
-     average), from shower-on through the 2-hour deposition window.
+     average), from shower-on through the 2-hour deposition window. The bath,
+     bath/bed, and bedroom temperature and RH columns are appended after the
+     bins, matched to each particle timestamp with a backward as-of merge (most
+     recent reading within 2 minutes; blank otherwise).
 
 Sensor set:
   All fleet sensors in the chunk share except MOD-PM-00467 and MOD-PM-00785:
@@ -119,6 +122,21 @@ SENSOR_INSTALL_CUTOFFS = {
     "00515": pd.Timestamp("2026-07-08 13:00:00"),
     "00516": pd.Timestamp("2026-07-08 13:00:00"),
 }
+
+# Environmental temperature/RH columns attached to the raw sheets, in output
+# order (after the particle bins). The keys are SENSOR_GROUPS keys; the display
+# label and unit reuse ENV_COLUMN_SPECS so the raw headers match the aggregated
+# workbook. Raw env values are matched to each particle timestamp with a
+# backward as-of merge (most recent reading), limited by ENV_ASOF_TOLERANCE.
+ENV_RAW_ORDER = [
+    "bath_temp",
+    "bath_rh",
+    "bath_bed_temp",
+    "bath_bed_rh",
+    "bedroom_temp",
+    "bedroom_rh",
+]
+ENV_ASOF_TOLERANCE = pd.Timedelta(minutes=2)
 
 
 # =============================================================================
@@ -276,6 +294,80 @@ def build_event_raw_pm(event: dict, sensor_raw: pd.DataFrame) -> pd.DataFrame:
     return sensor_raw.loc[mask].sort_values("datetime").reset_index(drop=True)
 
 
+def attach_env_columns(
+    raw_df: pd.DataFrame,
+    event: dict,
+    sensor_cache: dict,
+) -> pd.DataFrame:
+    """
+    Attach per-space temp/RH columns to a raw particle frame via as-of merge.
+
+    For each environmental space (bath, bath/bed, bedroom temp and RH), the
+    sensors in that group are averaged together on their native cadence over the
+    event window (same space-averaging as build_event_pm_1min). Each averaged
+    series is then matched to every raw particle timestamp with a backward
+    merge_asof (most recent reading at or before the timestamp), limited to
+    ENV_ASOF_TOLERANCE; matches older than the tolerance are left as NaN.
+
+    Particle cadence is preserved: no env-only rows are added and the row count
+    is unchanged. Columns are appended after the bins in ENV_RAW_ORDER; a group
+    with no data in the window is omitted entirely.
+
+    Parameters:
+        raw_df: Frame with a 'datetime' column plus opc_bin0..11 (from
+            build_event_raw_pm), sorted by time.
+        event: Event dict with shower_on and deposition_end.
+        sensor_cache: Dict of env sensor_name -> Series(DatetimeIndex, float).
+
+    Returns:
+        A copy of raw_df with the available env columns appended. Returned
+        unchanged if raw_df is empty.
+    """
+    if raw_df is None or raw_df.empty:
+        return raw_df
+
+    shower_on = event["shower_on"]
+    window_end = event["deposition_end"]
+
+    out = raw_df.sort_values("datetime").reset_index(drop=True).copy()
+    times = out[["datetime"]]
+
+    for group_name in ENV_RAW_ORDER:
+        sensor_list = SENSOR_GROUPS.get(group_name, [])
+        sensor_series = []
+        for sensor_name in sensor_list:
+            if sensor_name not in sensor_cache:
+                continue
+            s = sensor_cache[sensor_name]
+            s_win = s[(s.index >= shower_on) & (s.index <= window_end)]
+            if s_win.empty:
+                continue
+            sensor_series.append(s_win)
+
+        if not sensor_series:
+            continue
+
+        # Average replicate sensors in the space onto a common time index
+        space_avg = pd.concat(sensor_series, axis=1).mean(axis=1).dropna().sort_index()
+        if space_avg.empty:
+            continue
+
+        env_frame = pd.DataFrame(
+            {"datetime": space_avg.index, group_name: space_avg.values}
+        )
+        merged = pd.merge_asof(
+            times,
+            env_frame,
+            on="datetime",
+            direction="backward",
+            tolerance=ENV_ASOF_TOLERANCE,
+        )
+        out[group_name] = merged[group_name].values
+
+    return out
+
+
+
 # =============================================================================
 # Raw Workbook Output (one per config group)
 # =============================================================================
@@ -315,6 +407,15 @@ def write_raw_group_workbook(
     bin_labels = {
         f"opc_bin{n}": f"Bin{n} [{PARTICLE_BINS[n]['name']} um] (#/cm3)" for n in PARTICLE_BINS
     }
+
+    # Environmental temp/RH labels (bins-then-env order). Only the env columns
+    # that appear in at least one event sheet are written, in ENV_RAW_ORDER.
+    env_label = {key: f"{display} ({unit})" for key, display, unit in ENV_COLUMN_SPECS}
+    present_env = [
+        key
+        for key in ENV_RAW_ORDER
+        if any(key in raw_df.columns for _, _, _, raw_df in event_sheets)
+    ]
 
     # --- Assign sheet names up front (event-number based) ---
     used_names: set = {"Index"}
@@ -367,7 +468,11 @@ def write_raw_group_workbook(
         ws.append([f"Window: {shower_on:%Y-%m-%d %H:%M:%S} to {window_end:%Y-%m-%d %H:%M:%S}"])
         ws.append([])
 
-        col_headers = ["Datetime"] + [bin_labels[c] for c in BIN_COLUMNS]
+        col_headers = (
+            ["Datetime"]
+            + [bin_labels[c] for c in BIN_COLUMNS]
+            + [env_label[k] for k in present_env]
+        )
         ws.append(col_headers)
         for cell in ws[4]:
             cell.font = header_font
@@ -376,7 +481,12 @@ def write_raw_group_workbook(
         for _, row in raw_df.iterrows():
             dt = row["datetime"]
             dt_str = dt.strftime("%Y-%m-%d %H:%M:%S") if pd.notna(dt) else ""
-            ws.append([dt_str] + [row[c] for c in BIN_COLUMNS])
+            bin_vals = [row[c] for c in BIN_COLUMNS]
+            env_vals = [
+                (row[k] if (k in raw_df.columns and pd.notna(row[k])) else None)
+                for k in present_env
+            ]
+            ws.append([dt_str] + bin_vals + env_vals)
 
         ws.column_dimensions["A"].width = 22
         for col_idx in range(2, len(col_headers) + 1):
@@ -472,6 +582,7 @@ def process_sensor(
                 event_dfs.append(pm_df)
 
             raw_df = build_event_raw_pm(event, sensor_raw)
+            raw_df = attach_env_columns(raw_df, event, sensor_cache)
             raw_event_sheets.append(
                 (
                     int(event["event_number"]),
