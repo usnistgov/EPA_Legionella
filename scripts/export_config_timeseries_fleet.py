@@ -11,18 +11,21 @@ generates:
 
   1. An aggregated workbook (same structure as the original single-sensor file):
      Index sheet plus one sheet per configuration group with the mean, std,
-     max, and min per minute across replicate events, from shower-on through
-     the 2-hour deposition window. Particle bins come from that sensor
-     (1-minute grid, no smoothing); the bath/bath-bed/bedroom temperature and
-     relative-humidity columns are shared across all sensor files.
+     max, and min per minute across replicate events, from 15 minutes before
+     shower-on through the 2-hour deposition window (minute index 0 is
+     shower-on, so the lead-in minutes are -15 through -1). Particle bins come
+     from that sensor (1-minute grid, no smoothing); the bath/bath-bed/bedroom
+     temperature and relative-humidity columns are shared across all sensor
+     files.
 
   2. One raw workbook per configuration group. Each workbook has an Index sheet
      plus one sheet per replicate event. Every event sheet holds that sensor's
      raw particle records at native cadence (no 1-minute resample, no rolling
-     average), from shower-on through the 2-hour deposition window. The bath,
-     bath/bed, and bedroom temperature and RH columns are appended after the
-     bins, matched to each particle timestamp with a backward as-of merge (most
-     recent reading within 2 minutes; blank otherwise).
+     average), from 15 minutes before shower-on through the 2-hour deposition
+     window. The bath, bath/bed, and bedroom temperature and RH columns are
+     appended after the bins, matched to each particle timestamp with a
+     backward as-of merge (most recent reading within 2 minutes; blank
+     otherwise).
 
 Sensor set:
   All fleet sensors in the chunk share except MOD-PM-00467 and MOD-PM-00785:
@@ -138,6 +141,11 @@ ENV_RAW_ORDER = [
 ]
 ENV_ASOF_TOLERANCE = pd.Timedelta(minutes=2)
 
+# Pre-shower lead-in: exports begin this long before shower-on so the baseline
+# just before the shower is captured. The aggregated minute index keeps 0 at
+# shower-on, so these lead-in minutes are indexed -PRE_SHOWER_LEAD through -1.
+PRE_SHOWER_LEAD = pd.Timedelta(minutes=15)
+
 
 # =============================================================================
 # Event Loading and Gating
@@ -226,11 +234,12 @@ def build_event_pm_1min(
         sensor_cache: Dict of env sensor_name -> Series(DatetimeIndex, float).
 
     Returns:
-        DataFrame with integer minute index (0 = shower_on) and env columns plus
-        bin0..bin11. Missing variables are absent (not NaN-padded). Empty if the
-        event has no data.
+        DataFrame with integer minute index (0 = shower_on, negative values for
+        the pre-shower lead-in) and env columns plus bin0..bin11. Missing
+        variables are absent (not NaN-padded). Empty if the event has no data.
     """
     shower_on = event["shower_on"]
+    window_start = shower_on - PRE_SHOWER_LEAD
     window_end = event["deposition_end"]
 
     columns = {}
@@ -242,7 +251,7 @@ def build_event_pm_1min(
             if sensor_name not in sensor_cache:
                 continue
             s = sensor_cache[sensor_name]
-            s_win = s[(s.index >= shower_on) & (s.index <= window_end)]
+            s_win = s[(s.index >= window_start) & (s.index <= window_end)]
             if s_win.empty:
                 continue
             s_1min = s_win.resample("1min", origin=shower_on).mean()
@@ -255,7 +264,7 @@ def build_event_pm_1min(
     # --- Particle bins from this sensor's 1-min frame ---
     if sensor_1min is not None and not sensor_1min.empty:
         p = sensor_1min.set_index("datetime").sort_index()
-        p_win = p[(p.index >= shower_on) & (p.index <= window_end)]
+        p_win = p[(p.index >= window_start) & (p.index <= window_end)]
         for bin_num in PARTICLE_BINS:
             col = f"opc_bin{bin_num}"
             if col in p_win.columns:
@@ -270,7 +279,8 @@ def build_event_pm_1min(
     df = pd.DataFrame(columns)
     df.index = ((df.index - shower_on).total_seconds() / 60).round(0).astype(int)
     df.index.name = "minute"
-    return df[df.index >= 0]
+    lead_min = int(PRE_SHOWER_LEAD.total_seconds() / 60)
+    return df[df.index >= -lead_min]
 
 
 def build_event_raw_pm(event: dict, sensor_raw: pd.DataFrame) -> pd.DataFrame:
@@ -283,14 +293,16 @@ def build_event_raw_pm(event: dict, sensor_raw: pd.DataFrame) -> pd.DataFrame:
 
     Returns:
         DataFrame with a 'datetime' column and opc_bin0..11 columns for the
-        window [shower_on, deposition_end], sorted by time. Empty if no records.
+        window [shower_on - PRE_SHOWER_LEAD, deposition_end], sorted by time.
+        Empty if no records.
     """
     if sensor_raw is None or sensor_raw.empty:
         return pd.DataFrame(columns=["datetime"] + BIN_COLUMNS)
 
     shower_on = event["shower_on"]
+    window_start = shower_on - PRE_SHOWER_LEAD
     window_end = event["deposition_end"]
-    mask = (sensor_raw["datetime"] >= shower_on) & (sensor_raw["datetime"] <= window_end)
+    mask = (sensor_raw["datetime"] >= window_start) & (sensor_raw["datetime"] <= window_end)
     return sensor_raw.loc[mask].sort_values("datetime").reset_index(drop=True)
 
 
@@ -327,6 +339,7 @@ def attach_env_columns(
         return raw_df
 
     shower_on = event["shower_on"]
+    window_start = shower_on - PRE_SHOWER_LEAD
     window_end = event["deposition_end"]
 
     out = raw_df.sort_values("datetime").reset_index(drop=True).copy()
@@ -339,7 +352,7 @@ def attach_env_columns(
             if sensor_name not in sensor_cache:
                 continue
             s = sensor_cache[sensor_name]
-            s_win = s[(s.index >= shower_on) & (s.index <= window_end)]
+            s_win = s[(s.index >= window_start) & (s.index <= window_end)]
             if s_win.empty:
                 continue
             sensor_series.append(s_win)
@@ -527,8 +540,9 @@ def process_sensor(
         print(f"  No events for {label} after install-cutoff gating; skipping.")
         return
 
-    # Data span for this sensor's particle loads
-    span_start = sensor_events["shower_on"].min() - timedelta(minutes=5)
+    # Data span for this sensor's particle loads. The lower bound covers the
+    # pre-shower lead-in plus a small margin so the earliest window is complete.
+    span_start = sensor_events["shower_on"].min() - PRE_SHOWER_LEAD - timedelta(minutes=5)
     span_end = sensor_events["deposition_end"].max() + timedelta(minutes=5)
 
     print(f"  Loading 1-min bins ({span_start.date()} to {span_end.date()})...")
@@ -636,9 +650,13 @@ def run(sensor_ids: list, sig_figs_enabled: bool = True) -> None:
         return
 
     # Shared environmental sensor cache (loaded once for the full event span).
-    # preload_sensor_data spans all valid events, so it covers every sensor.
+    # preload_sensor_data derives its window from shower_on with a 5-min margin;
+    # shift the shower_on it sees back by the pre-shower lead-in so the cache
+    # fully covers the earliest lead-in window.
     print("\nPreloading shared environmental sensor data...")
-    sensor_cache = preload_sensor_data(valid.to_dict("records"))
+    cache_events = valid.copy()
+    cache_events["shower_on"] = cache_events["shower_on"] - PRE_SHOWER_LEAD
+    sensor_cache = preload_sensor_data(cache_events.to_dict("records"))
 
     for sid in sensor_ids:
         sn = _normalize_sn(sid)
