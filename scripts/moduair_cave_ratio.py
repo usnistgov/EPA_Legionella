@@ -90,7 +90,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 import numpy as np
 import pandas as pd
-from bokeh.models import ColumnDataSource, HoverTool, Slope, Span
+from bokeh.models import ColumnDataSource, HoverTool, Range1d, Slope, Span
 from bokeh.plotting import figure, output_file, save
 
 # Add project root to path for imports
@@ -121,9 +121,9 @@ DEFAULT_END = "2026-07-16 23:59:59"
 # deliberately left out of C_mid because it is not a bedroom mid-height sensor.
 POSITION_GROUPS = {
     "high": ["00402", "00816"],
-    "mid":  ["00814", "00554", "00942", "00401", "00815"],
-    "bed":  ["00195", "00813"],
-    "low":  ["00515", "00465", "00943", "00516", "00467"],
+    "mid": ["00814", "00554", "00942", "00401", "00815"],
+    "bed": ["00195", "00813"],
+    "low": ["00515", "00465", "00943", "00516", "00467"],
 }
 
 # Position weights for the fleet average C_room.
@@ -180,7 +180,7 @@ GROUP_COLORS = {
 RATIO_BAND_ALPHA = 0.15
 
 # Minimum events contributing at a minute for the std-dev band to be drawn there.
-MIN_EVENTS_FOR_BAND = 2
+MIN_EVENTS_FOR_BAND = 3
 
 
 # =============================================================================
@@ -260,9 +260,7 @@ def compute_room_frame(totals: dict, bin_col: str) -> pd.DataFrame:
         else:
             out[f"C_{group}"] = np.nan
 
-    out["C_room"] = sum(
-        POSITION_WEIGHTS[g] * out[f"C_{g}"] for g in POSITION_GROUPS
-    )
+    out["C_room"] = sum(POSITION_WEIGHTS[g] * out[f"C_{g}"] for g in POSITION_GROUPS)
     out["C_bed1"] = aligned[TARGET_SN]
 
     # ">8 Quants": number of fleet sensors reporting a valid reading here.
@@ -303,8 +301,9 @@ def _paired_samples(cave: pd.DataFrame, mask: np.ndarray = None) -> pd.DataFrame
     )
 
 
-def _plot_scatter_figure(paired: pd.DataFrame, bin_index: int, plot_dir: Path,
-                         file_suffix: str, title_prefix: str) -> dict:
+def _plot_scatter_figure(
+    paired: pd.DataFrame, bin_index: int, plot_dir: Path, file_suffix: str, title_prefix: str
+) -> dict:
     """
     Render one C_bed1-vs-C_room scatter with Deming fit and 1:1 line.
 
@@ -331,8 +330,10 @@ def _plot_scatter_figure(paired: pd.DataFrame, bin_index: int, plot_dir: Path,
 
     fit = {"slope": np.nan, "intercept": np.nan, "r_squared": np.nan, "n": 0}
     if paired.empty:
-        print(f"    [WARN] No >8-sensor paired data for bin {bin_index}{file_suffix}; "
-              f"skipping scatter")
+        print(
+            f"    [WARN] No >8-sensor paired data for bin {bin_index}{file_suffix}; "
+            f"skipping scatter"
+        )
         fit["bin"] = bin_index
         return fit
 
@@ -347,6 +348,15 @@ def _plot_scatter_figure(paired: pd.DataFrame, bin_index: int, plot_dir: Path,
         f"C_bed1 = {fit['slope']:.3f}·C_room + {fit['intercept']:.3f}, "
         f"r² = {fit['r_squared']:.3f}, n = {int(fit['n'])}"
     )
+
+    # Calculate the range for the 1:1 line (used to set axis bounds)
+    lo = float(min(paired["C_room"].min(), paired["C_bed1"].min()))
+    hi = float(max(paired["C_room"].max(), paired["C_bed1"].max()))
+
+    # Set axis ranges: lower bound at 0, upper bound at hi with 5% padding
+    # Ensure minimum upper bound of 1.0 if data is all zeros
+    upper_bound = max(hi * 1.05, 1.0) if hi >= 0 else 1.0
+
     fig = figure(
         width=650,
         height=600,
@@ -354,43 +364,49 @@ def _plot_scatter_figure(paired: pd.DataFrame, bin_index: int, plot_dir: Path,
         x_axis_label="C_room, position-weighted fleet average (#/cm³)",
         y_axis_label="C_bed1, inside sensor (#/cm³)",
         tools="pan,box_zoom,wheel_zoom,reset,save",
+        x_range=Range1d(0, upper_bound),
+        y_range=Range1d(0, upper_bound),
     )
 
     source = ColumnDataSource(
         data={"x": paired["C_room"], "y": paired["C_bed1"], "t": paired.index}
     )
-    pts = fig.scatter(
-        "x", "y", source=source, size=3, alpha=0.35,
-        color=COLORS["bedroom"], legend_label="1-min samples (>8 sensors)",
-    )
-    fig.add_tools(
-        HoverTool(
-            renderers=[pts],
-            tooltips=[
-                ("C_room (x)", "@x{0.000}"),
-                ("C_bed1 (y)", "@y{0.000}"),
-                ("Time", "@t{%F %H:%M}"),
-            ],
-            formatters={"@t": "datetime"},
-        )
+    fig.scatter(
+        "x",
+        "y",
+        source=source,
+        size=3,
+        alpha=0.35,
+        color=COLORS["bedroom"],
+        legend_label="1-min samples (>8 sensors)",
     )
 
-    lo = float(min(paired["C_room"].min(), paired["C_bed1"].min()))
-    hi = float(max(paired["C_room"].max(), paired["C_bed1"].max()))
-    fig.line([lo, hi], [lo, hi], line_color=COLORS["grid"],
-             line_dash="dashed", line_width=1.0, legend_label="1:1")
+    fig.line(
+        [lo, hi],
+        [lo, hi],
+        line_color=COLORS["grid"],
+        line_dash="dashed",
+        line_width=1.0,
+        legend_label="1:1",
+    )
 
     if pd.notna(fit["slope"]):
         fig.add_layout(
-            Slope(gradient=float(fit["slope"]), y_intercept=float(fit["intercept"]),
-                  line_color=COLORS["lambda"], line_width=2.0)
+            Slope(
+                gradient=float(fit["slope"]),
+                y_intercept=float(fit["intercept"]),
+                line_color=COLORS["lambda"],
+                line_width=2.0,
+            )
         )
         # Legend proxy for the fit line (Slope has no legend entry).
-        fig.line([lo, hi],
-                 [fit["slope"] * lo + fit["intercept"],
-                  fit["slope"] * hi + fit["intercept"]],
-                 line_color=COLORS["lambda"], line_width=2.0,
-                 legend_label="Deming fit")
+        fig.line(
+            [lo, hi],
+            [fit["slope"] * lo + fit["intercept"], fit["slope"] * hi + fit["intercept"]],
+            line_color=COLORS["lambda"],
+            line_width=2.0,
+            legend_label="Deming fit",
+        )
 
     fig.legend.location = "top_left"
     fig.legend.click_policy = "hide"
@@ -460,8 +476,9 @@ def build_scatter_window_mask(index: pd.DatetimeIndex, events: list, window: str
     return mask
 
 
-def plot_scatter_window(cave: pd.DataFrame, bin_index: int, plot_dir: Path,
-                        events: list, window: str) -> dict:
+def plot_scatter_window(
+    cave: pd.DataFrame, bin_index: int, plot_dir: Path, events: list, window: str
+) -> dict:
     """
     Plot C_bed1 vs C_room for one bin, restricted to a W38-W41 onset/decay window.
 
@@ -526,13 +543,11 @@ def load_group_events(start: pd.Timestamp, end: pd.Timestamp) -> dict:
     if "deposition_end" not in valid.columns:
         valid["deposition_end"] = pd.NaT
     missing = valid["deposition_end"].isna()
-    valid.loc[missing, "deposition_end"] = (
-        valid.loc[missing, "shower_off"] + timedelta(hours=DEPOSITION_HOURS)
+    valid.loc[missing, "deposition_end"] = valid.loc[missing, "shower_off"] + timedelta(
+        hours=DEPOSITION_HOURS
     )
 
-    code_to_group = {
-        code: label for label, codes in WATER_TEMP_GROUPS.items() for code in codes
-    }
+    code_to_group = {code: label for label, codes in WATER_TEMP_GROUPS.items() for code in codes}
 
     groups = {label: [] for label in WATER_TEMP_GROUPS}
     for _, row in valid.iterrows():
@@ -651,15 +666,16 @@ def compute_group_ratio_band(cave: pd.DataFrame, events: list) -> pd.DataFrame:
         return pd.DataFrame(columns=["mean", "std", "n"])
 
     matrix = pd.concat(per_event_ratios, axis=1)
-    return pd.DataFrame({
-        "mean": matrix.mean(axis=1, skipna=True),
-        "std": matrix.std(axis=1, skipna=True, ddof=1),
-        "n": matrix.notna().sum(axis=1),
-    }).sort_index()
+    return pd.DataFrame(
+        {
+            "mean": matrix.mean(axis=1, skipna=True),
+            "std": matrix.std(axis=1, skipna=True, ddof=1),
+            "n": matrix.notna().sum(axis=1),
+        }
+    ).sort_index()
 
 
-def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
-                    plot_dir: Path) -> None:
+def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int, plot_dir: Path) -> None:
     """
     Plot C_bed1,average / C_room,average versus minute, one line per group, one bin.
 
@@ -722,24 +738,32 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
         if band.empty:
             continue
         color = GROUP_COLORS.get(label, COLORS["grid"])
-        band_source = ColumnDataSource(data={
-            "minute": band.index,
-            "lower": band["mean"] - band["std"],
-            "upper": band["mean"] + band["std"],
-        })
+        band_source = ColumnDataSource(
+            data={
+                "minute": band.index,
+                "lower": band["mean"] - band["std"],
+                "upper": band["mean"] + band["std"],
+            }
+        )
         fig.varea(
-            "minute", "lower", "upper", source=band_source,
-            fill_color=color, fill_alpha=RATIO_BAND_ALPHA,
+            "minute",
+            "lower",
+            "upper",
+            source=band_source,
+            fill_color=color,
+            fill_alpha=RATIO_BAND_ALPHA,
             legend_label=f"{label} (n={len(events)})",
         )
 
     for label, events, ratio, band in group_curves:
         color = GROUP_COLORS.get(label, COLORS["grid"])
-        source = ColumnDataSource(
-            data={"minute": ratio.index, "ratio": ratio.values}
-        )
+        source = ColumnDataSource(data={"minute": ratio.index, "ratio": ratio.values})
         r = fig.line(
-            "minute", "ratio", source=source, line_width=2.0, color=color,
+            "minute",
+            "ratio",
+            source=source,
+            line_width=2.0,
+            color=color,
             legend_label=f"{label} (n={len(events)})",
         )
         fig.scatter("minute", "ratio", source=source, size=4, color=color)
@@ -752,10 +776,24 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
         )
 
     # Reference lines: unity ratio and shower-on.
-    fig.add_layout(Span(location=1.0, dimension="width",
-                        line_color=COLORS["grid"], line_dash="dashed", line_width=1.0))
-    fig.add_layout(Span(location=0, dimension="height",
-                        line_color=COLORS["grid"], line_dash="dotted", line_width=1.0))
+    fig.add_layout(
+        Span(
+            location=1.0,
+            dimension="width",
+            line_color=COLORS["grid"],
+            line_dash="dashed",
+            line_width=1.0,
+        )
+    )
+    fig.add_layout(
+        Span(
+            location=0,
+            dimension="height",
+            line_color=COLORS["grid"],
+            line_dash="dotted",
+            line_width=1.0,
+        )
+    )
 
     fig.legend.location = "top_right"
     fig.legend.click_policy = "hide"
@@ -819,8 +857,10 @@ def main() -> None:
 
     scatter_events = groups.get(SCATTER_WINDOW_GROUP, [])
     if not scatter_events:
-        print(f"  No {SCATTER_WINDOW_GROUP} events found; onset/decay scatter "
-              f"figures will be skipped.")
+        print(
+            f"  No {SCATTER_WINDOW_GROUP} events found; onset/decay scatter "
+            f"figures will be skipped."
+        )
 
     # Per-bin: build C_room frame, then all deliverables.
     print("\nBuilding per-bin figures...")
@@ -832,21 +872,32 @@ def main() -> None:
         cave = compute_room_frame(totals, bin_col)
         if cave.empty:
             print("    [WARN] No data; skipping bin")
-            fit_rows.append({"bin": i, "slope": np.nan, "intercept": np.nan,
-                             "r_squared": np.nan, "n": 0})
+            fit_rows.append(
+                {"bin": i, "slope": np.nan, "intercept": np.nan, "r_squared": np.nan, "n": 0}
+            )
             for window in SCATTER_WINDOWS:
-                window_fit_rows.append({"bin": i, "window": window, "slope": np.nan,
-                                        "intercept": np.nan, "r_squared": np.nan, "n": 0})
+                window_fit_rows.append(
+                    {
+                        "bin": i,
+                        "window": window,
+                        "slope": np.nan,
+                        "intercept": np.nan,
+                        "r_squared": np.nan,
+                        "n": 0,
+                    }
+                )
             continue
 
         fit = plot_scatter(cave, i, plot_dir)
-        fit_rows.append({
-            "bin": i,
-            "slope": fit.get("slope", np.nan),
-            "intercept": fit.get("intercept", np.nan),
-            "r_squared": fit.get("r_squared", np.nan),
-            "n": fit.get("n", 0),
-        })
+        fit_rows.append(
+            {
+                "bin": i,
+                "slope": fit.get("slope", np.nan),
+                "intercept": fit.get("intercept", np.nan),
+                "r_squared": fit.get("r_squared", np.nan),
+                "n": fit.get("n", 0),
+            }
+        )
 
         if groups:
             plot_ratio_time(cave, groups, i, plot_dir)
@@ -854,14 +905,16 @@ def main() -> None:
         if scatter_events:
             for window in SCATTER_WINDOWS:
                 wfit = plot_scatter_window(cave, i, plot_dir, scatter_events, window)
-                window_fit_rows.append({
-                    "bin": i,
-                    "window": window,
-                    "slope": wfit.get("slope", np.nan),
-                    "intercept": wfit.get("intercept", np.nan),
-                    "r_squared": wfit.get("r_squared", np.nan),
-                    "n": wfit.get("n", 0),
-                })
+                window_fit_rows.append(
+                    {
+                        "bin": i,
+                        "window": window,
+                        "slope": wfit.get("slope", np.nan),
+                        "intercept": wfit.get("intercept", np.nan),
+                        "r_squared": wfit.get("r_squared", np.nan),
+                        "n": wfit.get("n", 0),
+                    }
+                )
 
     # Per-bin Deming fit table (all >8-sensor samples, full window).
     fit_table = pd.DataFrame(fit_rows)
