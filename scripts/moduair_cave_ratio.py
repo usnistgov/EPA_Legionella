@@ -44,17 +44,28 @@ Deliverables
    group's events at every minute, and the ratio of those two averaged curves
    is plotted.
 
+3. C_bed1 vs C_room scatter, restricted to W38-W41 events only, split into two
+   per-bin figure sets over the same overall window as Deliverable 1:
+       - onset: shower-on through 60 min after shower-on (inclusive)
+       - decay: 60 min through 120 min after shower-off (inclusive)
+   Each set gets its own Deming fit, 1:1 line, and per-bin fit table row
+   (>8-sensor filter still applied), same as Deliverable 1.
+
 Input
 -----
     - MODULAIR-PM fleet chunks (src.moduair_loader.load_fleet_bins)
     - Event registry (scripts.event_registry.load_event_registry) for the
-      shower-on times and water_temp codes of numbered events in the window.
+      shower-on/off times and water_temp codes of numbered events in the
+      window.
 
 Output Files
 ------------
-    <output>/plots/moduair_room/c_bed1_vs_c_room_bin{N}.html          (12 figures)
-    <output>/plots/moduair_room/c_bed1_c_room_ratio_time_bin{N}.html  (12 figures)
-    <output>/moduair_room_ratio_fit.csv                           (per-bin fit)
+    <output>/plots/moduair_room/c_bed1_vs_c_room_bin{N}.html            (12 figures)
+    <output>/plots/moduair_room/c_bed1_vs_c_room_bin{N}_onset.html      (12 figures)
+    <output>/plots/moduair_room/c_bed1_vs_c_room_bin{N}_decay.html      (12 figures)
+    <output>/plots/moduair_room/c_bed1_c_room_ratio_time_bin{N}.html    (12 figures)
+    <output>/moduair_room_ratio_fit.csv                             (per-bin fit)
+    <output>/moduair_room_ratio_fit_w38_w41.csv          (per-bin, per-window fit)
 
 Usage
 -----
@@ -132,6 +143,24 @@ MIN_QUANTS = 8
 PRE_SHOWER_LEAD = pd.Timedelta(minutes=15)
 DEPOSITION_HOURS = 2.0
 
+# Deliverable 3: W38-W41-only scatter windows, relative to shower-on/shower-off,
+# inclusive on both ends.
+SCATTER_WINDOW_GROUP = "W38-W41"
+SCATTER_WINDOWS = {
+    "onset": {
+        "anchor": "shower_on",
+        "offset_start": pd.Timedelta(minutes=0),
+        "offset_end": pd.Timedelta(minutes=60),
+        "label": "W38-W41, shower-on to +60 min",
+    },
+    "decay": {
+        "anchor": "shower_off",
+        "offset_start": pd.Timedelta(minutes=60),
+        "offset_end": pd.Timedelta(minutes=120),
+        "label": "W38-W41, shower-off +60 to +120 min",
+    },
+}
+
 # Water-temperature groups for the ratio-vs-time figure. Keys are display
 # labels; values are the registry water_temp codes each group collects.
 WATER_TEMP_GROUPS = {
@@ -146,6 +175,12 @@ GROUP_COLORS = {
     "W24": COLORS["bedroom"],
     "W49": COLORS["outside"],
 }
+
+# Fill opacity for the +/-1 std-dev band on the ratio-vs-time figure.
+RATIO_BAND_ALPHA = 0.15
+
+# Minimum events contributing at a minute for the std-dev band to be drawn there.
+MIN_EVENTS_FOR_BAND = 2
 
 
 # =============================================================================
@@ -242,18 +277,49 @@ def compute_room_frame(totals: dict, bin_col: str) -> pd.DataFrame:
 # =============================================================================
 
 
-def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
+def _paired_samples(cave: pd.DataFrame, mask: np.ndarray = None) -> pd.DataFrame:
     """
-    Plot C_bed1 (y) vs C_room (x) for one bin over all >8-sensor 1-minute samples.
+    Extract finite, >8-sensor (C_room, C_bed1) pairs, optionally restricted to a
+    boolean timestamp mask.
 
     Parameters
     ----------
     cave : pd.DataFrame
-        Output of compute_room_frame for this bin.
+        Output of compute_room_frame for one bin.
+    mask : np.ndarray, optional
+        Boolean mask aligned to cave.index. When omitted, all timestamps are
+        eligible (subject to the >8-sensor filter).
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns C_room, C_bed1, indexed by datetime.
+    """
+    df = cave if mask is None else cave.loc[mask]
+    return (
+        df.loc[df["n_sensors"] > MIN_QUANTS, ["C_room", "C_bed1"]]
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna()
+    )
+
+
+def _plot_scatter_figure(paired: pd.DataFrame, bin_index: int, plot_dir: Path,
+                         file_suffix: str, title_prefix: str) -> dict:
+    """
+    Render one C_bed1-vs-C_room scatter with Deming fit and 1:1 line.
+
+    Parameters
+    ----------
+    paired : pd.DataFrame
+        Columns C_room, C_bed1 (already filtered/windowed by the caller).
     bin_index : int
         Particle-size bin index (0-11).
     plot_dir : Path
         Directory to write the HTML figure into.
+    file_suffix : str
+        Appended to the output filename stem (e.g. "", "_onset", "_decay").
+    title_prefix : str
+        Leading text of the figure title, before ", bin N (...)".
 
     Returns
     -------
@@ -263,26 +329,21 @@ def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
     """
     bin_name = PARTICLE_BINS[bin_index]["name"]
 
-    paired = (
-        cave.loc[cave["n_sensors"] > MIN_QUANTS, ["C_room", "C_bed1"]]
-        .replace([np.inf, -np.inf], np.nan)
-        .dropna()
-    )
-
     fit = {"slope": np.nan, "intercept": np.nan, "r_squared": np.nan, "n": 0}
     if paired.empty:
-        print(f"    [WARN] No >8-sensor paired data for bin {bin_index}; skipping scatter")
+        print(f"    [WARN] No >8-sensor paired data for bin {bin_index}{file_suffix}; "
+              f"skipping scatter")
         fit["bin"] = bin_index
         return fit
 
     fit = fit_deming(paired["C_room"], paired["C_bed1"])
     fit["bin"] = bin_index
 
-    out_path = plot_dir / f"c_bed1_vs_c_room_bin{bin_index}.html"
-    output_file(str(out_path), title=f"C_bed1 vs C_room bin {bin_index}")
+    out_path = plot_dir / f"c_bed1_vs_c_room_bin{bin_index}{file_suffix}.html"
+    output_file(str(out_path), title=f"C_bed1 vs C_room bin {bin_index}{file_suffix}")
 
     title = (
-        f"C_bed1 vs C_room, bin {bin_index} ({bin_name} µm), >8 sensors | "
+        f"{title_prefix}, bin {bin_index} ({bin_name} µm), >8 sensors | "
         f"C_bed1 = {fit['slope']:.3f}·C_room + {fit['intercept']:.3f}, "
         f"r² = {fit['r_squared']:.3f}, n = {int(fit['n'])}"
     )
@@ -339,6 +400,99 @@ def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
     return fit
 
 
+def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
+    """
+    Plot C_bed1 (y) vs C_room (x) for one bin over all >8-sensor 1-minute samples.
+
+    Parameters
+    ----------
+    cave : pd.DataFrame
+        Output of compute_room_frame for this bin.
+    bin_index : int
+        Particle-size bin index (0-11).
+    plot_dir : Path
+        Directory to write the HTML figure into.
+
+    Returns
+    -------
+    dict
+        Deming fit result (fit_deming output) plus a "bin" key, or a NaN-filled
+        record when there are too few paired points.
+    """
+    paired = _paired_samples(cave)
+    return _plot_scatter_figure(paired, bin_index, plot_dir, "", "C_bed1 vs C_room")
+
+
+# =============================================================================
+# Deliverable 3: C_bed1 vs C_room scatter, W38-W41 only, onset/decay windows
+# =============================================================================
+
+
+def build_scatter_window_mask(index: pd.DatetimeIndex, events: list, window: str) -> np.ndarray:
+    """
+    Boolean mask selecting timestamps inside any event's onset or decay window.
+
+    Windows are defined in SCATTER_WINDOWS relative to each event's shower_on
+    (onset) or shower_off (decay) time, inclusive on both ends. A timestamp
+    counts if it falls in ANY event's window (union across events).
+
+    Parameters
+    ----------
+    index : pd.DatetimeIndex
+        Timestamps to test (typically a bin's compute_room_frame index).
+    events : list
+        Event dicts with "shower_on" and "shower_off" keys.
+    window : str
+        Key into SCATTER_WINDOWS ("onset" or "decay").
+
+    Returns
+    -------
+    np.ndarray
+        Boolean mask aligned to index.
+    """
+    spec = SCATTER_WINDOWS[window]
+    mask = np.zeros(len(index), dtype=bool)
+    for ev in events:
+        anchor = ev[spec["anchor"]]
+        start = anchor + spec["offset_start"]
+        end = anchor + spec["offset_end"]
+        mask |= (index >= start) & (index <= end)
+    return mask
+
+
+def plot_scatter_window(cave: pd.DataFrame, bin_index: int, plot_dir: Path,
+                        events: list, window: str) -> dict:
+    """
+    Plot C_bed1 vs C_room for one bin, restricted to a W38-W41 onset/decay window.
+
+    Parameters
+    ----------
+    cave : pd.DataFrame
+        Output of compute_room_frame for this bin.
+    bin_index : int
+        Particle-size bin index (0-11).
+    plot_dir : Path
+        Directory to write the HTML figure into.
+    events : list
+        W38-W41 event dicts with "shower_on" and "shower_off".
+    window : str
+        Key into SCATTER_WINDOWS ("onset" or "decay").
+
+    Returns
+    -------
+    dict
+        Deming fit result (fit_deming output) plus "bin" and "window" keys, or
+        a NaN-filled record when there are too few paired points.
+    """
+    mask = build_scatter_window_mask(cave.index, events, window)
+    paired = _paired_samples(cave, mask)
+    fit = _plot_scatter_figure(
+        paired, bin_index, plot_dir, f"_{window}", SCATTER_WINDOWS[window]["label"]
+    )
+    fit["window"] = window
+    return fit
+
+
 # =============================================================================
 # Deliverable 2: C_bed1,avg / C_room,avg versus time by water-temperature group
 # =============================================================================
@@ -357,7 +511,7 @@ def load_group_events(start: pd.Timestamp, end: pd.Timestamp) -> dict:
     -------
     dict
         Mapping of group label (WATER_TEMP_GROUPS key) -> list of event dicts
-        {shower_on, deposition_end}. Empty groups are omitted.
+        {shower_on, shower_off, deposition_end}. Empty groups are omitted.
     """
     registry = load_event_registry()
     mask = (
@@ -386,7 +540,11 @@ def load_group_events(start: pd.Timestamp, end: pd.Timestamp) -> dict:
         if label is None:
             continue
         groups[label].append(
-            {"shower_on": row["shower_on"], "deposition_end": row["deposition_end"]}
+            {
+                "shower_on": row["shower_on"],
+                "shower_off": row["shower_off"],
+                "deposition_end": row["deposition_end"],
+            }
         )
 
     return {label: evs for label, evs in groups.items() if evs}
@@ -453,6 +611,53 @@ def group_average_curve(cave: pd.DataFrame, events: list, column: str) -> pd.Ser
     return pd.concat(per_event, axis=1).mean(axis=1, skipna=True).sort_index()
 
 
+def compute_group_ratio_band(cave: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Compute the per-minute mean and std dev of each event's own C_bed1/C_room
+    ratio, across a group's events.
+
+    This differs from the group's plotted trace (ratio of the two averaged
+    curves): here each event's ratio is formed first, then averaged/spread
+    across events at each minute, giving a measure of event-to-event spread
+    to shade around the trace.
+
+    Parameters
+    ----------
+    cave : pd.DataFrame
+        Output of compute_room_frame for one bin.
+    events : list
+        Event dicts for the group.
+
+    Returns
+    -------
+    pd.DataFrame
+        Indexed by minute offset, columns "mean", "std", "n" (n = number of
+        events contributing a ratio at that minute). Empty if no event yields
+        a ratio.
+    """
+    per_event_ratios = []
+    for ev in events:
+        c_bed1 = align_event_series(cave, ev, "C_bed1")
+        c_room = align_event_series(cave, ev, "C_room")
+        common = c_bed1.index.intersection(c_room.index)
+        if common.empty:
+            continue
+        room = c_room.loc[common]
+        ratio = (c_bed1.loc[common] / room.where(room != 0)).dropna()
+        if not ratio.empty:
+            per_event_ratios.append(ratio)
+
+    if not per_event_ratios:
+        return pd.DataFrame(columns=["mean", "std", "n"])
+
+    matrix = pd.concat(per_event_ratios, axis=1)
+    return pd.DataFrame({
+        "mean": matrix.mean(axis=1, skipna=True),
+        "std": matrix.std(axis=1, skipna=True, ddof=1),
+        "n": matrix.notna().sum(axis=1),
+    }).sort_index()
+
+
 def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
                     plot_dir: Path) -> None:
     """
@@ -460,7 +665,10 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
 
     For each group, C_bed1 and C_room are averaged across events at each minute
     (>8-sensor minutes only) and the ratio of those two averaged curves is
-    drawn. Minute 0 is shower-on.
+    drawn. Minute 0 is shower-on. A +/-1 std-dev band (see
+    compute_group_ratio_band) is shaded behind each trace, in the same color at
+    RATIO_BAND_ALPHA, drawn only at minutes with at least MIN_EVENTS_FOR_BAND
+    contributing events.
 
     Parameters
     ----------
@@ -487,7 +695,9 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
         tools="pan,box_zoom,wheel_zoom,reset,save",
     )
 
-    any_line = False
+    # Gather each group's trace and band first so all bands can be drawn
+    # behind all traces (render order = z-order in Bokeh).
+    group_curves = []
     for label, events in groups.items():
         c195 = group_average_curve(cave, events, "C_bed1")
         cavg = group_average_curve(cave, events, "C_room")
@@ -499,10 +709,35 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
         if ratio.empty:
             continue
 
+        band = compute_group_ratio_band(cave, events)
+        band = band[band["n"] >= MIN_EVENTS_FOR_BAND]
+
+        group_curves.append((label, events, ratio, band))
+
+    if not group_curves:
+        print(f"    [WARN] Bin {bin_index}: no group curves; skipping figure")
+        return
+
+    for label, events, ratio, band in group_curves:
+        if band.empty:
+            continue
+        color = GROUP_COLORS.get(label, COLORS["grid"])
+        band_source = ColumnDataSource(data={
+            "minute": band.index,
+            "lower": band["mean"] - band["std"],
+            "upper": band["mean"] + band["std"],
+        })
+        fig.varea(
+            "minute", "lower", "upper", source=band_source,
+            fill_color=color, fill_alpha=RATIO_BAND_ALPHA,
+            legend_label=f"{label} (n={len(events)})",
+        )
+
+    for label, events, ratio, band in group_curves:
+        color = GROUP_COLORS.get(label, COLORS["grid"])
         source = ColumnDataSource(
             data={"minute": ratio.index, "ratio": ratio.values}
         )
-        color = GROUP_COLORS.get(label, COLORS["grid"])
         r = fig.line(
             "minute", "ratio", source=source, line_width=2.0, color=color,
             legend_label=f"{label} (n={len(events)})",
@@ -515,11 +750,6 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
                 mode="vline",
             )
         )
-        any_line = True
-
-    if not any_line:
-        print(f"    [WARN] Bin {bin_index}: no group curves; skipping figure")
-        return
 
     # Reference lines: unity ratio and shower-on.
     fig.add_layout(Span(location=1.0, dimension="width",
@@ -542,8 +772,8 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="MODULAIR-PM inside sensor (C_bed1) vs position-weighted fleet "
-        "average (C_room): per-bin scatter with Deming fit and per-group "
-        "C_bed1/C_room ratio-vs-time curves."
+        "average (C_room): per-bin scatter with Deming fit, per-group "
+        "C_bed1/C_room ratio-vs-time curves, and W38-W41 onset/decay scatter."
     )
     parser.add_argument("--start", default=DEFAULT_START, help="Inclusive start datetime.")
     parser.add_argument("--end", default=DEFAULT_END, help="Inclusive end datetime.")
@@ -587,9 +817,15 @@ def main() -> None:
     if not groups:
         print("  No matching events found; ratio-vs-time figures will be skipped.")
 
-    # Per-bin: build C_room frame, then both deliverables.
+    scatter_events = groups.get(SCATTER_WINDOW_GROUP, [])
+    if not scatter_events:
+        print(f"  No {SCATTER_WINDOW_GROUP} events found; onset/decay scatter "
+              f"figures will be skipped.")
+
+    # Per-bin: build C_room frame, then all deliverables.
     print("\nBuilding per-bin figures...")
     fit_rows = []
+    window_fit_rows = []
     for i in range(N_BINS):
         bin_col = f"opc_bin{i}"
         print(f"  Bin {i} ({PARTICLE_BINS[i]['name']} µm):")
@@ -598,6 +834,9 @@ def main() -> None:
             print("    [WARN] No data; skipping bin")
             fit_rows.append({"bin": i, "slope": np.nan, "intercept": np.nan,
                              "r_squared": np.nan, "n": 0})
+            for window in SCATTER_WINDOWS:
+                window_fit_rows.append({"bin": i, "window": window, "slope": np.nan,
+                                        "intercept": np.nan, "r_squared": np.nan, "n": 0})
             continue
 
         fit = plot_scatter(cave, i, plot_dir)
@@ -612,11 +851,30 @@ def main() -> None:
         if groups:
             plot_ratio_time(cave, groups, i, plot_dir)
 
-    # Per-bin Deming fit table.
+        if scatter_events:
+            for window in SCATTER_WINDOWS:
+                wfit = plot_scatter_window(cave, i, plot_dir, scatter_events, window)
+                window_fit_rows.append({
+                    "bin": i,
+                    "window": window,
+                    "slope": wfit.get("slope", np.nan),
+                    "intercept": wfit.get("intercept", np.nan),
+                    "r_squared": wfit.get("r_squared", np.nan),
+                    "n": wfit.get("n", 0),
+                })
+
+    # Per-bin Deming fit table (all >8-sensor samples, full window).
     fit_table = pd.DataFrame(fit_rows)
     fit_path = output_dir / "moduair_room_ratio_fit.csv"
     fit_table.to_csv(fit_path, index=False, encoding="utf-8-sig")
     print(f"\nSaved fit table: {fit_path}")
+
+    # Per-bin, per-window Deming fit table (W38-W41 onset/decay).
+    if window_fit_rows:
+        window_fit_table = pd.DataFrame(window_fit_rows)
+        window_fit_path = output_dir / "moduair_room_ratio_fit_w38_w41.csv"
+        window_fit_table.to_csv(window_fit_path, index=False, encoding="utf-8-sig")
+        print(f"Saved W38-W41 onset/decay fit table: {window_fit_path}")
 
     print("\n" + "=" * 70)
     print("Done")
