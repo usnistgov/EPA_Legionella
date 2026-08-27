@@ -47,7 +47,7 @@ Update log:
         (1600x800, no title, 12pt); remove x-axis range padding; and cap the
         x-axis at 2026-07-16 10:00.
     2026-08-17 (Nathan Lima): Overlay the position-weighted fleet average
-        C_ave = 0.32*C_high + 0.32*C_mid + 0.20*C_bed + 0.20*C_low as a black
+        C_room = 0.32*C_high + 0.28*C_mid + 0.20*C_bed + 0.20*C_low as a black
         trace on each bin figure (position groups defined in
         scripts.moduair_cave_ratio).
 """
@@ -84,12 +84,12 @@ from src.plot_style import (  # noqa: E402
 from scripts.moduair_cave_ratio import (  # noqa: E402
     FLEET_SNS,
     build_position_totals,
-    compute_cave_frame,
+    compute_room_frame,
 )
 
-# Color and label for the C_ave overlay trace.
+# Color and label for the C_room overlay trace.
 CAVE_COLOR = "#000000"
-CAVE_LABEL = "C_ave (0.32 high + 0.32 mid + 0.20 bed + 0.20 low)"
+CAVE_LABEL = "C_room (0.32 high + 0.28 mid + 0.20 bed + 0.20 low)"
 
 DEFAULT_START = "2026-06-04 00:00:00"
 DEFAULT_END = "2026-07-16 23:59:59"
@@ -121,15 +121,15 @@ PLOT_SENSORS = [
 
 
 def plot_bin(fleet: dict, sensor_ids: list, bin_index: int, output_dir: Path,
-             start: pd.Timestamp, cave_series: pd.Series | None = None) -> None:
+             start: pd.Timestamp, room_series: pd.Series | None = None) -> None:
     """
     Plot one opc bin per sensor as a single interactive Bokeh figure.
 
     Each sensor is one line renderer with its shared MODULAIR-PM color and a
     click-to-hide legend entry, matching the weekly QuantAQ PM figure style.
     The x-axis is set explicitly with no range padding, from ``start`` to the
-    shared X_AXIS_END (2026-07-16 10:00). When ``cave_series`` is supplied, the
-    position-weighted fleet average C_ave is drawn as a black overlay trace.
+    shared X_AXIS_END (2026-07-16 10:00). When ``room_series`` is supplied, the
+    position-weighted fleet average C_room is drawn as a black overlay trace.
 
     Parameters:
         fleet: Dict of {sensor_id: DataFrame(datetime + opc_bin0..11)}.
@@ -137,7 +137,7 @@ def plot_bin(fleet: dict, sensor_ids: list, bin_index: int, output_dir: Path,
         bin_index: opc bin index to plot (0-10).
         output_dir: Analysis output directory.
         start: Window start (left edge of the x-axis).
-        cave_series: Optional datetime-indexed C_ave series for this bin.
+        room_series: Optional datetime-indexed C_room series for this bin.
     """
     plot_dir = output_dir / "plots" / "moduair_correction"
     plot_dir.mkdir(parents=True, exist_ok=True)
@@ -187,10 +187,10 @@ def plot_bin(fleet: dict, sensor_ids: list, bin_index: int, output_dir: Path,
 
     style_moduair_figure(fig, legend_location="top_left")
 
-    # Overlay the position-weighted fleet average C_ave as a black trace, drawn
+    # Overlay the position-weighted fleet average C_room as a black trace, drawn
     # last so it sits on top of the individual sensor lines.
-    if cave_series is not None and not cave_series.empty:
-        cs = cave_series[(cave_series.index >= start) & (cave_series.index <= X_AXIS_END)]
+    if room_series is not None and not room_series.empty:
+        cs = room_series[(room_series.index >= start) & (room_series.index <= X_AXIS_END)]
         cs = cs.dropna()
         if not cs.empty:
             source = ColumnDataSource(data={"x": cs.index, "y": cs.values})
@@ -202,7 +202,7 @@ def plot_bin(fleet: dict, sensor_ids: list, bin_index: int, output_dir: Path,
                 HoverTool(
                     renderers=[line],
                     tooltips=[
-                        ("Trace", "C_ave"),
+                        ("Trace", "C_room"),
                         ("Time", "@x{%F %H:%M}"),
                         (f"Bin {bin_index}", "@y{0.000}"),
                     ],
@@ -244,26 +244,26 @@ def main() -> None:
     fleet = load_fleet_bins(sensor_ids, start=start, end=end)
     sensor_ids = [sn for sn in sensor_ids if sn in fleet]
 
-    # Load the C_ave sensor set (may include sensors not plotted, e.g. 00401)
-    # and build one C_ave series per bin. Sensors already loaded above are
+    # Load the C_room sensor set (may include sensors not plotted, e.g. 00401)
+    # and build one C_room series per bin. Sensors already loaded above are
     # reused; any extra ones are loaded here.
-    cave_wanted = [sn for sn in FLEET_SNS if sn in available]
-    cave_missing = [sn for sn in cave_wanted if sn not in fleet]
-    cave_fleet = dict(fleet)
-    if cave_missing:
-        print(f"\nLoading extra sensors for C_ave: {', '.join(cave_missing)}")
-        cave_fleet.update(load_fleet_bins(cave_missing, start=start, end=end))
+    room_wanted = [sn for sn in FLEET_SNS if sn in available]
+    room_missing = [sn for sn in room_wanted if sn not in fleet]
+    room_fleet = dict(fleet)
+    if room_missing:
+        print(f"\nLoading extra sensors for C_room: {', '.join(room_missing)}")
+        room_fleet.update(load_fleet_bins(room_missing, start=start, end=end))
 
-    cave_totals = build_position_totals(cave_fleet)
-    cave_by_bin = {}
+    room_totals = build_position_totals(room_fleet)
+    room_by_bin = {}
     for bin_index in BIN_INDICES:
-        frame = compute_cave_frame(cave_totals, f"opc_bin{bin_index}")
-        cave_by_bin[bin_index] = frame["C_ave"] if not frame.empty else None
+        frame = compute_room_frame(room_totals, f"opc_bin{bin_index}")
+        room_by_bin[bin_index] = frame["C_room"] if not frame.empty else None
 
     print("\nPlotting...")
     for bin_index in BIN_INDICES:
         plot_bin(fleet, sensor_ids, bin_index, output_dir, start,
-                 cave_series=cave_by_bin.get(bin_index))
+                 room_series=room_by_bin.get(bin_index))
 
     print("\n" + "=" * 70)
     print("Done")

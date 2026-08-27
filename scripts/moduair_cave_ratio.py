@@ -5,7 +5,7 @@ MODULAIR-PM Inside Sensor vs Position-Weighted Fleet Average
 ============================================================
 
 Compares the inside bedroom sensor (MOD-PM-00195) against a position-weighted
-average of the IAQ&V MODULAIR-PM fleet (C_ave), per particle-size bin, over the
+average of the IAQ&V MODULAIR-PM fleet (C_room), per particle-size bin, over the
 fleet co-location window (2026-06-03 to 2026-07-16).
 
 The fleet is grouped by vertical position (labels from src.plot_style
@@ -15,8 +15,8 @@ MODUAIR_SENSOR_LABELS):
     C_mid  = mean(814, 554, 942, 401, 815)     # excludes 555 "Middle Bathroom"
     C_bed  = mean(195, 813)
     C_low  = mean(515, 465, 943, 516, 467)
-    C_ave  = 0.32*C_high + 0.32*C_mid + 0.20*C_bed + 0.20*C_low
-    C195   = sensor 00195
+    C_room = 0.32*C_high + 0.28*C_mid + 0.20*C_bed + 0.20*C_low
+    C_bed1 = sensor 00195
 
 All concentrations are the raw opc_bin{N} number concentration on a shared
 1-minute grid (no smoothing), one value per size bin.
@@ -31,16 +31,16 @@ eight fleet sensors report a valid (finite, positive) reading:
 
 Deliverables
 ------------
-1. C195 vs C_ave scatter, one interactive Bokeh HTML per bin, over all
+1. C_bed1 vs C_room scatter, one interactive Bokeh HTML per bin, over all
    >8-sensor 1-minute samples in the window. Overlays a Deming (orthogonal)
    fit (reused from moduair_correction_factor.fit_deming) and a 1:1 line. A
    per-bin fit table (slope, intercept, r^2, n) is written to CSV.
 
-2. C195,average / C_ave,average versus time, one interactive Bokeh HTML per
+2. C_bed1,average / C_room,average versus time, one interactive Bokeh HTML per
    bin, with three group curves. Events are grouped by registry water_temp:
    W38 (the W38-W41 runs), W49 (two runs), and W24 (one set). Each event is
    aligned on minute index (0 = shower on) from 15 min before shower-on through
-   the 2-hour deposition window. C195 and C_ave are each averaged across the
+   the 2-hour deposition window. C_bed1 and C_room are each averaged across the
    group's events at every minute, and the ratio of those two averaged curves
    is plotted.
 
@@ -52,9 +52,9 @@ Input
 
 Output Files
 ------------
-    <output>/plots/moduair_cave/c195_vs_cave_bin{N}.html          (12 figures)
-    <output>/plots/moduair_cave/c195_cave_ratio_time_bin{N}.html  (12 figures)
-    <output>/moduair_cave_ratio_fit.csv                           (per-bin fit)
+    <output>/plots/moduair_room/c_bed1_vs_c_room_bin{N}.html          (12 figures)
+    <output>/plots/moduair_room/c_bed1_c_room_ratio_time_bin{N}.html  (12 figures)
+    <output>/moduair_room_ratio_fit.csv                           (per-bin fit)
 
 Usage
 -----
@@ -115,8 +115,8 @@ POSITION_GROUPS = {
     "low":  ["00515", "00465", "00943", "00516", "00467"],
 }
 
-# Position weights for the fleet average C_ave.
-POSITION_WEIGHTS = {"high": 0.32, "mid": 0.32, "bed": 0.20, "low": 0.20}
+# Position weights for the fleet average C_room.
+POSITION_WEIGHTS = {"high": 0.32, "mid": 0.28, "bed": 0.20, "low": 0.20}
 
 # Inside sensor of interest.
 TARGET_SN = "00195"
@@ -178,9 +178,9 @@ def build_position_totals(fleet: dict) -> dict:
     return totals
 
 
-def compute_cave_frame(totals: dict, bin_col: str) -> pd.DataFrame:
+def compute_room_frame(totals: dict, bin_col: str) -> pd.DataFrame:
     """
-    Assemble C195, the four position means, C_ave, and the sensor count for one bin.
+    Assemble C_bed1, the four position means, C_room, and the sensor count for one bin.
 
     Position means treat a sensor as present only where its reading is finite
     and strictly positive; a zero (a common dead-sensor sentinel) does not count
@@ -196,8 +196,8 @@ def compute_cave_frame(totals: dict, bin_col: str) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Indexed by datetime with columns: C195, C_high, C_mid, C_bed, C_low,
-        C_ave, n_sensors. Position means and C_ave are NaN where no member
+        Indexed by datetime with columns: C_bed1, C_high, C_mid, C_bed, C_low,
+        C_room, n_sensors. Position means and C_room are NaN where no member
         sensor reported; n_sensors counts all fleet sensors reporting there.
     """
     # Per-sensor valid-reading series (finite and > 0) for this bin.
@@ -225,10 +225,10 @@ def compute_cave_frame(totals: dict, bin_col: str) -> pd.DataFrame:
         else:
             out[f"C_{group}"] = np.nan
 
-    out["C_ave"] = sum(
+    out["C_room"] = sum(
         POSITION_WEIGHTS[g] * out[f"C_{g}"] for g in POSITION_GROUPS
     )
-    out["C195"] = aligned[TARGET_SN]
+    out["C_bed1"] = aligned[TARGET_SN]
 
     # ">8 Quants": number of fleet sensors reporting a valid reading here.
     fleet_cols = [aligned[sn] for sn in FLEET_SNS if sn in aligned]
@@ -238,18 +238,18 @@ def compute_cave_frame(totals: dict, bin_col: str) -> pd.DataFrame:
 
 
 # =============================================================================
-# Deliverable 1: C195 vs C_ave scatter
+# Deliverable 1: C_bed1 vs C_room scatter
 # =============================================================================
 
 
 def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
     """
-    Plot C195 (y) vs C_ave (x) for one bin over all >8-sensor 1-minute samples.
+    Plot C_bed1 (y) vs C_room (x) for one bin over all >8-sensor 1-minute samples.
 
     Parameters
     ----------
     cave : pd.DataFrame
-        Output of compute_cave_frame for this bin.
+        Output of compute_room_frame for this bin.
     bin_index : int
         Particle-size bin index (0-11).
     plot_dir : Path
@@ -264,7 +264,7 @@ def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
     bin_name = PARTICLE_BINS[bin_index]["name"]
 
     paired = (
-        cave.loc[cave["n_sensors"] > MIN_QUANTS, ["C_ave", "C195"]]
+        cave.loc[cave["n_sensors"] > MIN_QUANTS, ["C_room", "C_bed1"]]
         .replace([np.inf, -np.inf], np.nan)
         .dropna()
     )
@@ -275,28 +275,28 @@ def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
         fit["bin"] = bin_index
         return fit
 
-    fit = fit_deming(paired["C_ave"], paired["C195"])
+    fit = fit_deming(paired["C_room"], paired["C_bed1"])
     fit["bin"] = bin_index
 
-    out_path = plot_dir / f"c195_vs_cave_bin{bin_index}.html"
-    output_file(str(out_path), title=f"C195 vs C_ave bin {bin_index}")
+    out_path = plot_dir / f"c_bed1_vs_c_room_bin{bin_index}.html"
+    output_file(str(out_path), title=f"C_bed1 vs C_room bin {bin_index}")
 
     title = (
-        f"C195 vs C_ave, bin {bin_index} ({bin_name} µm), >8 sensors | "
-        f"C195 = {fit['slope']:.3f}·C_ave + {fit['intercept']:.3f}, "
+        f"C_bed1 vs C_room, bin {bin_index} ({bin_name} µm), >8 sensors | "
+        f"C_bed1 = {fit['slope']:.3f}·C_room + {fit['intercept']:.3f}, "
         f"r² = {fit['r_squared']:.3f}, n = {int(fit['n'])}"
     )
     fig = figure(
         width=650,
         height=600,
         title=title,
-        x_axis_label="C_ave, position-weighted fleet average (#/cm³)",
-        y_axis_label="C195, inside sensor (#/cm³)",
+        x_axis_label="C_room, position-weighted fleet average (#/cm³)",
+        y_axis_label="C_bed1, inside sensor (#/cm³)",
         tools="pan,box_zoom,wheel_zoom,reset,save",
     )
 
     source = ColumnDataSource(
-        data={"x": paired["C_ave"], "y": paired["C195"], "t": paired.index}
+        data={"x": paired["C_room"], "y": paired["C_bed1"], "t": paired.index}
     )
     pts = fig.scatter(
         "x", "y", source=source, size=3, alpha=0.35,
@@ -306,16 +306,16 @@ def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
         HoverTool(
             renderers=[pts],
             tooltips=[
-                ("C_ave (x)", "@x{0.000}"),
-                ("C195 (y)", "@y{0.000}"),
+                ("C_room (x)", "@x{0.000}"),
+                ("C_bed1 (y)", "@y{0.000}"),
                 ("Time", "@t{%F %H:%M}"),
             ],
             formatters={"@t": "datetime"},
         )
     )
 
-    lo = float(min(paired["C_ave"].min(), paired["C195"].min()))
-    hi = float(max(paired["C_ave"].max(), paired["C195"].max()))
+    lo = float(min(paired["C_room"].min(), paired["C_bed1"].min()))
+    hi = float(max(paired["C_room"].max(), paired["C_bed1"].max()))
     fig.line([lo, hi], [lo, hi], line_color=COLORS["grid"],
              line_dash="dashed", line_width=1.0, legend_label="1:1")
 
@@ -340,7 +340,7 @@ def plot_scatter(cave: pd.DataFrame, bin_index: int, plot_dir: Path) -> dict:
 
 
 # =============================================================================
-# Deliverable 2: C195,avg / C_ave,avg versus time by water-temperature group
+# Deliverable 2: C_bed1,avg / C_room,avg versus time by water-temperature group
 # =============================================================================
 
 
@@ -402,11 +402,11 @@ def align_event_series(cave: pd.DataFrame, event: dict, column: str) -> pd.Serie
     Parameters
     ----------
     cave : pd.DataFrame
-        Output of compute_cave_frame for one bin.
+        Output of compute_room_frame for one bin.
     event : dict
         Event dict with shower_on and deposition_end.
     column : str
-        Column to extract ("C195" or "C_ave").
+        Column to extract ("C_bed1" or "C_room").
 
     Returns
     -------
@@ -435,11 +435,11 @@ def group_average_curve(cave: pd.DataFrame, events: list, column: str) -> pd.Ser
     Parameters
     ----------
     cave : pd.DataFrame
-        Output of compute_cave_frame for one bin.
+        Output of compute_room_frame for one bin.
     events : list
         Event dicts for the group.
     column : str
-        "C195" or "C_ave".
+        "C_bed1" or "C_room".
 
     Returns
     -------
@@ -456,16 +456,16 @@ def group_average_curve(cave: pd.DataFrame, events: list, column: str) -> pd.Ser
 def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
                     plot_dir: Path) -> None:
     """
-    Plot C195,average / C_ave,average versus minute, one line per group, one bin.
+    Plot C_bed1,average / C_room,average versus minute, one line per group, one bin.
 
-    For each group, C195 and C_ave are averaged across events at each minute
+    For each group, C_bed1 and C_room are averaged across events at each minute
     (>8-sensor minutes only) and the ratio of those two averaged curves is
     drawn. Minute 0 is shower-on.
 
     Parameters
     ----------
     cave : pd.DataFrame
-        Output of compute_cave_frame for this bin.
+        Output of compute_room_frame for this bin.
     groups : dict
         Group label -> list of event dicts.
     bin_index : int
@@ -475,22 +475,22 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
     """
     bin_name = PARTICLE_BINS[bin_index]["name"]
 
-    out_path = plot_dir / f"c195_cave_ratio_time_bin{bin_index}.html"
-    output_file(str(out_path), title=f"C195/C_ave vs time bin {bin_index}")
+    out_path = plot_dir / f"c_bed1_c_room_ratio_time_bin{bin_index}.html"
+    output_file(str(out_path), title=f"C_bed1/C_room vs time bin {bin_index}")
 
     fig = figure(
         width=1000,
         height=600,
-        title=f"C195,avg / C_ave,avg vs time, bin {bin_index} ({bin_name} µm), >8 sensors",
+        title=f"C_bed1,avg / C_room,avg vs time, bin {bin_index} ({bin_name} µm), >8 sensors",
         x_axis_label="Minutes from shower on",
-        y_axis_label="C195,average / C_ave,average",
+        y_axis_label="C_bed1,average / C_room,average",
         tools="pan,box_zoom,wheel_zoom,reset,save",
     )
 
     any_line = False
     for label, events in groups.items():
-        c195 = group_average_curve(cave, events, "C195")
-        cavg = group_average_curve(cave, events, "C_ave")
+        c195 = group_average_curve(cave, events, "C_bed1")
+        cavg = group_average_curve(cave, events, "C_room")
         if c195.empty or cavg.empty:
             print(f"    [WARN] Bin {bin_index}, group {label}: no data; skipping curve")
             continue
@@ -541,9 +541,9 @@ def plot_ratio_time(cave: pd.DataFrame, groups: dict, bin_index: int,
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="MODULAIR-PM inside sensor (195) vs position-weighted fleet "
-        "average (C_ave): per-bin scatter with Deming fit and per-group "
-        "C195/C_ave ratio-vs-time curves."
+        description="MODULAIR-PM inside sensor (C_bed1) vs position-weighted fleet "
+        "average (C_room): per-bin scatter with Deming fit and per-group "
+        "C_bed1/C_room ratio-vs-time curves."
     )
     parser.add_argument("--start", default=DEFAULT_START, help="Inclusive start datetime.")
     parser.add_argument("--end", default=DEFAULT_END, help="Inclusive end datetime.")
@@ -554,11 +554,11 @@ def main() -> None:
     end = pd.Timestamp(args.end)
 
     output_dir = Path(args.output_dir) if args.output_dir else get_data_root() / "output"
-    plot_dir = output_dir / "plots" / "moduair_cave"
+    plot_dir = output_dir / "plots" / "moduair_room"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     print("\n" + "=" * 70)
-    print("MODULAIR-PM Inside (195) vs Position-Weighted Fleet Average")
+    print("MODULAIR-PM Inside (C_bed1) vs Position-Weighted Fleet Average")
     print("=" * 70)
     print(f"Window: {start} to {end}")
     print(f"Fleet sensors: {', '.join(FLEET_SNS)}")
@@ -587,13 +587,13 @@ def main() -> None:
     if not groups:
         print("  No matching events found; ratio-vs-time figures will be skipped.")
 
-    # Per-bin: build C_ave frame, then both deliverables.
+    # Per-bin: build C_room frame, then both deliverables.
     print("\nBuilding per-bin figures...")
     fit_rows = []
     for i in range(N_BINS):
         bin_col = f"opc_bin{i}"
         print(f"  Bin {i} ({PARTICLE_BINS[i]['name']} µm):")
-        cave = compute_cave_frame(totals, bin_col)
+        cave = compute_room_frame(totals, bin_col)
         if cave.empty:
             print("    [WARN] No data; skipping bin")
             fit_rows.append({"bin": i, "slope": np.nan, "intercept": np.nan,
@@ -614,7 +614,7 @@ def main() -> None:
 
     # Per-bin Deming fit table.
     fit_table = pd.DataFrame(fit_rows)
-    fit_path = output_dir / "moduair_cave_ratio_fit.csv"
+    fit_path = output_dir / "moduair_room_ratio_fit.csv"
     fit_table.to_csv(fit_path, index=False, encoding="utf-8-sig")
     print(f"\nSaved fit table: {fit_path}")
 
